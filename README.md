@@ -38,7 +38,7 @@ npm run build
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
 <div >
-  <img src="assets/setting.png" alt="notes on leetcode problem page" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+  <img src="assets/Setting.png" alt="Setting icon" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
 </div>
 For Local LLM:
 1. Install Ollama: https://ollama.com/
@@ -79,6 +79,31 @@ For Cloud LLM:
 - **Problem Difficulty Tracking**: Automatically detects and saves LeetCode difficulty (Easy/Medium/Hard)
 - FSRS was **supported by science**. You can read [this post](https://www.lesswrong.com/posts/G7fpGCi8r7nCKXsQk/the-history-of-fsrs-for-anki) to learn more about its history.
 
+
+### 📝 AI Error Submission Analysis & Contextual Notes
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/b9cf20ce-47c2-4114-ae65-04ccdaaafcc2" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
+</div>
+
+- **AI Auto-Population**: If you have AI enabled, whenever you submit a wrong answer, the AI's analysis and suggested fixes will automatically be saved into these notes! (Takes a longer time if you use a local LLM)
+- **Floating Notes Button**: Quickly jot down your thoughts, algorithms, or key insights for any problem without leaving the page.
+- **Smart Helpers**: Helpful tooltips guide you on valid interactions (like how to drag).
+- **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem. So next time you open the leetcode problem page, the notes stay there.
+- **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
+
+
+### 📊 Visual Dashboard
+
+- **Cognitive Retention Heatmap**: Global activity visualization showing your practice patterns with animated pulsing cells for active days
+- **Mini Projection Timelines**: Each problem card shows projected future review dates
+- **Vector Cards**: Expandable problem cards displaying:
+  - Problem title and difficulty
+  - Current interval and repetition count
+  - Again/Hard/Good/Easy rating buttons (FSRS)
+  - Direct link to the problem
+
+
 ### 🎨 Cyberpunk UI with Dual Themes
 - **Sakura Theme** (Default): Lesbian flag-inspired color palette with neon peach, pink, and orange glows
 - **Matrix Theme**: Classic green terminal aesthetic with electric cyan accents
@@ -89,28 +114,6 @@ For Cloud LLM:
   <img src="assets/matrix_theme.png" alt="Matrix Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
   <img src="assets/sakura_theme.png" alt="Sakura Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
 </div>
-
-### 📊 Visual Dashboard
-
-- **🗓 Due Today**: Number of problems due today
-- **📚 Vector Cards**: Expandable problem cards displaying all recorded problems:
-  - Problem title and difficulty
-  - Current interval and repetition count
-  - Again/Hard/Good/Easy rating buttons (FSRS)
-  - Direct link to the problem
-  - **Mini Projection Timelines**: Each problem card shows projected future review dates
-- **☀️ Themes**: Choose between Cyberpunk Sakura and Cyberpunk Matrix themes
-- **⚙️ Settings**: Set up your local or cloud LLM here, so that you may use AI to analyze wrong submissions.
-
-
----
-### 📝 AI Error Submission Analysis & Contextual Notes
-- **AI Auto-Population**: If you have AI enabled, whenever you submit a wrong answer, the AI's analysis and suggested fixes will automatically be saved into these notes! (Takes a longer time if you use a local LLM)
-- **Floating Notes Button**: Quickly jot down your thoughts, algorithms, or key insights for any problem without leaving the page.
-- **Smart Helpers**: Helpful tooltips guide you on valid interactions (like how to drag).
-- **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem. So next time you open the leetcode problem page, the notes stay there.
-- **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
-https://github.com/user-attachments/assets/b9cf20ce-47c2-4114-ae65-04ccdaaafcc2
 
 ### ⚙️ Advanced Tools
 - **Streak Repair**: Manually mark specific dates as active to fix missed activity logs
