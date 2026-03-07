@@ -390,6 +390,13 @@
     text-overflow: ellipsis;
 }
 
+.lc-rating-hint {
+    margin: -8px 0 16px 0;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.4;
+}
+
 /* Buttons */
 .lc-rating-btn-container {
     display: flex;

@@ -154,11 +154,15 @@
             sub.className = 'lc-rating-subtitle';
             sub.innerText = title;
 
+            const hint = document.createElement('div');
+            hint.className = 'lc-rating-hint';
+            hint.innerText = 'Rate your recall difficulty. This helps FSRS algo to adjust the next review time.';
+
             const btnContainer = document.createElement('div');
             btnContainer.className = 'lc-rating-btn-container';
 
             const ratings = [
-                { label: "Again", value: 1, desc: "Forgot it" },
+                { label: "Again", value: 1, desc: "Could not recall" },
                 { label: "Hard", value: 2, desc: "Struggled" },
                 { label: "Good", value: 3, desc: "Recalled" },
                 { label: "Easy", value: 4, desc: "Trivial" }
@@ -189,6 +193,7 @@
 
             modal.appendChild(header);
             modal.appendChild(sub);
+            modal.appendChild(hint);
             modal.appendChild(btnContainer);
             backdrop.appendChild(modal);
             document.body.appendChild(backdrop);
