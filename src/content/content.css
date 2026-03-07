@@ -405,11 +405,20 @@
 }
 
 .lc-rating-btn {
-    --rating-rgb: 255, 255, 255;
+    --rating-rgb-from: 255, 255, 255;
+    --rating-rgb-to: 255, 255, 255;
+    --rating-color: rgba(255, 255, 255, 0.7);
+    --rating-base-alpha-from: 0.24;
+    --rating-base-alpha-to: 0.14;
+    --rating-hover-alpha-from: 0.38;
+    --rating-hover-alpha-to: 0.24;
+    --rating-border-alpha: 0.55;
     flex: 1;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(var(--rating-rgb-from), var(--rating-border-alpha));
+    background: linear-gradient(90deg,
+            rgba(var(--rating-rgb-from), var(--rating-base-alpha-from)) 0%,
+            rgba(var(--rating-rgb-to), var(--rating-base-alpha-to)) 100%);
+    color: var(--rating-color);
     padding: 8px 12px;
     border-radius: 4px;
     cursor: pointer;
@@ -434,45 +443,45 @@
 
 .lc-rating-btn:hover {
     transform: translateY(-2px);
-    background: rgba(var(--rating-rgb), 0.2);
-    border-color: rgba(var(--rating-rgb), 0.95);
+    background: linear-gradient(90deg,
+            rgba(var(--rating-rgb-from), var(--rating-hover-alpha-from)) 0%,
+            rgba(var(--rating-rgb-to), var(--rating-hover-alpha-to)) 100%);
+    border-color: rgba(var(--rating-rgb-from), 0.95);
     box-shadow:
         0 6px 14px rgba(0, 0, 0, 0.35),
-        0 0 14px rgba(var(--rating-rgb), 0.45);
-    text-shadow: 0 0 8px rgba(var(--rating-rgb), 0.55);
+        0 0 10px rgba(var(--rating-rgb-from), 0.45),
+        0 0 18px rgba(var(--rating-rgb-to), 0.35);
+    text-shadow: 0 0 8px rgba(var(--rating-rgb-from), 0.55);
 }
 
 .lc-rating-btn:hover .lc-rating-btn-desc {
     opacity: 0.85;
 }
 
-/* Keep semantic colors visible at all times */
+/* Continuous green ramp across all four buttons:
+   Again -> Hard -> Good -> Easy (right edge of one matches left edge of next) */
 .rating-btn-again {
-    --rating-rgb: 239, 68, 68;
-    border-color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    --rating-rgb-from: 180, 255, 196;
+    --rating-rgb-to: 138, 214, 156;
+    --rating-color: #d0ffe0;
 }
 
 .rating-btn-hard {
-    --rating-rgb: 245, 158, 11;
-    border-color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b;
+    --rating-rgb-from: 138, 214, 156;
+    --rating-rgb-to: 95, 171, 115;
+    --rating-color: #b9eecb;
 }
 
 .rating-btn-good {
-    --rating-rgb: 59, 130, 246;
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
+    --rating-rgb-from: 95, 171, 115;
+    --rating-rgb-to: 62, 125, 82;
+    --rating-color: #97d8ac;
 }
 
 .rating-btn-easy {
-    --rating-rgb: 34, 197, 94;
-    border-color: #22c55e;
-    background: rgba(34, 197, 94, 0.1);
-    color: #22c55e;
+    --rating-rgb-from: 62, 125, 82;
+    --rating-rgb-to: 38, 84, 56;
+    --rating-color: #75b98d;
 }
 
 @keyframes popInToast {
