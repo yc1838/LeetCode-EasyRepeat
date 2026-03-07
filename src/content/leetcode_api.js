@@ -215,8 +215,7 @@
                 if (!res.ok) throw new Error("Check API failed");
 
                 const data = await res.json();
-                // data.state could be "PENDING", "STARTED", "SUCCESS"
-
+                console.log(`[LeetCode EasyRepeat] Poll check state: ${data.state}, msg: ${data.status_msg || 'none'}`);
                 if (data.state === "SUCCESS") {
                     // Fetch question details ONCE and share across all hooks
                     const apiData = await fetchQuestionDetails(slug);
@@ -226,54 +225,9 @@
                         : title;
                     const finalTopics = apiData?.topics || [];
 
-                    // --- Shadow Logger Hook ---
-                    // Log ALL submissions (pass or fail) for Neural Retention Agent
-                    (async () => {
-                        try {
-                            if (typeof window.ShadowLogger !== 'undefined') {
-                                const logger = window.ShadowLogger.getInstance ?
-                                    window.ShadowLogger.getInstance() :
-                                    new window.ShadowLogger();
+                    console.log(`[LeetCode EasyRepeat] Submission ${submissionId} processed. Status: ${data.status_msg || 'Done'}`);
 
-                                await logger.init();
-
-                                // Extract code from Monaco Editor
-                                let code = "";
-                                const lines = document.querySelectorAll('.view-lines .view-line');
-                                if (lines && lines.length > 0) {
-                                    code = Array.from(lines).map(l => l.innerText).join('\n');
-                                }
-
-                                // Detect language from UI
-                                let language = 'python3';
-                                const langBtn = document.querySelector('[data-e2e-locator="console-lang-button"]');
-                                if (langBtn) {
-                                    language = langBtn.textContent?.trim().toLowerCase() || 'python3';
-                                }
-
-                                await logger.log({
-                                    problemSlug: slug,
-                                    problemTitle: finalTitle,
-                                    difficulty: finalDifficulty,
-                                    topics: finalTopics,
-                                    language: language,
-                                    code: code,
-                                    result: data.status_msg ||
-                                        (data.status_code === 10 ? 'Accepted' : 'Failed'),
-                                    errorDetails: data.status_code !== 10 ? {
-                                        type: data.status_msg,
-                                        testInput: data.last_testcase || data.input || '',
-                                        expected: data.expected_output || '',
-                                        actual: data.code_output || '',
-                                        runtimeError: data.runtime_error || data.compile_error || ''
-                                    } : undefined,
-                                    submissionId: String(submissionId)
-                                });
-                            }
-                        } catch (e) {
-                            console.warn('[ShadowLogger] Failed to log submission:', e);
-                        }
-                    })();
+                    // --- Shadow Logger removed (Neural Retention Agent features removed) ---
 
                     // DONE! Check if Accepted
                     if (data.status_code === 10 || data.status_msg === "Accepted") {
@@ -292,17 +246,26 @@
                             return false;
                         }
                     } else {
-                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg}).`);
+                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg || 'Error'}). Triggering AI Hook...`);
 
+                        console.log("[LeetCode EasyRepeat] [DEBUG] Checking window.LLMSidecar:", typeof window.LLMSidecar !== 'undefined');
+                        if (typeof window.LLMSidecar !== 'undefined') {
+                            console.log("[LeetCode EasyRepeat] [DEBUG] analyzeMistake:", typeof window.LLMSidecar.analyzeMistake);
+                        }
+                        
                         // --- AI Mistake Analysis Hook ---
                         if (typeof window.LLMSidecar !== 'undefined' &&
                             typeof window.LLMSidecar.analyzeMistake === 'function') {
 
                             (async () => {
+                                console.log("[LeetCode EasyRepeat] AI Hook IIFE started.");
                                 // 0. Check global AI toggle
                                 let aiEnabled = true;
                                 let shouldAnalyze = false;
                                 try {
+                                    if (typeof chrome === 'undefined' || !chrome.runtime?.id || !chrome.storage?.local) {
+                                        return;
+                                    }
                                     const aiStorage = await chrome.storage.local.get({
                                         aiAnalysisEnabled: true,
                                         alwaysAnalyze: false
@@ -362,7 +325,7 @@
                                             errorDetails,
                                             {
                                                 title: finalTitle,
-                                                difficulty: difficulty,
+                                                difficulty: finalDifficulty,
                                                 test_input: testInput
                                             },
                                             controller.signal,
@@ -436,9 +399,13 @@
 
         document.addEventListener('click', (e) => {
             try {
-                const btn = e.target.closest('[data-e2e-locator="console-submit-button"]');
+                // Try multiple possible selectors for the Submit button (LeetCode UI changes frequently)
+                const btn = e.target.closest('[data-e2e-locator="console-submit-button"]') || 
+                            e.target.closest('button.bg-blue-6') || 
+                            e.target.closest('button[data-cy="submit-code-btn"]');
+
                 if (btn) {
-                    console.log('[LeetCode EasyRepeat] [LEETCODE-DEBUG] Submit button clicked. Starting API poll...');
+                    console.log('[LeetCode EasyRepeat] [DEBUG] Submit button clicked detected via locator.');
                     const clickTime = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
                     const getCurrentProblemSlug = getDep('getCurrentProblemSlug');

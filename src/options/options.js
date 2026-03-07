@@ -18,8 +18,8 @@
         local: [
             { id: 'llama3.1', name: 'Llama 3.1 (Local)', provider: 'local' },
             { id: 'mistral-nemo', name: 'Mistral Nemo (Local)', provider: 'local' },
-            { id: 'llama3', name: 'Llama 3 (Legacy Local)', provider: 'local' },
-            { id: 'deepseek-coder', name: 'DeepSeek Coder (Local)', provider: 'local' },
+            { id: 'gemma3:latest', name: 'gemma3:latest', provider: 'local' },
+            { id: 'deepseek-r1', name: 'DeepSeek R1 (Local)', provider: 'local' },
             { id: 'mistral', name: 'Mistral (Legacy Local)', provider: 'local' }
         ]
     };
@@ -28,7 +28,7 @@
         aiProvider: 'local',
         keys: { google: '', openai: '', anthropic: '' },
         localEndpoint: 'http://127.0.0.1:11434',
-        selectedModelId: 'llama3.1',
+        selectedModelId: 'gemma3:latest',
         aiAnalysisEnabled: true,
         uiLanguage: 'en'
     };
@@ -1493,9 +1493,10 @@
         });
     }
 
-    function populateModelSelect(mode, preferredModelId = '') {
+    async function populateModelSelect(mode, preferredModelId = '') {
         const select = els.modelSelect;
         if (!select) return;
+        const currentSelected = preferredModelId || select.value;
         select.innerHTML = '';
 
         const createGroup = (label, models) => {
@@ -1511,7 +1512,25 @@
         };
 
         if (mode === 'local') {
-            createGroup(t('model_group_local'), MODELS.local);
+            // Fetch dynamically if possible
+            try {
+                // Ensure the endpoint is saved before fetching if we are within the options page context
+                if (els.localEndpoint) {
+                    const endpoint = normalizeEndpoint(els.localEndpoint.value);
+                    await chrome.storage.local.set({ localEndpoint: endpoint });
+                }
+
+                const response = await chrome.runtime.sendMessage({ action: 'listModels' });
+                if (response && response.success && response.models && response.models.length > 0) {
+                    const dynamicModels = response.models.map(name => ({ id: name, name: name, provider: 'local' }));
+                    createGroup(t('model_group_local'), dynamicModels);
+                } else {
+                    createGroup(t('model_group_local'), MODELS.local);
+                }
+            } catch (e) {
+                console.warn('[Options] Failed to fetch dynamic models:', e);
+                createGroup(t('model_group_local'), MODELS.local);
+            }
         } else {
             createGroup(t('model_group_google'), MODELS.gemini);
             createGroup(t('model_group_openai'), MODELS.openai);
@@ -1519,21 +1538,21 @@
         }
 
         const values = Array.from(select.options).map(option => option.value);
-        if (preferredModelId && values.includes(preferredModelId)) {
-            select.value = preferredModelId;
+        if (currentSelected && values.includes(currentSelected)) {
+            select.value = currentSelected;
         } else if (values.length > 0) {
             select.value = values[0];
         }
     }
 
-    function setModeUI(mode, preferredModelId = '') {
+    async function setModeUI(mode, preferredModelId = '') {
         if (els.sectionLocal) {
             els.sectionLocal.style.display = mode === 'local' ? 'block' : 'none';
         }
         if (els.sectionCloud) {
             els.sectionCloud.style.display = mode === 'cloud' ? 'block' : 'none';
         }
-        populateModelSelect(mode, preferredModelId);
+        await populateModelSelect(mode, preferredModelId);
     }
 
     function setAiFeatureVisibility(enabled) {
@@ -1583,7 +1602,7 @@
         } else {
             els.modeCloud.checked = true;
         }
-        setModeUI(mode, settings.selectedModelId || '');
+        await setModeUI(mode, settings.selectedModelId || '');
 
         if (settings.keys) {
             els.keyGoogle.value = settings.keys.google || '';
@@ -1698,6 +1717,9 @@
                 const data = await res.json();
                 const count = data.models ? data.models.length : 0;
                 showStatus(els.testStatus, t('status_test_success', { count }), 'ok');
+
+                // Auto-refresh model list after successful test
+                await populateModelSelect('local');
             } else {
                 showStatus(els.testStatus, t('status_http_error', { status: res.status }), 'error');
             }
@@ -1720,8 +1742,7 @@
         els.aiAnalysisDisabled = getEl('ai-analysis-disabled');
         els.aiGateStatus = getEl('ai-gate-status');
         els.aiConfigCard = getEl('ai-config-card');
-        els.neuralRetentionCard = getEl('neural-retention-card');
-        els.agentSettingsCard = getEl('agent-settings-card');
+
         els.saveBtn = getEl('save-settings');
         els.saveStatus = getEl('save-status');
         els.testBtn = getEl('test-local');
@@ -1731,8 +1752,8 @@
         els.saveBtn.addEventListener('click', saveSettings);
         els.testBtn.addEventListener('click', testLocalConnection);
 
-        els.modeLocal.addEventListener('change', () => setModeUI('local'));
-        els.modeCloud.addEventListener('change', () => setModeUI('cloud'));
+        els.modeLocal.addEventListener('change', async () => await setModeUI('local'));
+        els.modeCloud.addEventListener('change', async () => await setModeUI('cloud'));
 
         if (els.aiAnalysisEnabled) {
             els.aiAnalysisEnabled.addEventListener('change', async () => {
@@ -1756,7 +1777,7 @@
 
                 const mode = els.modeLocal.checked ? 'local' : 'cloud';
                 const selectedModelId = els.modelSelect.value;
-                setModeUI(mode, selectedModelId);
+                await setModeUI(mode, selectedModelId);
                 await applyAiAnalysisSetting(Boolean(els.aiAnalysisEnabled?.checked), { notify: true });
 
                 await chrome.storage.local.set({ uiLanguage: currentLanguage });
@@ -1765,183 +1786,9 @@
 
         await loadSettings();
 
-        const backfillBtn = getEl('backfill-history');
-        const backfillStatus = getEl('backfill-status');
-        const runDigestBtn = getEl('run-digest');
-        const genDrillsBtn = getEl('gen-drills');
-        const digestStatus = getEl('digest-status');
-        const drillsStatus = getEl('drills-status');
-
-        if (backfillBtn) {
-            backfillBtn.addEventListener('click', async () => {
-                showStatus(backfillStatus, t('status_processing_history'), '');
-                try {
-                    const response = await chrome.runtime.sendMessage({ action: 'backfillHistory' });
-                    if (response && response.success) {
-                        const source = response.source ? t('status_backfill_source', { source: response.source }) : '';
-                        const entries = response.historyEntries ? t('status_backfill_entries', { entries: response.historyEntries }) : '';
-                        showStatus(backfillStatus, t('status_backfill_success', {
-                            count: response.count || 0,
-                            skills: response.skills || 0,
-                            entries,
-                            source
-                        }), 'ok', { sticky: true });
-                    } else {
-                        showStatus(backfillStatus, t('status_warning_prefix') + (response?.error || t('status_no_history')), 'error', { sticky: true });
-                    }
-                } catch (e) {
-                    showStatus(backfillStatus, t('status_error_prefix') + e.message, 'error');
-                }
-            });
-        }
-
-        if (runDigestBtn) {
-            runDigestBtn.addEventListener('click', async () => {
-                showStatus(digestStatus, t('status_run_digest'), '');
-                try {
-                    const response = await chrome.runtime.sendMessage({ action: 'runDigestNow' });
-                    if (response && response.success) {
-                        const { lastDigestResult } = await chrome.storage.local.get('lastDigestResult');
-                        if (lastDigestResult) {
-                            const locale = getLocaleTag(currentLanguage);
-                            const time = new Date(lastDigestResult.timestamp).toLocaleTimeString(locale);
-                            showStatus(digestStatus, t('status_digest_complete_detailed', {
-                                time,
-                                items: lastDigestResult.submissionsProcessed,
-                                skills: lastDigestResult.skillsUpdated
-                            }), 'ok', { sticky: true });
-                        } else {
-                            showStatus(digestStatus, t('status_digest_complete'), 'ok');
-                        }
-                    } else {
-                        showStatus(digestStatus, t('status_warning_prefix') + (response?.error || t('status_no_data')), 'error');
-                    }
-                } catch (e) {
-                    showStatus(digestStatus, t('status_error_prefix') + e.message, 'error');
-                }
-            });
-        }
-
-        if (genDrillsBtn) {
-            let queuePollInFlight = false;
-            let queuePollTimer = null;
-
-            const refreshQueueSnapshot = async () => {
-                if (queuePollInFlight) return;
-                if (shouldPreserveDrillStatus(latestDrillGenerationState)) return;
-
-                queuePollInFlight = true;
-                try {
-                    const snapshot = await fetchDrillQueueStatus();
-                    if (!snapshot) return;
-                    renderDrillGenerationStatus(
-                        {
-                            status: 'snapshot',
-                            pendingCount: snapshot.pendingCount,
-                            targetPending: snapshot.targetPending
-                        },
-                        drillsStatus,
-                        genDrillsBtn
-                    );
-                } finally {
-                    queuePollInFlight = false;
-                }
-            };
-
-            const { drillGenerationStatus } = await chrome.storage.local.get('drillGenerationStatus');
-            if (drillGenerationStatus) {
-                renderDrillGenerationStatus(drillGenerationStatus, drillsStatus, genDrillsBtn);
-            }
-            await refreshQueueSnapshot();
-
-            if (chrome.storage?.onChanged) {
-                chrome.storage.onChanged.addListener((changes, area) => {
-                    if (area !== 'local' || !changes.drillGenerationStatus) return;
-                    renderDrillGenerationStatus(
-                        changes.drillGenerationStatus.newValue,
-                        drillsStatus,
-                        genDrillsBtn
-                    );
-                    if (changes.drillGenerationStatus.newValue?.status === 'complete') {
-                        setTimeout(() => {
-                            refreshQueueSnapshot();
-                        }, 200);
-                    }
-                });
-            }
-
-            queuePollTimer = setInterval(() => {
-                refreshQueueSnapshot();
-            }, 3000);
-            window.addEventListener('beforeunload', () => {
-                if (queuePollTimer) clearInterval(queuePollTimer);
-            }, { once: true });
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) {
-                    refreshQueueSnapshot();
-                }
-            });
-
-            genDrillsBtn.addEventListener('click', async () => {
-                renderDrillGenerationStatus({ status: 'generating' }, drillsStatus, genDrillsBtn);
-                genDrillsBtn.disabled = true;
-                try {
-                    const response = await chrome.runtime.sendMessage({ action: 'generateDrillsNow' });
-                    if (response && response.success) {
-                        renderDrillGenerationStatus({ ...response, status: 'complete' }, drillsStatus, genDrillsBtn);
-                    } else if (response?.error === 'cooldown') {
-                        renderDrillGenerationStatus({ ...response, status: 'cooldown' }, drillsStatus, genDrillsBtn);
-                    } else {
-                        const fallbackReason = response?.fallback ? formatDrillFallback(response.fallback) : '';
-                        renderDrillGenerationStatus(
-                            { status: 'error', error: fallbackReason || response?.error || t('status_no_weak_skills') },
-                            drillsStatus,
-                            genDrillsBtn
-                        );
-                    }
-                } catch (e) {
-                    renderDrillGenerationStatus({ status: 'error', error: e.message }, drillsStatus, genDrillsBtn);
-                } finally {
-                    if (genDrillsBtn && genDrillsBtn.disabled) {
-                        genDrillsBtn.disabled = false;
-                    }
-                }
-            });
-        }
-
-        const digestTimeInput = getEl('digest-time');
-        const patternThresholdInput = getEl('pattern-threshold');
-        const debugLogsInput = getEl('debug-logs');
-        const saveAgentBtn = getEl('save-agent-settings');
-        const agentSaveStatus = getEl('agent-save-status');
         const streakRepairDateInput = getEl('streak-repair-date');
         const streakRepairBtn = getEl('streak-repair-btn');
         const streakRepairStatus = getEl('streak-repair-status');
-
-        const agentSettings = await chrome.storage.local.get({
-            agentDigestTime: '02:00',
-            agentPatternThreshold: 3,
-            agentDebugLogs: false
-        });
-
-        if (digestTimeInput) digestTimeInput.value = agentSettings.agentDigestTime;
-        if (patternThresholdInput) patternThresholdInput.value = agentSettings.agentPatternThreshold;
-        if (debugLogsInput) debugLogsInput.checked = Boolean(agentSettings.agentDebugLogs);
-
-        if (saveAgentBtn) {
-            saveAgentBtn.addEventListener('click', async () => {
-                try {
-                    await chrome.storage.local.set({
-                        agentDigestTime: digestTimeInput?.value || '02:00',
-                        agentPatternThreshold: parseInt(patternThresholdInput?.value || 3, 10),
-                        agentDebugLogs: Boolean(debugLogsInput?.checked)
-                    });
-                    showStatus(agentSaveStatus, t('status_agent_saved'), 'ok');
-                } catch (e) {
-                    showStatus(agentSaveStatus, t('status_error_prefix') + e.message, 'error');
-                }
-            });
-        }
 
         if (streakRepairDateInput && !streakRepairDateInput.value) {
             streakRepairDateInput.value = getYesterdayDateString();

@@ -33,7 +33,7 @@ const THEMES = window.THEMES || {};
 // Debug logging for module import issues
 console.log('[Popup] Resolved THEMES:', THEMES);
 
-import { renderGlobalHeatmap, renderVectors, renderMiniHeatmap } from './popup_ui.js';
+import { renderGlobalHeatmap, renderVectors, renderMiniHeatmap, showNotification } from './popup_ui.js';
 // THEMES is now loaded from configuration (config.js)
 
 // MODULE-LEVEL STATE:
@@ -72,9 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 1.5 Live refresh when notes update in storage
     setupStorageListeners();
-
-    // 3. Enable sidebar tools (Purge, Sync buttons)
-    setupManualTools();
 });
 
 /**
@@ -358,8 +355,6 @@ function updateClock() {
 function setupSidebar(dueProblems, allProblems) {
     const tabDash = document.getElementById('tab-dashboard');
     const tabAll = document.getElementById('tab-all');
-    const tabStats = document.getElementById('tab-stats');
-    const tabNeural = document.getElementById('tab-neural');
     const title = document.getElementById('queue-title');
 
     // Remove old active classes
@@ -368,32 +363,14 @@ function setupSidebar(dueProblems, allProblems) {
     tabDash.classList.add('active'); // Default
 
     tabDash.onclick = () => {
-        updateTabUI(tabDash, [tabAll, tabStats, tabNeural]);
+        updateTabUI(tabDash, [tabAll]);
         title.innerText = "PROBLEMS DUE TODAY";
         toggleViews('dashboard');
         renderVectors(dueProblems, 'vector-list', true);
     };
 
-    if (tabStats) {
-        tabStats.onclick = () => {
-            updateTabUI(tabStats, [tabDash, tabAll, tabNeural]);
-            title.innerText = "NEURAL_WEAKNESS_ANALYSIS";
-            toggleViews('stats');
-            loadStats();
-        };
-    }
-
-    if (tabNeural) {
-        tabNeural.onclick = () => {
-            updateTabUI(tabNeural, [tabDash, tabAll, tabStats]);
-            title.innerText = "NEURAL_RETENTION_AGENT";
-            toggleViews('neural');
-            loadNeuralAgent();
-        };
-    }
-
     tabAll.onclick = () => {
-        updateTabUI(tabAll, [tabDash, tabStats, tabNeural]);
+        updateTabUI(tabAll, [tabDash]);
         title.innerText = "ALL PROBLEMS";
         toggleViews('dashboard');
         renderVectors(allProblems, 'vector-list', false);
@@ -408,183 +385,12 @@ function updateTabUI(active, others) {
 function toggleViews(view) {
     const dash = document.querySelector('.heatmap-container'); // Global heatmap
     const list = document.querySelector('#vector-list').parentElement; // List section
-    const stats = document.getElementById('stats-container');
-    const neural = document.getElementById('neural-container');
 
-    // Hide all first
-    if (dash) dash.style.display = 'none';
-    if (list) list.style.display = 'none';
-    if (stats) stats.style.display = 'none';
-    if (neural) neural.style.display = 'none';
-
-    if (view === 'stats') {
-        if (stats) stats.style.display = 'block';
-    } else if (view === 'neural') {
-        if (neural) neural.style.display = 'block';
-    } else {
-        // dashboard view
-        if (dash) dash.style.display = 'block';
-        if (list) list.style.display = 'block';
-    }
+    // Dashboard view
+    if (dash) dash.style.display = 'block';
+    if (list) list.style.display = 'block';
 }
 
-async function loadStats() {
-    const container = document.getElementById('stats-content');
-    container.innerHTML = '<div class="stat-loading">Accessing Neural Database...</div>';
-
-    // Direct Local DB Access (No Content Script needed)
-    if (!window.VectorDB) {
-        container.innerHTML = `<div style="color:var(--accent)">Error: Database module not loaded.</div>`;
-        return;
-    }
-
-    try {
-        const stats = await window.VectorDB.getStats();
-        // If DB is empty or just initialized
-        if (!stats) {
-            container.innerHTML = `<div style="opacity:0.7; padding:20px; text-align:center;">No Data Found</div>`;
-            return;
-        }
-        renderStatsChart(container, stats);
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<div style="color:var(--accent)">DB Error: ${e.message}</div>`;
-    }
-}
-
-/**
- * Load and render the Neural Retention Agent view.
- */
-async function loadNeuralAgent() {
-    const graphContainer = document.getElementById('skill-graph-container');
-
-    // Render Skill Graph (demo data for now)
-    if (typeof window.SkillGraph !== 'undefined') {
-        const demoFamilies = [
-            { id: 'arrays', name: 'Arrays', confidence: 0.8 },
-            { id: 'dp', name: 'Dynamic Programming', confidence: 0.4 },
-            { id: 'graphs', name: 'Graphs', confidence: 0.6 },
-            { id: 'trees', name: 'Trees', confidence: 0.75 },
-            { id: 'strings', name: 'Strings', confidence: 0.55 }
-        ];
-
-        graphContainer.innerHTML = '';
-        const svg = window.SkillGraph.renderGraph({ families: demoFamilies }, { width: 250, height: 200 });
-        graphContainer.appendChild(svg);
-
-        // Apply animations
-        if (typeof window.SkillAnimations !== 'undefined') {
-            window.SkillAnimations.injectStyles();
-        }
-    } else {
-        graphContainer.innerHTML = '<div style="color:var(--accent)">SkillGraph not loaded</div>';
-    }
-}
-
-function renderStatsChart(container, stats) {
-    if (!stats || !stats.byFamily || Object.keys(stats.byFamily).length === 0) {
-        container.innerHTML = '<div style="opacity:0.5; padding:20px;">No anomalies detected yet. Keep coding.</div>';
-        return;
-    }
-
-    // 1. Group Tags by Family
-    let html = '<div style="display:flex; flex-direction:column; gap:15px;">';
-
-    html += '<div style="font-size:0.7em; opacity:0.7; letter-spacing:1px; margin-bottom:5px;">WEAKNESS_TOPOLOGY // HIERARCHY</div>';
-    // We already have stats.byFamily (counts) and stats.byTag (counts). 
-    // But we need to know WHICH tag belongs to WHICH family. 
-    // Since we don't store that mapping explicitly in the 'stats' object returned by getStats(),
-    // we need to slightly update getStats() OR (easier) simply iterate the raw records if possible.
-    // However, getStats() aggregates them. 
-
-    // WAIT: VectorDB.getStats() in vector_db.js returns aggregated counts but loses the link between specific tag & family.
-    // We should probably update vector_db.js first to return a tree structure, OR
-    // we can just iterate the records in `getStats` more smartly.
-
-    // For now, let's assume we update vector_db.js to return `stats.tree = { "LOGIC": { "OFF_BY_ONE": 1 } }`
-    // If we only have flat maps, we can't perfectly reconstruct the tree without knowing the mapping.
-    // Let's UPDATE vector_db.js FIRST.
-
-    // Fallback if tree is missing (to avoid breaking while we update vector_db.js):
-    const families = Object.entries(stats.byFamily).sort((a, b) => b[1] - a[1]);
-
-    // If we have the tree structure (which we will add next)
-    if (stats.tree) {
-        const sortedFamilies = Object.entries(stats.tree).sort((a, b) => {
-            // Sort by total count in that family
-            const countA = Object.values(a[1]).reduce((sum, v) => sum + v, 0);
-            const countB = Object.values(b[1]).reduce((sum, v) => sum + v, 0);
-            return countB - countA;
-        });
-
-        sortedFamilies.forEach(([family, tags]) => {
-            const familyTotal = Object.values(tags).reduce((sum, v) => sum + v, 0);
-
-            // Family Header
-            html += `
-            <div style="margin-top:5px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:4px;">
-                    <span style="font-family:var(--font-mono); font-size:0.8em; color:var(--electric);">${family}</span>
-                    <span style="font-size:0.8em; font-weight:bold;">${familyTotal}</span>
-                </div>
-                </div>`;
-
-            // Check if we only have 'GENERAL' tag
-            const tagKeys = Object.keys(tags);
-            const onlyGeneral = (tagKeys.length === 1 && tagKeys[0] === 'GENERAL');
-
-            if (onlyGeneral) {
-                // Just close the header div and continue (no sub-list)
-                html += `</div>`;
-                return;
-            }
-
-            // If we have specific tags, render the container
-            html += `<div style="padding-left:10px; margin-top:5px; border-left:2px solid rgba(255,255,255,0.05);">`;
-
-            // Tags
-            const sortedTags = Object.entries(tags).sort((a, b) => b[1] - a[1]);
-            sortedTags.forEach(([tag, count]) => {
-                // Determine display name for fallback
-                const displayTag = (tag === 'GENERAL') ? 'UNSPECIFIED' : tag;
-                const isGeneral = (tag === 'GENERAL');
-
-                html += `
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75em; padding:3px 10px; color:${isGeneral ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.8)'};">
-                    <span>${displayTag}</span>
-                    <span style="opacity:0.6;">x${count}</span>
-                </div>`;
-            });
-
-            html += `</div></div>`;
-        });
-    } else {
-        // Legacy View (if tree not ready)
-        html += '<div style="color:yellow; font-size:0.7em;">Restart Extension to enable Tree View</div>';
-    }
-
-    html += '</div>';
-
-    container.innerHTML = html;
-}
-
-// renderVectors moved to popup_ui.js
-
-// Renders the mini projection grid inside a card
-// renderMiniHeatmap moved to popup_ui.js
-
-// renderGlobalHeatmap moved to popup_ui.js
-
-
-// --- Manual Tools Logic ---
-/**
- * Calculate Streak using Activity Log (Decoupled from Problems)
- * 
- * Logic:
- * 1. Load `activityLog` (Array of YYYY-MM-DD).
- * 2. If missing, auto-migrate from `problems` history.
- * 3. Calculate streak of consecutive days ending Today or Yesterday.
- */
 async function calculateStreakFn() {
     const res = await chrome.storage.local.get({ problems: {}, activityLog: null });
     let log = res.activityLog;
@@ -640,45 +446,7 @@ async function calculateStreakFn() {
 
 // ... existing deleteProblem ...
 
-// --- Manual Tools Logic ---
-function setupManualTools() {
-    // "Sync" button (Manual Scan)
-    document.getElementById('btn-sync').onclick = async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-        // CRITICAL: Strict check to ensure we are on a PROBLEM page.
-        // Content script is ONLY injected on https://leetcode.com/problems/submissions/*
-        if (!tab || !tab.url.includes('leetcode.com/problems/')) {
-            showNotification('error', 'INVALID_TARGET', 'Please navigate to a specific LeetCode problem page (e.g. /problems/two-sum) first.');
-            return;
-        }
-
-        chrome.tabs.sendMessage(tab.id, { action: "scanPage" }, (response) => {
-            if (chrome.runtime.lastError) {
-                const err = chrome.runtime.lastError.message || "Unknown runtime error";
-                console.error("[Popup] Connection failed:", err);
-                showNotification('error', 'CONNECTION_LOST', `Extension context lost(${err}).Please refresh the LeetCode page.`);
-            } else if (response && response.success) {
-                window.close(); // Close popup
-            } else if (response && response.duplicate) {
-                showNotification('warning', 'DUPLICATE_DETECTED', `"${response.problemTitle}" was already logged today.`);
-            } else if (response && response.error) {
-                showNotification('error', 'SCAN_ERROR', `Scan failed: ${response.error} `);
-            } else {
-                showNotification('error', 'SCAN_FAILED', 'No "Accepted" submission found on this page.');
-            }
-        });
-    };
-
-    // "All Drills" button
-    const btnAllDrills = document.getElementById('btn-all-drills');
-    if (btnAllDrills) {
-        btnAllDrills.onclick = () => {
-            const overviewUrl = chrome.runtime.getURL('dist/src/drills/drill_overview.html');
-            chrome.tabs.create({ url: overviewUrl });
-        };
-    }
-}
 
 // showNotification moved to popup_ui.js
 
@@ -803,7 +571,6 @@ if (typeof module !== 'undefined') {
     module.exports = {
         updateDashboard,
         calculateStreak: calculateStreakFn,
-        setupSidebar,
-        setupAiModeToggle
+        setupSidebar
     };
 }

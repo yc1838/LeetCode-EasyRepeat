@@ -207,15 +207,4 @@ if (window.LLMSidecar && typeof window.LLMSidecar.init === 'function') {
     window.LLMSidecar.init();
 }
 
-// Initialize Neural Retention Agent UI
-if (typeof AgentContentInit !== 'undefined' && typeof AgentContentInit.initialize === 'function') {
-    AgentContentInit.initialize()
-        .then(result => {
-            if (result.initialized) {
-                console.log('[LeetCode EasyRepeat] Neural Agent UI initialized.');
-            }
-        })
-        .catch(err => {
-            console.error('[LeetCode EasyRepeat] Neural Agent init failed:', err);
-        });
-}
+// End of file

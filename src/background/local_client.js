@@ -21,7 +21,7 @@
 }(typeof self !== 'undefined' ? self : this, function () {
 
     const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434';
-    const DEFAULT_MODEL = 'llama3.1';
+    const DEFAULT_MODEL = 'gemma3:latest';
 
     function normalizeEndpoint(endpoint) {
         const raw = typeof endpoint === 'string' ? endpoint.trim() : '';
@@ -37,7 +37,6 @@
         if (lower.startsWith('gemini-') || lower.startsWith('gpt-') || lower.startsWith('claude-')) {
             return DEFAULT_MODEL;
         }
-        if (lower === 'llama3') return 'llama3.1';
 
         return selected;
     }
@@ -180,11 +179,47 @@
         }
     }
 
+    async function listModels() {
+        const endpoint = await getEndpoint();
+        console.log(`[LocalClient] Fetching models from ${endpoint}`);
+
+        // Try Ollama tags first
+        try {
+            const ollamaUrl = `${endpoint}/api/tags`;
+            const response = await fetch(ollamaUrl);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.models && Array.isArray(data.models)) {
+                    return data.models.map(m => m.name);
+                }
+            }
+        } catch (e) {
+            console.log('[LocalClient] Ollama /api/tags failed, trying /v1/models');
+        }
+
+        // Try OpenAI compatible /v1/models
+        try {
+            const openAiUrl = `${endpoint}/v1/models`;
+            const response = await fetch(openAiUrl);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data && Array.isArray(data.data)) {
+                    return data.data.map(m => m.id);
+                }
+            }
+        } catch (e) {
+            console.warn('[LocalClient] Failed to fetch models from both Ollama and OpenAI routes:', e);
+        }
+
+        return [];
+    }
+
     return {
         analyzeSubmissions,
         generateContent,
         getApiKey,
         getEndpoint,
-        getModelId
+        getModelId,
+        listModels
     };
 }));
