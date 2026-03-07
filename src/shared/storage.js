@@ -194,8 +194,9 @@
      * @param {string} slug 
      * @param {string} notes 
      */
-    async function saveNotes(slug, notes) {
+    async function saveNotes(slug, notes, meta = {}) {
         if (!slug) return;
+        if (!chrome.runtime?.id) return { success: false, error: "Context invalidated" };
         const result = await chrome.storage.local.get({ problems: {} });
         const problems = result.problems;
 
@@ -203,11 +204,12 @@
             // Create a hollow entry if note is saved before any submission
             problems[slug] = {
                 slug: slug,
-                title: slug, // Fallback title
-                difficulty: 'Medium', // Fallback difficulty
+                title: meta.title || slug, // Fallback title
+                difficulty: meta.difficulty || 'Medium', // Fallback difficulty
                 notes: notes,
                 history: []
             };
+            if (meta.topics) problems[slug].topics = meta.topics;
         } else {
             problems[slug].notes = notes;
         }
@@ -224,6 +226,7 @@
      */
     async function getNotes(slug) {
         if (!slug) return '';
+        if (!chrome.runtime?.id) return '';
         const result = await chrome.storage.local.get({ problems: {} });
         return (result.problems[slug] && result.problems[slug].notes) || '';
     }

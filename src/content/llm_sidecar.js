@@ -30,9 +30,9 @@
         local: [
             { id: 'llama3.1', name: 'Llama 3.1 (Recommended)', meta: 'LOCAL', provider: 'local' },
             { id: 'mistral-nemo', name: 'Mistral Nemo', meta: 'LOCAL', provider: 'local' },
-            { id: 'llama3', name: 'Llama 3 (Legacy)', meta: 'LOCAL', provider: 'local' },
+            { id: 'gemma3:latest', name: 'gemma3:latest', meta: 'LOCAL', provider: 'local' },
             { id: 'mistral', name: 'Mistral (Original)', meta: 'LOCAL', provider: 'local' },
-            { id: 'deepseek-coder', name: 'DeepSeek Coder', meta: 'LOCAL', provider: 'local' }
+            { id: 'deepseek-r1', name: 'DeepSeek R1', meta: 'LOCAL', provider: 'local' }
         ]
     };
 
@@ -70,8 +70,8 @@
         // Loaded from global settings
         aiProvider: 'local',
         keys: { google: '', openai: '', anthropic: '' },
-        localEndpoint: 'http://localhost:11434',
-        selectedModelId: 'llama3.1',
+        localEndpoint: 'http://[IP_ADDRESS]',
+        selectedModelId: 'gemma3:latest',
 
         messages: [],
         input: '',
@@ -86,11 +86,14 @@
         if (id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3')) return 'openai';
         if (id.startsWith('claude-')) return 'anthropic';
         if (MODELS.local.some(m => m.id === id)) return 'local';
-        return null;
+        
+        // If we can't identify it but the current global mode is local, assume local.
+        // Otherwise return null so the caller can decide.
+        return (state.aiProvider === 'local') ? 'local' : null;
     }
 
     function getDefaultLocalModelId() {
-        return MODELS.local[0]?.id || 'llama3.1';
+        return MODELS.local[0]?.id || 'gemma3:latest';
     }
 
     function getDefaultCloudModelId() {
@@ -101,16 +104,18 @@
         const providerFromModel = inferProviderFromModelId(state.selectedModelId);
 
         if (state.aiProvider === 'local') {
-            if (providerFromModel !== 'local') {
+            // In local mode, we are permissive. If it's a known cloud model, we force local fallback.
+            // If it's an unknown model, we assume the user pulled it and it's local.
+            if (providerFromModel && providerFromModel !== 'local') {
                 const fallback = getDefaultLocalModelId();
-                console.warn(`[LLMSidecar] Local mode is active; switching model '${state.selectedModelId}' -> '${fallback}'.`);
+                console.warn(`[LLMSidecar] Local mode active but model '${state.selectedModelId}' is a Cloud ID. Switching -> '${fallback}'.`);
                 state.selectedModelId = fallback;
             }
             return;
         }
 
-        // Cloud mode: avoid accidentally using a local model ID.
-        if (providerFromModel === 'local' || !providerFromModel) {
+        // Cloud mode: avoid accidentally using a known local model ID.
+        if (providerFromModel === 'local') {
             const fallback = getDefaultCloudModelId();
             console.warn(`[LLMSidecar] Cloud mode is active; switching model '${state.selectedModelId}' -> '${fallback}'.`);
             state.selectedModelId = fallback;
@@ -136,18 +141,20 @@
             if (savedPos) state.position = JSON.parse(savedPos);
 
             // Load CONFIG from Chrome Storage (Global)
-            const globalSettings = await chrome.storage.local.get({
-                aiProvider: 'local',
-                keys: { google: '', openai: '', anthropic: '' },
-                selectedModelId: 'llama3.1',
-                localEndpoint: 'http://localhost:11434'
-            });
+            if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
+                const globalSettings = await chrome.storage.local.get({
+                    aiProvider: 'local',
+                    keys: { google: '', openai: '', anthropic: '' },
+                    selectedModelId: 'gemma3:latest',
+                    localEndpoint: 'http://localhost:11434'
+                });
 
-            state.aiProvider = globalSettings.aiProvider;
-            state.keys = globalSettings.keys;
-            state.selectedModelId = globalSettings.selectedModelId;
-            state.localEndpoint = globalSettings.localEndpoint;
-            ensureModelMatchesMode();
+                state.aiProvider = globalSettings.aiProvider;
+                state.keys = globalSettings.keys;
+                state.selectedModelId = globalSettings.selectedModelId;
+                state.localEndpoint = globalSettings.localEndpoint;
+                ensureModelMatchesMode();
+            }
 
             console.log("[LLMSidecar] Configuration loaded:", {
                 mode: state.aiProvider,
@@ -164,7 +171,8 @@
     }
 
     // Listen for changes in options page
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'local') {
             if (changes.aiProvider) state.aiProvider = changes.aiProvider.newValue;
             if (changes.keys) state.keys = changes.keys.newValue;
@@ -173,15 +181,16 @@
             ensureModelMatchesMode();
             render();
         }
-    });
+        });
+    }
 
     // --- API Logic ---
     async function callLLM(prompt, systemPrompt = '', signal = null) {
         const provider = getActiveProvider();
         let modelId = state.selectedModelId;
 
-        if (provider === 'local' && modelId === 'llama3') {
-            modelId = 'llama3.1';
+        if (provider === 'local' && modelId === 'gemma3:latest') {
+            modelId = 'gemma3:latest';
             state.selectedModelId = modelId;
         }
 
@@ -407,7 +416,7 @@
 
             // Fallback to selected model (with mapping)
             let embedModelId = state.selectedModelId;
-            if (embedModelId === 'llama3') embedModelId = 'llama3.1';
+            // No restrictive check here - if the local model supports embeddings it will work, else it fails to next step.
 
             const data2 = await fetchProxied(`${host}/api/embeddings`, {
                 model: embedModelId,
@@ -434,6 +443,7 @@
     }
 
     async function analyzeMistake(code, errorDetails, meta = {}, signal = null, onProgress = null) {
+        console.log(`[LLMSidecar] analyzeMistake started for ${meta.title || 'Unknown'}. Provider: ${state.aiProvider}, Model: ${state.selectedModelId}`);
         const title = meta.title || 'Unknown Problem';
         const difficulty = meta.difficulty || 'Unknown';
         const queryText = `Error: ${errorDetails}\nCode Snippet: ${code.substring(0, 300)}`; // Truncate for embedding

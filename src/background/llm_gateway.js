@@ -31,13 +31,14 @@
     let GeminiClient, OpenAIClient, AnthropicClient, LocalClient;
     const globalRoot = typeof self !== 'undefined' ? self : this;
     const KNOWN_LOCAL_MODELS = new Set([
+        'llama3.2',
         'llama3.1',
-        'llama3',
         'mistral-nemo',
         'mistral',
-        'deepseek-coder',
+        'deepseek-r1',
         'qwen2.5-coder',
-        'codellama'
+        'codellama',
+        'gemma3:latest'
     ]);
 
     // Load dependencies from globals (Browser/Worker)
@@ -239,10 +240,19 @@
         return null;
     }
 
+    async function listModels() {
+        const resolved = await resolveClient();
+        if (resolved.client && typeof resolved.client.listModels === 'function') {
+            return resolved.client.listModels();
+        }
+        return [];
+    }
+
     return {
         generateContent,
         analyzeSubmissions,
         getApiKey,
+        listModels,
         inferProviderFromModelId
     };
 }));

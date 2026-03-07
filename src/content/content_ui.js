@@ -47,12 +47,12 @@
 
         let themeName = 'sakura';
         try {
-            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
                 const storage = await chrome.storage.local.get({ theme: 'sakura' });
                 themeName = storage.theme || 'sakura';
             }
         } catch (e) {
-            console.log('[LeetCode EasyRepeat] Could not read theme, using default');
+            console.log('[LeetCode EasyRepeat] Context invalidated or error reading theme');
         }
 
         const theme = getTheme(themeName);
@@ -255,7 +255,8 @@
         // Define callbacks for the widget
         const onSave = async (content) => {
             if (saveNotes) {
-                await saveNotes(slug, content);
+                const details = extractProblemDetails ? extractProblemDetails() : {};
+                await saveNotes(slug, content, details);
             }
         };
 
@@ -270,8 +271,9 @@
 
         // --- THEME LOGIC ---
         // 1. Initial Load
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
             chrome.storage.local.get({ theme: 'sakura' }, (result) => {
+                if (chrome.runtime?.lastError) return;
                 const theme = result.theme || 'sakura';
                 if (theme === 'sakura') {
                     widget.classList.add('theme-sakura');
@@ -281,16 +283,18 @@
             });
 
             // 2. Listen for changes (Live Update)
-            chrome.storage.onChanged.addListener((changes, namespace) => {
-                if (namespace === 'local' && changes.theme) {
-                    const newTheme = changes.theme.newValue;
-                    if (newTheme === 'sakura') {
-                        widget.classList.add('theme-sakura');
-                    } else {
-                        widget.classList.remove('theme-sakura');
+            if (chrome.storage.onChanged) {
+                chrome.storage.onChanged.addListener((changes, namespace) => {
+                    if (namespace === 'local' && changes.theme) {
+                        const newTheme = changes.theme.newValue;
+                        if (newTheme === 'sakura') {
+                            widget.classList.add('theme-sakura');
+                        } else {
+                            widget.classList.remove('theme-sakura');
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         document.body.appendChild(widget);
@@ -304,8 +308,9 @@
      */
     function checkAndShowTooltip(targetBtn) {
         if (!targetBtn) return;
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
             chrome.storage.local.get(['seenDragTooltip'], (result) => {
+                if (chrome.runtime?.lastError) return;
                 if (!result.seenDragTooltip) {
                     showDragTooltip(targetBtn);
                     chrome.storage.local.set({ seenDragTooltip: true });
@@ -324,6 +329,7 @@
      * Returns Promise<boolean> (true = analyze, false = cancel)
      */
     function showAnalysisModal(errorType) {
+        console.log(`[LeetCode EasyRepeat] [DEBUG] showAnalysisModal triggered for: ${errorType}`);
         return new Promise((resolve) => {
             const backdrop = document.createElement('div');
             backdrop.className = 'lc-rating-backdrop'; // Reuse rating backdrop style
@@ -359,9 +365,10 @@
             checkbox.id = 'lc-always-analyze';
 
             // Check storage for preference
-            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
                 chrome.storage.local.get(['alwaysAnalyze'], (res) => {
-                    if (res.alwaysAnalyze) checkbox.checked = true;
+                    if (chrome.runtime?.lastError) return;
+                    if (res && res.alwaysAnalyze) checkbox.checked = true;
                 });
             }
 
@@ -400,7 +407,7 @@
             analyzeBtn.innerHTML = '<div class="lc-rating-btn-label" style="color:#22d3ee">Analyze</div>';
             analyzeBtn.onclick = () => {
                 // Save preference logic
-                if (checkbox.checked && typeof chrome !== 'undefined') {
+                if (checkbox.checked && typeof chrome !== 'undefined' && chrome.runtime?.id) {
                     chrome.storage.local.set({ alwaysAnalyze: true });
                 }
                 backdrop.remove();
@@ -563,7 +570,7 @@
             }
         };
 
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+        if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.onChanged) {
             const handleStorageChange = (changes, namespace) => {
                 if (namespace !== 'local' || !changes.problems) return;
                 const updated = changes.problems.newValue;

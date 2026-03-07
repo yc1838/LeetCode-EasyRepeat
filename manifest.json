@@ -38,14 +38,7 @@
                 "src/content/leetcode_dom.js",
                 "src/shared/storage.js",
                 "src/content/leetcode_api.js",
-                "src/algorithms/vector_db.js",
-                "src/content/shadow_logger.js",
                 "src/content/llm_sidecar.js",
-                "src/content/morning_greeting.js",
-                "src/content/skill_graph.js",
-                "src/content/drill_queue.js",
-                "src/content/skill_animations.js",
-                "src/content/agent_content_init.js",
                 "src/content/content.js"
             ],
             "css": [

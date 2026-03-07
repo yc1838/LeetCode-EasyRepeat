@@ -46,7 +46,7 @@ class AgentFixer:
     def __init__(self):
         # Default to local Ollama
         self.llm_url = "http://localhost:11434/api/generate"
-        self.model = "llama3.1" # Or configurable
+        self.model = "gemma3:latest" # Or configurable
 
     def is_simple_fix(self, code: str) -> bool:
         # Heuristic: If code is < 10 lines, it's simple enough to show

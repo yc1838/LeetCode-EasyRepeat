@@ -1,10 +1,65 @@
 # LeetCode EasyRepeat
 
-A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System (SRS)**. It automatically tracks your "Accepted" submissions, schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
+A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System**( a learning technique that involves reviewing information at increasing intervals of time). 
+
+It automatically tracks your "Accepted" submissions, schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
+
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green?logo=google-chrome)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)
 ![Version](https://img.shields.io/badge/version-1.0.1-orange)
+
+## 🚀 Quick Setup
+
+Before loading the extension or running tests, install dependencies:
+
+```bash
+npm install
+```
+
+Build the extension bundle so `dist/` assets exist:
+
+```bash
+npm run build
+```
+
+### 📥  Install in Chrome Extensions
+
+<div align="center">
+  <img src="assets/extension_instruction.png" alt="Extension Installation Instruction" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
+
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top-right corner)
+3. Click **Load unpacked**
+4. Select this entire repository folder (`leetcode-srs-extension`)
+
+### 🤖 LLM Setup (Optional)
+If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide:
+
+For Local LLM:
+1. Install Ollama: https://ollama.com/
+2. Run `ollama run gemma3:latest` or other model of your choiceto download and run the model
+3. The extension will automatically detect the model
+
+For Cloud LLM:
+1. Open the extension settings
+2. Enter your API key and select the model name
+
+- Current AI features:
+  - Analyze wrong submissions and provide feedback
+- AI features in the future:
+  - Generate practice problems for weak areas
+  - Generate visualizations for your weaknesses
+  - Nightly job run to analyze your progress and provide feedback
+---
+
+## Why would Spaced Repetition help you remember better?
+- In 1932, Hermann Ebbinghaus discovered the forgetting curve, which shows that we forget information exponentially over time.
+- Spaced repetition is a learning technique that involves reviewing information at increasing intervals of time. It is based on the principle that we are more likely to remember information if we review it at spaced intervals.
+---
+
 
 ## ✨ Features
 
@@ -13,6 +68,7 @@ A Chrome Extension that helps you master LeetCode problems using a **Spaced Repe
 - **Smart Scheduling**: Uses the state-of-the-art **FSRS v4.5** algorithm with optimized weights for superior retention modeling
 - **Stability & Difficulty Modeling**: Dynamically adjusts stability and difficulty based on your performance
 - **Problem Difficulty Tracking**: Automatically detects and saves LeetCode difficulty (Easy/Medium/Hard)
+- FSRS was **supported by science**. You can read [this post](https://www.lesswrong.com/posts/G7fpGCi8r7nCKXsQk/the-history-of-fsrs-for-anki) to learn more about its history.
 
 ### 🎨 Cyberpunk UI with Dual Themes
 - **Sakura Theme** (Default): Lesbian flag-inspired color palette with neon peach, pink, and orange glows
@@ -27,57 +83,28 @@ A Chrome Extension that helps you master LeetCode problems using a **Spaced Repe
 
 ### 📊 Visual Dashboard
 
-- **Cognitive Retention Heatmap**: Global activity visualization showing your practice patterns with animated pulsing cells for active days
-- **Mini Projection Timelines**: Each problem card shows projected future review dates
-- **Vector Cards**: Expandable problem cards displaying:
+- **🗓 Due Today**: Number of problems due today
+- **📚 Vector Cards**: Expandable problem cards displaying all recorded problems:
   - Problem title and difficulty
   - Current interval and repetition count
   - Again/Hard/Good/Easy rating buttons (FSRS)
   - Direct link to the problem
+  - **Mini Projection Timelines**: Each problem card shows projected future review dates
+- **☀️ Themes**: Choose between Cyberpunk Sakura and Cyberpunk Matrix themes
+- **⚙️ Settings**: Set up your local or cloud LLM here, so that you may use AI to analyze wrong submissions.
+### Sidebar Navigation(to be live)
 
+
+---
 ### 📝 Contextual Notes
 - **Floating Notes Button**: Quickly jot down your thoughts, algorithms, or key insights for any problem without leaving the page.
 - **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
 - **Smart Helpers**: Helpful tooltips guide you on valid interactions (like how to drag).
-- **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem.
+- **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem. So next time you open the leetcode problem page, the notes stay there.
 
 ### ⚙️ Advanced Tools
-- **Manual Scan**: Force-scan the current page for accepted submissions
 - **Streak Repair**: Manually mark specific dates as active to fix missed activity logs
-- **Live Clock**: Real-time system clock in the status bar
 
-### 🔬 Robust Detection
-- **API-Based Verification**: Polls LeetCode's internal API to confirm submissions, ignoring UI layout glitches
-- **Infinite Loop Protection**: Safeguard against corrupted data causing browser freezes
-- **Resilience**: Comprehensive error handling to prevent "Context Lost" extension crashes
-- **SPA Navigation Aware**: Handles LeetCode's single-page-app navigation correctly
-- **Difficulty Caching**: Pre-caches difficulty before submission to handle DOM changes
-
-### 🛡️ Autonomous Auto-Fix Agent
-- **Multi-Turn Self-Correction**: Automatically iterates on buggy solutions up to 3 times, refining the code based on sandbox error logs.
-- **Agentic Test Generation**: Generates 3+ custom edge-case tests (e.g., empty inputs, large numbers) to rigorously verify fixes beyond the standard failing case.
-- **Safe Observer Sandbox**: Executes candidate fixes in an isolated E2B sandbox to ensure safety and correctness before suggesting them.
-- **Thought Signature**: Displays the number of attempts and test coverage (e.g., "Passed 4/4 Tests") directly in the UI.
-
-### 🧠 Neural Retention Agent
-A personalized learning assistant that builds a "Skill DNA" profile of your coding strengths and weaknesses.
-
-- **Two-Layer Skill Taxonomy**:
-  - **Layer 1 (LeetCode Tags)**: Tracks performance by topic (Binary Search, Dynamic Programming, etc.)
-  - **Layer 2 (Error Patterns)**: Detects recurring mistakes (off-by-one, null-check-missing, etc.)
-
-- **Nightly Digest Engine**: Configurable scheduled analysis to update your Skill DNA (default: 2am)
-
-- **Personalized Micro-Drills**: Generates targeted practice exercises for your weak areas:
-  - **Fill-in-the-blank**: Complete missing code
-  - **Spot-the-bug**: Find errors in code snippets
-  - **Muscle-memory**: Write code patterns from memory
-
-- **Backfill Agent**: Automatically fetches LeetCode tags for problems missing metadata (rate-limited to avoid bans)
-
-- **Multi-Provider AI Support**: Choose between local models (Ollama, LM Studio) or cloud APIs (Google Gemini, OpenAI, Anthropic)
-
-- **Internationalization**: Full support for 11 languages including English, Chinese, Hindi, Japanese, Portuguese, German, Korean, French, Polish, Spanish, and Turkish
 
 ---
 
@@ -91,8 +118,8 @@ A personalized learning assistant that builds a "Skill DNA" profile of your codi
   - Animated pulsing heatmap cells for active practice days
   - Relocated setup button to navigation sidebar with icon styling
   - Refined popup header and dashboard labels
-- **Skill-Specific Drill Templates**: Drill generator now uses per-skill templates and language-aware code generation for more targeted practice
-- **Drill Overview Page**: Dedicated overview page for browsing and managing all generated drills
+- **Skill-Specific Drill Templates**: Drill generator now uses per-skill templates and language-aware code generation for more targeted practice(not live to external audience yet)
+- **Drill Overview Page**: Dedicated overview page for browsing and managing all generated drills(not live to external audience yet)
 - **Provider-Specific LLM Clients**: Individual client modules for Gemini, OpenAI, Anthropic, and local models with provider-specific optimizations
 - **LLM Output Validation**: Hallucination checker and insight deduplication for more reliable AI-generated content
 - **Improved Tools**:
@@ -106,78 +133,12 @@ A personalized learning assistant that builds a "Skill DNA" profile of your codi
 ---
 
 
-## 🚀 Quick Setup
-
-Before loading the extension or running tests, install dependencies:
-
-```bash
-npm install
-```
-
-> **Why?** This project uses external libraries (like Jest for testing and jsdom for simulation) which are not stored in the repository.
-
-Build the extension bundle so `dist/` assets exist:
-
-```bash
-npm run build
-```
-
----
-
-## 📥 How to Install in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Select this entire folder (`leetcode-srs-extension`)
-
----
-
-## 🛡️ Safe Observer Setup (Local Backend)
-
-To enable the AI "Safe Observer" feature (real code execution verification), you must run the local verification server.
-
-1.  **Prerequisites**:
-    - Python 3.x installed
-    - Pip installed
-
-2.  **Installation**:
-    Navigate to the `mcp-server` directory and install dependencies:
-    ```bash
-    cd mcp-server
-    pip install -r requirements.txt
-    ```
-
-3.  **Configuration**:
-    Create a `.env` file in the `mcp-server` directory with your E2B API Key:
-    ```bash
-    E2B_API_KEY=your_api_key_here
-    ```
-
-4.  **Running the Server**:
-    Start the FastAPI server:
-    ```bash
-    python api.py
-    # Server running at http://0.0.0.0:8000
-    ```
-
-5.  **Usage**:
-    The Chrome Extension will automatically detect the running server at `http://localhost:8000` and use it to verify buggy solutions.
-
----
 
 ## ⚙️ AI Configuration
 
-The extension supports multiple AI providers for mistake analysis and drill generation. Configure your preferences in the options page (click the ⚙️ Setup icon in the sidebar).
+The extension supports multiple AI providers for mistake analysis. Configure your preferences in the options page (click the ⚙️ Setup icon in the sidebar).
 
-### AI Gate
 
-- **Enable/Disable AI Analysis**: Toggle AI features on or off
-- When enabled, you get:
-  - Automatic wrong-answer analysis after failed submissions
-  - Local/Cloud model configuration and connection testing
-  - Backfill, nightly digest, and weak-skill drill generation
-  - Agent scheduling and debug settings
 
 ### Intelligence Source Options
 
@@ -198,11 +159,6 @@ The extension supports multiple AI providers for mistake analysis and drill gene
 - Higher logic and reasoning quality
 - Better for accurate mistake analysis and drill generation
 
-### Agent Settings
-
-- **Nightly Digest Time**: Configure when the daily analysis runs (default: 2:00 AM)
-- **Error Pattern Threshold**: Set how many mistakes trigger a pattern (default: 3)
-- **Debug Logs**: Enable verbose logging for troubleshooting
 
 ### Language Support
 
@@ -223,7 +179,7 @@ Just solve problems on LeetCode! When you see "Accepted", the extension automati
 Click the extension icon to see:
 - Problems due for review today
 - All tracked problems
-- Rating buttons to adjust difficulty
+
 
 ### SRS Rating
 - **Again** → Review very soon (stability decreases significantly)
@@ -231,20 +187,7 @@ Click the extension icon to see:
 - **Good** → Standard progression (optimal retention)
 - **Easy** → Push review far into the future (higher stability)
 
-### Sidebar Navigation
 
-| Icon | Function |
-|------|----------|
-| 📊 Dashboard | View problems due today |
-| 📈 All Vectors | View all tracked problems |
-| 🧠 Weakness Stats | View your skill weaknesses and patterns |
-| 🤖 Neural Agent | Access Neural Retention Agent and Skill DNA |
-| 📚 All Drills | View and practice all generated drills |
-| 🔍 Scan | Manual page scan |
-| ☀️ Theme | Toggle Sakura/Matrix theme |
-| ⚙️ Setup | Open AI configuration and settings page |
-
----
 
 ## 🧪 Running Tests
 
@@ -543,12 +486,6 @@ Uses Chrome's `chrome.storage.local` API to persist:
 - Theme preference
 - Activity log for streak tracking
 - Vector embeddings for RAG
-
-### Detection Strategy
-1. **Passive**: MutationObserver watches for DOM changes
-2. **Active**: Click listener on Submit button triggers polling
-3. **Polling**: Checks for "Accepted" text/color every 500ms after submission
-4. **Fallback**: Manual scan via popup
 
 ---
 
