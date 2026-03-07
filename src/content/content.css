@@ -405,6 +405,7 @@
 }
 
 .lc-rating-btn {
+    --rating-rgb: 255, 255, 255;
     flex: 1;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: transparent;
@@ -432,36 +433,46 @@
 }
 
 .lc-rating-btn:hover {
-    background: rgba(34, 197, 94, 0.1);
-    color: #fff;
-    border-color: #22c55e;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    background: rgba(var(--rating-rgb), 0.2);
+    border-color: rgba(var(--rating-rgb), 0.95);
+    box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.35),
+        0 0 14px rgba(var(--rating-rgb), 0.45);
+    text-shadow: 0 0 8px rgba(var(--rating-rgb), 0.55);
 }
 
-/* Specific colors for buttons on hover */
-.rating-btn-again:hover {
+.lc-rating-btn:hover .lc-rating-btn-desc {
+    opacity: 0.85;
+}
+
+/* Keep semantic colors visible at all times */
+.rating-btn-again {
+    --rating-rgb: 239, 68, 68;
     border-color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
-    color: #ef4444 !important;
+    color: #ef4444;
 }
 
-.rating-btn-hard:hover {
+.rating-btn-hard {
+    --rating-rgb: 245, 158, 11;
     border-color: #f59e0b;
     background: rgba(245, 158, 11, 0.1);
-    color: #f59e0b !important;
+    color: #f59e0b;
 }
 
-.rating-btn-good:hover {
+.rating-btn-good {
+    --rating-rgb: 59, 130, 246;
     border-color: #3b82f6;
     background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6 !important;
+    color: #3b82f6;
 }
 
-.rating-btn-easy:hover {
+.rating-btn-easy {
+    --rating-rgb: 34, 197, 94;
     border-color: #22c55e;
     background: rgba(34, 197, 94, 0.1);
-    color: #22c55e !important;
+    color: #22c55e;
 }
 
 @keyframes popInToast {

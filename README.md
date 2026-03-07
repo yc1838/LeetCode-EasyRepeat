@@ -55,6 +55,9 @@ Then:
 2. Click **Reload** on `LeetCode EasyRepeat`
 3. Refresh any already-open LeetCode problem tabs
 
+<div align="center">
+  <img src="assets/reload.png" alt="Reload Extension" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
 Notes:
 - `npm install` is only needed when dependencies changed (`package.json` or `package-lock.json`).
 - Running `npm run build` every time is recommended for consistency.
@@ -589,6 +592,10 @@ npm run build
 1. 打开 `chrome://extensions/`
 2. 在 `LeetCode EasyRepeat` 上点击 **重新加载 (Reload)**
 3. 把已经打开的 LeetCode 题目页面也刷新一下
+
+<div align="center">
+  <img src="assets/reload.png" alt="Reload Extension" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
 
 说明：
 - `npm install` 只有在依赖变化时才需要（`package.json` 或 `package-lock.json` 有改动）。
