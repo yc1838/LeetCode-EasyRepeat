@@ -36,15 +36,16 @@ npm run build
 4. Select this entire repository folder (`leetcode-srs-extension`)
 
 ### 🤖 LLM Setup (Optional)
-If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide:
+If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
 
 For Local LLM:
 1. Install Ollama: https://ollama.com/
-2. Run `ollama run gemma3:latest` or other model of your choiceto download and run the model
+2. Run `OLLAMA_ORIGINS="*" ollama serve` and
+`ollama pull gemma3:latestt` or other model of your choice to download and run the model
 3. The extension will automatically detect the model
 
 For Cloud LLM:
-1. Open the extension settings
+1. 
 2. Enter your API key and select the model name
 
 - Current AI features:
@@ -58,12 +59,18 @@ For Cloud LLM:
 ## Why would Spaced Repetition help you remember better?
 - In 1932, Hermann Ebbinghaus discovered the forgetting curve, which shows that we forget information exponentially over time.
 - Spaced repetition is a learning technique that involves reviewing information at increasing intervals of time. It is based on the principle that we are more likely to remember information if we review it at spaced intervals.
+- Learn about [spaced repetition](https://www.khanacademy.org/science/learn-to-learn/x141050afa14cfed3:learn-to-learn/x141050afa14cfed3:spaced-repetition/a/l2l-spaced-repetition) from Khan Academy
 ---
 
 
 ## ✨ Features
 
 ### 🧠 Spaced Repetition (FSRS v4.5 Algorithm)
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/27a799e2-3883-45c8-b616-11711fc10038" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
+</div>
+
 - **Automatic Submission Detection**: Captures "Accepted" submissions directly on LeetCode
 - **Smart Scheduling**: Uses the state-of-the-art **FSRS v4.5** algorithm with optimized weights for superior retention modeling
 - **Stability & Difficulty Modeling**: Dynamically adjusts stability and difficulty based on your performance
@@ -98,9 +105,12 @@ For Cloud LLM:
 ---
 ### 📝 Contextual Notes
 - **Floating Notes Button**: Quickly jot down your thoughts, algorithms, or key insights for any problem without leaving the page.
-- **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
 - **Smart Helpers**: Helpful tooltips guide you on valid interactions (like how to drag).
 - **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem. So next time you open the leetcode problem page, the notes stay there.
+- **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
+<div align="center">
+  <img src="assets/notes_on_the_side.png" alt="notes on leetcode problem page" width="90%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
 
 ### ⚙️ Advanced Tools
 - **Streak Repair**: Manually mark specific dates as active to fix missed activity logs
@@ -492,3 +502,9 @@ Uses Chrome's `chrome.storage.local` API to persist:
 ## 📝 License
 
 MIT License - feel free to modify and distribute!
+
+
+## 🧠 Resources & Talks around Studying LeetCode
+- My own strategy was to get at least 3-5 problems done in a topic, gain my brain "muscle memory" before moving on to the next topic. After finishing all topics, that's when I try to solve a problem without knowing which algorithm or topic it falls into. Do you also find this useful?
+- I recommend a free class, **Learning how to learn** from Coursera which help explains why doing leetcode problems by topics at first is a good strategy.
+- Leave an "issue" on this repo if you want to discuss this topic further! Or anything related to the science of learning
