@@ -37,9 +37,11 @@ npm run build
 
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
+
 <div >
   <img src="assets/Setting.png" alt="Setting icon" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
 </div>
+
 For Local LLM:
 1. Install Ollama: https://ollama.com/
 2. Run `OLLAMA_ORIGINS="*" ollama serve` and
@@ -47,8 +49,7 @@ For Local LLM:
 1. The extension will automatically detect the model
 
 For Cloud LLM:
-1. 
-2. Enter your API key and select the model name
+1. Enter your API key and select the model name
 
 - Current AI features:
   - **Auto-Analyze & Save**: When you submit a wrong answer, the AI automatically analyzes your mistake and writes the actionable feedback directly into your **Contextual Notes** floating panel for future review.
