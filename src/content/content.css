@@ -1,0 +1,536 @@
+.lc-srs-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999999;
+    padding: 16px 24px;
+    background: rgba(15, 15, 15, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid #22c55e;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    color: white;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    transform: translateX(120%);
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Sakura theme toast - lesbian flag colors */
+.lc-srs-toast.theme-sakura {
+    border-left: 4px solid #FF9A56;
+    /* Neon peach */
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(255, 154, 86, 0.2),
+        0 0 40px rgba(209, 98, 164, 0.1);
+}
+
+.lc-srs-toast.show {
+    transform: translateX(0);
+}
+
+.lc-srs-toast-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lc-srs-toast-content strong {
+    font-size: 15px;
+    background: linear-gradient(90deg, #22c55e, #10b981);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Sakura theme text - lesbian flag gradient */
+.lc-srs-toast.theme-sakura .lc-srs-toast-content strong {
+    background: linear-gradient(90deg, #FF9A56, #D162A4, #EF7627);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.lc-srs-toast-content span {
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+/* --- Notes Feature Styles --- */
+
+/* --- Notes Feature Styles (Floating Panel) --- */
+
+/* Standard Theme (Matrix/Green) Variables */
+.lc-notes-container {
+    --lc-terminal: #FF9A56;
+    /* Default fallback, overridden below */
+    --lc-void: #0A0A0A;
+    --lc-glass: rgba(10, 10, 10, 0.95);
+
+    /* Font */
+    --lc-font-main: 'JetBrains Mono', monospace;
+
+    /* Matrix Default */
+    --lc-theme-primary: #22c55e;
+    --lc-theme-border-glow: rgba(34, 197, 94, 0.5);
+    --lc-theme-box-shadow:
+        0 0 20px rgba(34, 197, 94, 0.3),
+        inset 0 0 30px rgba(34, 197, 94, 0.05);
+
+    --lc-scanline-1: rgba(34, 197, 94, 0.03);
+    --lc-scanline-2: rgba(34, 197, 94, 0.02);
+}
+
+/* Sakura Theme (Lesbian Flag Palette) Variables - MATCHING POPUP.CSS */
+.lc-notes-container.theme-sakura {
+    --lc-theme-primary: #FF9A56;
+    /* Terminal/Peach */
+    --lc-theme-electric: #D162A4;
+    /* Pink */
+    --lc-theme-accent: #EF7627;
+    /* Orange */
+
+    --lc-theme-border-glow: rgba(255, 154, 86, 0.5);
+    --lc-theme-box-shadow:
+        0 0 20px rgba(255, 154, 86, 0.3),
+        0 0 40px rgba(209, 98, 164, 0.15),
+        inset 0 0 30px rgba(239, 118, 39, 0.05);
+
+    /* Lesbian Flag Gradient for Scanlines */
+    --lc-scanline-1: rgba(213, 45, 0, 0.03);
+    /* Red */
+    --lc-scanline-2: rgba(209, 98, 164, 0.04);
+    /* Pink */
+}
+
+/* The main draggable container */
+.lc-notes-container {
+    position: fixed;
+    right: 20px;
+    top: 85px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    /* Align to right */
+    font-family: var(--lc-font-main);
+    user-select: none;
+    touch-action: none;
+    width: max-content;
+    pointer-events: none;
+    /* Let clicks pass through empty space */
+}
+
+.lc-notes-container>* {
+    pointer-events: auto;
+    /* Re-enable for children */
+}
+
+.lc-notes-container.dragging {
+    cursor: grabbing;
+    z-index: 100000;
+}
+
+/* The Toggle/Handle (The "Button") */
+.lc-notes-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--lc-void);
+    border: 1px solid var(--lc-theme-primary);
+    color: var(--lc-theme-primary);
+    padding: 10px 16px;
+    border-radius: 4px;
+    /* Techy, slightly rounded */
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    /* Increased for OS look */
+    position: relative;
+    overflow: hidden;
+    text-shadow: 0 0 5px var(--lc-theme-border-glow);
+    /* Neon Text Glow */
+}
+
+.lc-notes-handle:hover {
+    background: var(--lc-theme-primary);
+    color: var(--lc-void);
+    box-shadow: 0 0 15px var(--lc-theme-border-glow);
+    text-shadow: none;
+    /* Contrast is better without glow on hover background */
+}
+
+.lc-notes-container.dragging .lc-notes-handle {
+    transform: scale(1.05);
+    background: var(--lc-theme-primary);
+    color: var(--lc-void);
+    box-shadow: 0 0 20px var(--lc-theme-border-glow);
+}
+
+/* Expanded State for Handle */
+.lc-notes-container.expanded .lc-notes-handle {
+    border-radius: 4px 4px 0 0;
+    border-bottom: 1px solid transparent;
+    background: var(--lc-void);
+    color: var(--lc-theme-primary);
+    width: 320px;
+    justify-content: space-between;
+    z-index: 2;
+    /* Above panel */
+    border: 2px solid var(--lc-theme-primary);
+    border-bottom: none;
+    box-shadow: none;
+    /* Panel has the shadow */
+    text-shadow: 0 0 5px var(--lc-theme-border-glow);
+}
+
+.lc-notes-handle svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+    filter: drop-shadow(0 0 2px var(--lc-theme-border-glow));
+}
+
+/* The Dropdown Panel */
+.lc-notes-panel {
+    display: none;
+    width: 320px;
+    background: var(--lc-void);
+    border: 2px solid var(--lc-theme-primary);
+    border-top: none;
+    /* Handle covers it */
+    border-radius: 0 0 4px 4px;
+    box-shadow: var(--lc-theme-box-shadow);
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+/* SCANLINE OVERLAY ::after (Foreground) */
+/* cuts through text for that cyberpunk look */
+.lc-notes-handle::after,
+.lc-notes-panel::after {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    pointer-events: none;
+    /* Allow clicks through */
+    z-index: 50;
+    /* Above text */
+    background:
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+        linear-gradient(90deg, var(--lc-scanline-1), var(--lc-scanline-2));
+    background-size: 100% 2px, 3px 100%;
+}
+
+.lc-notes-container.expanded .lc-notes-panel {
+    display: flex;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Textarea in Panel */
+.lc-notes-textarea {
+    width: 100%;
+    min-height: 250px;
+    background: transparent;
+    /* See scanlines */
+    color: #e0e0e0;
+    border: none;
+    padding: 16px;
+    font-family: var(--lc-font-main);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 2;
+    /* Clickable above scanlines */
+}
+
+.lc-notes-textarea:focus {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Footer / Controls */
+.lc-notes-footer {
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 2;
+}
+
+.lc-notes-status {
+    font-size: 10px;
+    color: var(--lc-theme-primary);
+    font-style: normal;
+    font-family: 'Fira Code', monospace;
+    opacity: 0.8;
+}
+
+.lc-btn {
+    padding: 4px 12px;
+    border-radius: 2px;
+    border: 1px solid var(--lc-theme-primary);
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--lc-font-main);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--lc-theme-primary);
+    transition: all 0.2s;
+}
+
+.lc-btn-save {
+    /* Base style */
+}
+
+.lc-btn-save:hover {
+    background: var(--lc-theme-primary);
+    color: var(--lc-void);
+    box-shadow: 0 0 10px var(--lc-theme-border-glow);
+}
+
+/* --- Rating Modal Styles (Toast-like) --- */
+
+.lc-rating-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Darker backdrop to focus */
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    animation: fadeIn 0.2s forwards;
+}
+
+.lc-rating-modal {
+    /* Match usage of .lc-srs-toast-content from content_ui.js logic but in CSS */
+    background: rgba(10, 10, 10, 0.95);
+    border: 2px solid #22c55e;
+    /* Default to Green (Terminal) to match Toast default */
+    /* border-left: 6px solid #22c55e; Removed for symmetry */
+    /* Thicker left accent like Toast */
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.2), inset 0 0 20px rgba(34, 197, 94, 0.05);
+
+    padding: 24px 32px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #fff;
+    min-width: 300px;
+    max-width: 450px;
+    position: relative;
+
+    transform: translateY(20px);
+    opacity: 0;
+    animation: popInToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Header/Title */
+.lc-rating-header h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #22c55e;
+    /* Green terminal text */
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lc-rating-header h3::before {
+    content: "⚡";
+    /* Icon like toast */
+    font-size: 14px;
+}
+
+.lc-rating-subtitle {
+    margin: 0 0 20px 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    border-bottom: 1px dashed rgba(34, 197, 94, 0.3);
+    padding-bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Buttons */
+.lc-rating-btn-container {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.lc-rating-btn {
+    flex: 1;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.lc-rating-btn-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.lc-rating-btn-desc {
+    font-size: 9px;
+    opacity: 0.6;
+}
+
+.lc-rating-btn:hover {
+    background: rgba(34, 197, 94, 0.1);
+    color: #fff;
+    border-color: #22c55e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Specific colors for buttons on hover */
+.rating-btn-again:hover {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444 !important;
+}
+
+.rating-btn-hard:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b !important;
+}
+
+.rating-btn-good:hover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6 !important;
+}
+
+.rating-btn-easy:hover {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e !important;
+}
+
+@keyframes popInToast {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* --- Drag Tooltip Styles --- */
+.lc-notes-tooltip {
+    position: fixed;
+    z-index: 100001;
+    /* Above button which is 99999 */
+    background: rgba(34, 197, 94, 0.95);
+    /* Green theme */
+    color: #000;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+    width: max-content;
+    max-width: 250px;
+
+    /* Animation */
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.lc-notes-tooltip.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.lc-notes-tooltip-arrow {
+    position: absolute;
+    right: -6px;
+    /* Stick to right side to point to button on its right */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 6px solid rgba(34, 197, 94, 0.95);
+}
+
+.lc-tooltip-close {
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #000;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    margin-left: 4px;
+}
+
+.lc-tooltip-close:hover {
+    background: rgba(0, 0, 0, 0.2);
+}

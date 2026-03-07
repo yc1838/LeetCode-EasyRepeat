@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.jest_cache/
+.test-profile/
+.manual-test-profile/
+.puppeteer_tmp_*/
+
+# Production
+build/
+dist/
+
+# System Files
+.DS_Store
+.env
+/mcp-server/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.claude/
+HACKATHON_DESCRIPTION.md
+HACKATHON_SUBMISSION.md

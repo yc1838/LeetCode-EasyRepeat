@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page_title">LeetCode EasyRepeat - AI Setup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;600&family=JetBrains+Mono:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="options.css">
+</head>
+
+<body>
+    <div class="page">
+        <header class="hero">
+            <div class="hero-top">
+                <div>
+                    <div class="hero-title" data-i18n="hero_title">LeetCode EasyRepeat</div>
+                    <div class="hero-subtitle" data-i18n="hero_subtitle">AI Setup</div>
+                </div>
+                <div class="lang-control">
+                    <label for="lang-select" class="lang-label" data-i18n="language_label">🌐 Language</label>
+                    <select id="lang-select" class="lang-select">
+                        <option value="en">English</option>
+                        <option value="zh">中文</option>
+                        <option value="hi-IN">हिन्दी</option>
+                        <option value="ja-JP">日本語</option>
+                        <option value="pt-BR">Português</option>
+                        <option value="de-DE">Deutsch</option>
+                        <option value="ko-KR">한국어</option>
+                        <option value="fr-FR">Français</option>
+                        <option value="pl-PL">Polski</option>
+                        <option value="es-ES">Español</option>
+                        <option value="tr-TR">Türkçe</option>
+                    </select>
+                </div>
+            </div>
+            <div class="hero-note" data-i18n="hero_note">Configure local or cloud AI providers and verify
+                connections.</div>
+        </header>
+
+        <section class="card ai-gate-card" id="ai-gate-card">
+            <h2 data-i18n="ai_gate_heading">Enable AI Analysis</h2>
+            <p class="hint" data-i18n="ai_gate_hint">Turn this on to unlock AI-powered mistake analysis and neural
+                retention features.</p>
+
+            <div class="row mode-row" style="gap: 20px;">
+                <label class="radio-card">
+                    <input type="radio" name="ai-analysis-mode" value="enabled" id="ai-analysis-enabled">
+                    <div class="card-content">
+                        <span class="icon">✅</span>
+                        <div class="text">
+                            <span class="title" data-i18n="ai_gate_enable_title">Enable AI Analysis</span>
+                            <span class="subtitle" data-i18n="ai_gate_enable_subtitle">Allows mistake analysis, model
+                                setup, nightly digest, and drill generation.</span>
+                        </div>
+                    </div>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="ai-analysis-mode" value="disabled" id="ai-analysis-disabled">
+                    <div class="card-content">
+                        <span class="icon">⛔</span>
+                        <div class="text">
+                            <span class="title" data-i18n="ai_gate_disable_title">Disable AI Analysis</span>
+                            <span class="subtitle" data-i18n="ai_gate_disable_subtitle">Hides AI setup and neural
+                                retention modules.</span>
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="local-warning ai-feature-list">
+                <p><strong data-i18n="ai_gate_features_title">AI-only features when enabled:</strong></p>
+                <ul>
+                    <li data-i18n="ai_feature_item_1">Automatic wrong-answer analysis after failed submissions.</li>
+                    <li data-i18n="ai_feature_item_2">Local/Cloud model configuration and connection testing.</li>
+                    <li data-i18n="ai_feature_item_3">Backfill, nightly digest, and weak-skill drill generation.</li>
+                    <li data-i18n="ai_feature_item_4">Agent scheduling and debug settings.</li>
+                </ul>
+            </div>
+
+            <div class="actions">
+                <span id="ai-gate-status" class="status-text"></span>
+            </div>
+        </section>
+
+        <section class="card ai-config-card" id="ai-config-card">
+            <h2 data-i18n="ai_configuration_heading">AI Configuration</h2>
+            <div class="field">
+                <label for="model-select" data-i18n="active_model_label">Active Model (Choose First)</label>
+                <select id="model-select" class="full-width">
+                    <!-- Populated by JS -->
+                </select>
+                <p class="hint" data-i18n="active_model_hint">Model options switch automatically based on the selected
+                    mode (Local / Cloud).</p>
+            </div>
+
+            <hr class="section-divider">
+
+            <h2 data-i18n="choose_intelligence_source_heading">Choose Intelligence Source</h2>
+            <div class="row mode-row" style="gap: 20px;">
+                <label class="radio-card">
+                    <input type="radio" name="provider-mode" value="local" id="mode-local">
+                    <div class="card-content">
+                        <span class="icon">🏠</span>
+                        <div class="text">
+                            <span class="title" data-i18n="local_card_title">Local (Private)</span>
+                            <span class="subtitle" data-i18n="local_card_subtitle">Private and offline, but lower
+                                reasoning reliability.</span>
+                        </div>
+                    </div>
+                </label>
+                <label class="radio-card">
+                    <input type="radio" name="provider-mode" value="cloud" id="mode-cloud">
+                    <div class="card-content">
+                        <span class="icon">☁️</span>
+                        <div class="text">
+                            <span class="title" data-i18n="cloud_card_title">Cloud API</span>
+                            <span class="subtitle" data-i18n="cloud_card_subtitle">Higher Logic, Paid. Requires API
+                                Keys.</span>
+                        </div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="hidden-section setup-panel" id="section-cloud">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <h3 style="margin: 0;" data-i18n="cloud_access_keys_heading">Cloud Access Keys</h3>
+                    <a href="https://www.google.com/search?q=how+to+get+Google+gemini+api+key%2C+claude+api+key+and+openai+api+key+for+free"
+                        target="_blank" rel="noopener noreferrer" class="hint" style="font-size: 0.68rem;"
+                        data-i18n="cloud_key_help_link">
+                        Not sure how to get API keys? Click here.
+                    </a>
+                </div>
+                <div class="grid">
+                    <div class="field">
+                        <label for="key-google" data-i18n="google_key_label">Google Gemini API Key</label>
+                        <input id="key-google" type="password" placeholder="AIzaSy...">
+                    </div>
+                    <div class="field">
+                        <label for="key-openai" data-i18n="openai_key_label">OpenAI API Key</label>
+                        <input id="key-openai" type="password" placeholder="sk-...">
+                    </div>
+                    <div class="field">
+                        <label for="key-anthropic" data-i18n="anthropic_key_label">Anthropic API Key</label>
+                        <input id="key-anthropic" type="password" placeholder="sk-ant-...">
+                    </div>
+                </div>
+                <p class="hint" style="margin-top: 10px;" data-i18n="cloud_local_endpoint_note">Local Endpoint is not
+                    used in Cloud mode.</p>
+            </div>
+
+            <div class="hidden-section setup-panel" id="section-local">
+                <h3 style="margin: 0 0 10px;" data-i18n="local_setup_heading">Local LLM Setup</h3>
+                <p class="hint" data-i18n="local_setup_hint">Use Ollama or LM Studio to run models locally.</p>
+                <div class="local-warning">
+                    <p><strong data-i18n="local_quality_warning_strong">Quality warning:</strong> <span
+                            data-i18n="local_quality_warning_rest">Local models can significantly reduce analysis
+                            quality.</span></p>
+                    <ul>
+                        <li data-i18n="local_warning_item_1">They may incorrectly judge tricky LeetCode correctness and
+                            edge cases.</li>
+                        <li data-i18n="local_warning_item_2">Nightly digest notes can become generic, incomplete, or
+                            inconsistent.</li>
+                        <li data-i18n="local_warning_item_3">Use cloud models when you need high-confidence grading and
+                            high-quality notes.</li>
+                    </ul>
+                </div>
+                <div class="grid">
+                    <div class="field">
+                        <label for="local-endpoint" data-i18n="local_endpoint_label">Local Endpoint</label>
+                        <input id="local-endpoint" type="text" placeholder="http://localhost:11434">
+                        <span class="hint endpoint-hint" data-i18n-html="local_endpoint_hint_html">This is not
+                            auto-discovered. It is only used in Local mode to point the extension to your local model
+                            server (default <code>http://127.0.0.1:11434</code>).</span>
+                    </div>
+                </div>
+                <div class="actions" style="margin-top:10px;">
+                    <button id="test-local" class="btn" data-i18n="test_connection_button">Test Connection</button>
+                    <span id="test-status" class="status-text"></span>
+                </div>
+
+                <hr class="section-divider">
+
+                <h3 style="margin-bottom: 10px;" data-i18n="quick_setup_heading">Quick Setup Guide</h3>
+                <ol class="steps">
+                    <li data-i18n="quick_setup_step_1">Install a local model server.</li>
+                    <li data-i18n="quick_setup_step_2">Start the server and keep it running.</li>
+                    <li data-i18n="quick_setup_step_3">Enter the endpoint above and click Test Connection.</li>
+                </ol>
+                <div class="subhead" data-i18n="ollama_example_heading">Ollama (example)</div>
+                <pre><code>ollama serve
+ollama pull llama3.1
+ollama run llama3.1</code></pre>
+                <div class="subhead" data-i18n="lm_studio_heading">LM Studio (OpenAI-compatible)</div>
+                <pre><code>Start the local server in LM Studio
+Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
+                <div class="subhead" data-i18n="troubleshooting_heading">Troubleshooting</div>
+                <ul class="notes">
+                    <li data-i18n="troubleshooting_item_1">If the test fails with a network error, the server is likely
+                        not running.</li>
+                    <li data-i18n="troubleshooting_item_2">If you see a CORS error, enable CORS on the local server.
+                    </li>
+                </ul>
+            </div>
+
+            <div class="actions">
+                <button id="save-settings" class="btn primary" data-i18n="save_all_settings_button">Save All
+                    Settings</button>
+                <span id="save-status" class="status-text"></span>
+            </div>
+        </section>
+
+        <section class="card" id="neural-retention-card">
+            <h2 data-i18n="neural_retention_heading">🧠 Neural Retention Agent</h2>
+            <p class="hint" data-i18n="neural_retention_hint">Manually trigger digest and drill generation for testing.
+            </p>
+            <div class="grid" style="gap: 15px; margin-top: 15px;">
+                <div class="field">
+                    <button id="backfill-history" class="btn primary" style="width: 100%;"
+                        data-i18n="backfill_button">📚 Rebuild Skill Profile from History (One-Time)</button>
+                    <span id="backfill-status" class="status-text"></span>
+                </div>
+                <div class="field">
+                    <button id="run-digest" class="btn" style="width: 100%;" data-i18n="run_digest_button">⚡ Run
+                        Today's Analysis + Weak-Skill Update</button>
+                    <span id="digest-status" class="status-text"></span>
+                </div>
+                <div class="field">
+                    <button id="gen-drills" class="btn" style="width: 100%;" data-i18n="generate_drills_button">🎯
+                        Refill Drill Queue from Weak Skills</button>
+                    <span id="drills-status" class="status-text"></span>
+                </div>
+            </div>
+            <div class="notes" style="margin-top: 15px; font-size: 0.85em; opacity: 0.7;">
+                <p data-i18n-html="neural_note_backfill_html">• <b>Rebuild</b>: Scan all past submissions to rebuild your Skill DNA</p>
+                <p data-i18n-html="neural_note_nightly_html">• <b>Today's Analysis</b>: Analyze today's data and refresh weak skills</p>
+                <p data-i18n-html="neural_note_generate_html">• <b>Refill Queue</b>: Top up pending drills to the queue target</p>
+                <p data-i18n-html="neural_note_generate_cap_html">• <b>Cap</b>: Max 9 drills per weak skill (up to 3 per drill type)</p>
+            </div>
+        </section>
+
+        <section class="card" id="agent-settings-card">
+            <h2 data-i18n="agent_settings_heading">⚙️ Agent Settings</h2>
+            <div class="grid" style="gap: 15px;">
+                <div class="field">
+                    <label for="digest-time" data-i18n="digest_time_label">Nightly Digest Time:</label>
+                    <input type="time" id="digest-time" value="02:00" class="full-width">
+                </div>
+                <div class="field">
+                    <label for="pattern-threshold" data-i18n="pattern_threshold_label">Error Pattern Threshold:</label>
+                    <input type="number" id="pattern-threshold" min="1" max="10" value="3" class="full-width">
+                    <span class="hint" data-i18n="pattern_threshold_hint">Mistakes needed to activate a pattern</span>
+                </div>
+                <div class="field">
+                    <label for="debug-logs" data-i18n="debug_logs_label">Verbose Debug Logs:</label>
+                    <div class="checkbox-row">
+                        <input type="checkbox" id="debug-logs">
+                        <label for="debug-logs" class="hint" data-i18n="debug_logs_hint">Enable background debug
+                            logging</label>
+                    </div>
+                </div>
+            </div>
+            <div class="actions" style="margin-top: 15px;">
+                <button id="save-agent-settings" class="btn" data-i18n="save_agent_settings_button">💾 Save Agent
+                    Settings</button>
+                <span id="agent-save-status" class="status-text"></span>
+            </div>
+        </section>
+
+        <section class="card" id="tools-card">
+            <h2 data-i18n="tools_heading">🧰 Tools</h2>
+            <p class="hint" data-i18n="tools_hint">Manual maintenance utilities.</p>
+            <div class="grid" style="gap: 15px; margin-top: 15px;">
+                <div class="field">
+                    <label for="streak-repair-date" data-i18n="streak_repair_date_label">Date to mark active (YYYY-MM-DD)</label>
+                    <input type="date" id="streak-repair-date">
+                    <span class="hint" data-i18n="streak_repair_hint">Use this when a streak day was missed because activity was not logged.</span>
+                </div>
+            </div>
+            <div class="actions">
+                <button id="streak-repair-btn" class="btn" data-i18n="streak_repair_button">Repair Streak Day</button>
+                <span id="streak-repair-status" class="status-text"></span>
+            </div>
+        </section>
+
+    </div>
+
+    <script type="module" src="options.entry.js"></script>
+</body>
+
+</html>

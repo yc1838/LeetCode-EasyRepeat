@@ -1,0 +1,664 @@
+{
+    "version": "1.1.0",
+    "totalSkills": 89,
+    "description": "DSA skill taxonomy based on NeetCode roadmap tiers. Skills grouped by pattern, not data structure.",
+    "families": [
+        {
+            "id": "arrays_hashing",
+            "name": "Arrays & Hashing",
+            "tier": 1,
+            "skills": [
+                {
+                    "id": "prefix_sum",
+                    "name": "Prefix Sum / Cumulative Sum",
+                    "weight": 3
+                },
+                {
+                    "id": "kadane",
+                    "name": "Kadane's Algorithm (Max Subarray)",
+                    "weight": 2
+                },
+                {
+                    "id": "dutch_flag",
+                    "name": "Dutch National Flag (3-way partition)",
+                    "weight": 1
+                },
+                {
+                    "id": "rotation",
+                    "name": "Array Rotation",
+                    "weight": 1
+                },
+                {
+                    "id": "merge_intervals",
+                    "name": "Merge Overlapping Intervals",
+                    "weight": 2
+                },
+                {
+                    "id": "subarray_sum",
+                    "name": "Subarray Sum Patterns",
+                    "weight": 2
+                },
+                {
+                    "id": "hashmap_lookup",
+                    "name": "HashMap for O(1) Lookup",
+                    "weight": 3
+                },
+                {
+                    "id": "hashset_dedup",
+                    "name": "HashSet for Deduplication",
+                    "weight": 2
+                },
+                {
+                    "id": "counting_map",
+                    "name": "Frequency Counter / Counting Map",
+                    "weight": 3
+                },
+                {
+                    "id": "two_sum_pattern",
+                    "name": "Two Sum HashMap Pattern",
+                    "weight": 3
+                },
+                {
+                    "id": "group_by",
+                    "name": "Group By Key Pattern",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "two_pointers",
+            "name": "Two Pointers",
+            "tier": 1,
+            "skills": [
+                {
+                    "id": "two_pointer_opposite",
+                    "name": "Two Pointers (Opposite Direction)",
+                    "weight": 3
+                },
+                {
+                    "id": "two_pointer_same",
+                    "name": "Two Pointers (Same Direction)",
+                    "weight": 2
+                },
+                {
+                    "id": "fast_slow",
+                    "name": "Fast & Slow Pointers (Floyd's)",
+                    "weight": 2
+                },
+                {
+                    "id": "three_pointer",
+                    "name": "Three Pointer (3Sum pattern)",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "sliding_window",
+            "name": "Sliding Window",
+            "tier": 1,
+            "skills": [
+                {
+                    "id": "sliding_fixed",
+                    "name": "Fixed-Size Sliding Window",
+                    "weight": 2
+                },
+                {
+                    "id": "sliding_variable",
+                    "name": "Variable-Size Sliding Window",
+                    "weight": 3
+                },
+                {
+                    "id": "sliding_shrink",
+                    "name": "Shrinkable Window Pattern",
+                    "weight": 2
+                },
+                {
+                    "id": "deque_sliding",
+                    "name": "Deque for Sliding Window Max/Min",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "stack",
+            "name": "Stack",
+            "tier": 1,
+            "skills": [
+                {
+                    "id": "stack_matching",
+                    "name": "Stack for Matching (parentheses)",
+                    "weight": 2
+                },
+                {
+                    "id": "monotonic_stack",
+                    "name": "Monotonic Stack",
+                    "weight": 2
+                },
+                {
+                    "id": "stack_calculator",
+                    "name": "Stack for Expression Evaluation",
+                    "weight": 1
+                },
+                {
+                    "id": "stack_history",
+                    "name": "Stack for Undo/History",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "binary_search",
+            "name": "Binary Search",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "binary_search_basic",
+                    "name": "Binary Search (Basic)",
+                    "weight": 3
+                },
+                {
+                    "id": "binary_search_bounds",
+                    "name": "Binary Search (Lower/Upper Bound)",
+                    "weight": 2
+                },
+                {
+                    "id": "search_rotated",
+                    "name": "Search in Rotated Array",
+                    "weight": 2
+                },
+                {
+                    "id": "binary_search_answer",
+                    "name": "Binary Search on Answer",
+                    "weight": 2
+                },
+                {
+                    "id": "binary_search_2d",
+                    "name": "Binary Search in 2D Matrix",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "linked_list",
+            "name": "Linked List",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "ll_reversal",
+                    "name": "Linked List Reversal",
+                    "weight": 2
+                },
+                {
+                    "id": "ll_cycle",
+                    "name": "Linked List Cycle Detection",
+                    "weight": 2
+                },
+                {
+                    "id": "ll_merge",
+                    "name": "Merge Sorted Lists",
+                    "weight": 2
+                },
+                {
+                    "id": "ll_dummy_head",
+                    "name": "Dummy Head Technique",
+                    "weight": 2
+                },
+                {
+                    "id": "ll_middle",
+                    "name": "Find Middle of List",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "trees",
+            "name": "Trees",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "tree_traversal_recursive",
+                    "name": "Tree Traversal (Recursive)",
+                    "weight": 3
+                },
+                {
+                    "id": "tree_traversal_iterative",
+                    "name": "Tree Traversal (Iterative)",
+                    "weight": 2
+                },
+                {
+                    "id": "level_order",
+                    "name": "Level Order Traversal (BFS)",
+                    "weight": 2
+                },
+                {
+                    "id": "bst_operations",
+                    "name": "BST Insert/Search/Delete",
+                    "weight": 2
+                },
+                {
+                    "id": "bst_validation",
+                    "name": "BST Validation",
+                    "weight": 2
+                },
+                {
+                    "id": "lca",
+                    "name": "Lowest Common Ancestor",
+                    "weight": 2
+                },
+                {
+                    "id": "tree_construction",
+                    "name": "Tree Construction from Traversal",
+                    "weight": 1
+                },
+                {
+                    "id": "tree_serialization",
+                    "name": "Tree Serialization/Deserialization",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "tries",
+            "name": "Tries",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "trie_basic",
+                    "name": "Trie Insert/Search",
+                    "weight": 2
+                },
+                {
+                    "id": "trie_prefix",
+                    "name": "Trie Prefix Search",
+                    "weight": 2
+                },
+                {
+                    "id": "trie_word_search",
+                    "name": "Word Search with Trie",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "heap",
+            "name": "Heap / Priority Queue",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "heap_topk",
+                    "name": "Heap for Top-K Elements",
+                    "weight": 3
+                },
+                {
+                    "id": "heap_median",
+                    "name": "Two Heaps for Median",
+                    "weight": 2
+                },
+                {
+                    "id": "heap_merge_k",
+                    "name": "Heap for Merging K Sorted",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "backtracking",
+            "name": "Backtracking",
+            "tier": 3,
+            "skills": [
+                {
+                    "id": "backtrack_template",
+                    "name": "Backtracking Template",
+                    "weight": 3
+                },
+                {
+                    "id": "permutations",
+                    "name": "Generating Permutations",
+                    "weight": 2
+                },
+                {
+                    "id": "combinations",
+                    "name": "Generating Combinations",
+                    "weight": 2
+                },
+                {
+                    "id": "subsets",
+                    "name": "Generating Subsets",
+                    "weight": 2
+                },
+                {
+                    "id": "pruning",
+                    "name": "Pruning / Early Termination",
+                    "weight": 2
+                },
+                {
+                    "id": "constraint_satisfaction",
+                    "name": "Constraint Satisfaction (Sudoku, N-Queens)",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "graphs",
+            "name": "Graphs",
+            "tier": 3,
+            "skills": [
+                {
+                    "id": "bfs",
+                    "name": "Breadth-First Search",
+                    "weight": 3,
+                    "subgroup": "traversal"
+                },
+                {
+                    "id": "dfs",
+                    "name": "Depth-First Search",
+                    "weight": 3,
+                    "subgroup": "traversal"
+                },
+                {
+                    "id": "graph_cycle",
+                    "name": "Cycle Detection",
+                    "weight": 2,
+                    "subgroup": "traversal"
+                },
+                {
+                    "id": "topological_sort",
+                    "name": "Topological Sort",
+                    "weight": 2,
+                    "subgroup": "traversal"
+                },
+                {
+                    "id": "connected_components",
+                    "name": "Connected Components",
+                    "weight": 2,
+                    "subgroup": "traversal"
+                },
+                {
+                    "id": "union_find",
+                    "name": "Union-Find / Disjoint Set",
+                    "weight": 2,
+                    "subgroup": "advanced"
+                },
+                {
+                    "id": "dijkstra",
+                    "name": "Dijkstra's Shortest Path",
+                    "weight": 2,
+                    "subgroup": "shortest_path"
+                },
+                {
+                    "id": "bellman_ford",
+                    "name": "Bellman-Ford Algorithm",
+                    "weight": 1,
+                    "subgroup": "shortest_path"
+                },
+                {
+                    "id": "floyd_warshall",
+                    "name": "Floyd-Warshall (All Pairs)",
+                    "weight": 1,
+                    "subgroup": "shortest_path"
+                },
+                {
+                    "id": "mst",
+                    "name": "Minimum Spanning Tree (Prim/Kruskal)",
+                    "weight": 1,
+                    "subgroup": "advanced"
+                },
+                {
+                    "id": "bipartite",
+                    "name": "Bipartite Graph Check",
+                    "weight": 1,
+                    "subgroup": "advanced"
+                }
+            ]
+        },
+        {
+            "id": "greedy",
+            "name": "Greedy",
+            "tier": 3,
+            "skills": [
+                {
+                    "id": "greedy_intervals",
+                    "name": "Greedy Interval Scheduling",
+                    "weight": 2
+                },
+                {
+                    "id": "greedy_local_optimal",
+                    "name": "Local-to-Global Optimal",
+                    "weight": 2
+                },
+                {
+                    "id": "greedy_sorting",
+                    "name": "Greedy with Sorting",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "dynamic_programming",
+            "name": "Dynamic Programming",
+            "tier": 4,
+            "skills": [
+                {
+                    "id": "dp_1d",
+                    "name": "1D DP (Fibonacci-style)",
+                    "weight": 3,
+                    "subgroup": "basic"
+                },
+                {
+                    "id": "dp_2d",
+                    "name": "2D DP (Grid problems)",
+                    "weight": 2,
+                    "subgroup": "basic"
+                },
+                {
+                    "id": "dp_knapsack",
+                    "name": "0/1 Knapsack",
+                    "weight": 2,
+                    "subgroup": "knapsack"
+                },
+                {
+                    "id": "dp_unbounded",
+                    "name": "Unbounded Knapsack / Coin Change",
+                    "weight": 2,
+                    "subgroup": "knapsack"
+                },
+                {
+                    "id": "dp_lcs",
+                    "name": "Longest Common Subsequence",
+                    "weight": 2,
+                    "subgroup": "string"
+                },
+                {
+                    "id": "dp_lis",
+                    "name": "Longest Increasing Subsequence",
+                    "weight": 2,
+                    "subgroup": "sequence"
+                },
+                {
+                    "id": "dp_memoization",
+                    "name": "Memoization Pattern",
+                    "weight": 3,
+                    "subgroup": "basic"
+                },
+                {
+                    "id": "dp_state_design",
+                    "name": "State Transition Design",
+                    "weight": 2,
+                    "subgroup": "basic"
+                },
+                {
+                    "id": "dp_bitmask",
+                    "name": "Bitmask DP",
+                    "weight": 1,
+                    "subgroup": "advanced"
+                },
+                {
+                    "id": "dp_interval",
+                    "name": "Interval DP",
+                    "weight": 1,
+                    "subgroup": "advanced"
+                }
+            ]
+        },
+        {
+            "id": "bit_manipulation",
+            "name": "Bit Manipulation",
+            "tier": 4,
+            "skills": [
+                {
+                    "id": "bit_basics",
+                    "name": "Bit Operations (AND, OR, XOR)",
+                    "weight": 2
+                },
+                {
+                    "id": "bit_counting",
+                    "name": "Counting Set Bits",
+                    "weight": 2
+                },
+                {
+                    "id": "bit_single_number",
+                    "name": "Single Number (XOR trick)",
+                    "weight": 2
+                },
+                {
+                    "id": "bit_power_of_two",
+                    "name": "Power of Two Check",
+                    "weight": 1
+                },
+                {
+                    "id": "bit_masking",
+                    "name": "Bit Masking for Subsets",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "math_number_theory",
+            "name": "Math & Number Theory",
+            "tier": 4,
+            "skills": [
+                {
+                    "id": "math_gcd_lcm",
+                    "name": "GCD / LCM",
+                    "weight": 2
+                },
+                {
+                    "id": "math_prime",
+                    "name": "Prime Number Sieve",
+                    "weight": 1
+                },
+                {
+                    "id": "math_modular",
+                    "name": "Modular Arithmetic",
+                    "weight": 2
+                },
+                {
+                    "id": "math_combinatorics",
+                    "name": "Combinatorics (nCr)",
+                    "weight": 1
+                },
+                {
+                    "id": "math_geometry",
+                    "name": "Basic Geometry",
+                    "weight": 1
+                }
+            ]
+        },
+        {
+            "id": "strings",
+            "name": "Strings",
+            "tier": 2,
+            "skills": [
+                {
+                    "id": "palindrome",
+                    "name": "Palindrome Checks",
+                    "weight": 2
+                },
+                {
+                    "id": "anagram",
+                    "name": "Anagram Detection",
+                    "weight": 2
+                },
+                {
+                    "id": "kmp",
+                    "name": "KMP Pattern Matching",
+                    "weight": 1
+                },
+                {
+                    "id": "rabin_karp",
+                    "name": "Rabin-Karp Rolling Hash",
+                    "weight": 1
+                },
+                {
+                    "id": "string_parsing",
+                    "name": "String Parsing / Tokenization",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "divide_conquer",
+            "name": "Divide & Conquer",
+            "tier": 3,
+            "skills": [
+                {
+                    "id": "mergesort",
+                    "name": "Merge Sort",
+                    "weight": 2
+                },
+                {
+                    "id": "quickselect",
+                    "name": "Quickselect (Kth Element)",
+                    "weight": 2
+                },
+                {
+                    "id": "dc_recursive_split",
+                    "name": "Recursive Split & Merge",
+                    "weight": 2
+                }
+            ]
+        },
+        {
+            "id": "edge_cases",
+            "name": "Edge Cases & Debugging",
+            "tier": 1,
+            "skills": [
+                {
+                    "id": "edge_empty",
+                    "name": "Empty Input Handling",
+                    "weight": 3
+                },
+                {
+                    "id": "edge_single",
+                    "name": "Single Element Edge Case",
+                    "weight": 2
+                },
+                {
+                    "id": "edge_boundary",
+                    "name": "Boundary Conditions (0, max)",
+                    "weight": 3
+                },
+                {
+                    "id": "off_by_one",
+                    "name": "Off-by-One Errors",
+                    "weight": 3
+                },
+                {
+                    "id": "integer_overflow",
+                    "name": "Integer Overflow",
+                    "weight": 2
+                },
+                {
+                    "id": "null_check",
+                    "name": "Null/None Checks",
+                    "weight": 2
+                },
+                {
+                    "id": "index_bounds",
+                    "name": "Index Out of Bounds",
+                    "weight": 2
+                }
+            ]
+        }
+    ]
+}

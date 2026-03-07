@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flash UI - Embossed Cardstock Relief</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="drill_overview.css">
+    <!-- Load Dexie before module scripts -->
+    <script src="../assets/libs/dexie.min.js"></script>
+</head>
+
+<body>
+
+    <svg class="texture-overlay">
+        <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#grain)" />
+    </svg>
+
+    <aside>
+        <div class="brand">Drill Practices</div>
+        <ul class="folder-list" id="folder-list">
+            <!-- Folders injected via JS -->
+        </ul>
+
+    </aside>
+
+    <main>
+        <div class="card-scroller" id="scroller">
+            <div class="card" id="card">
+                <!-- Data injected via JS -->
+                <div class="card-face">
+                    <div class="empty-message">Select a folder to view drills</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls reveal" style="animation-delay: 0.2s;">
+            <button class="btn-start" id="btn-start">Start Review Session</button>
+        </div>
+
+        <div class="scroll-hint">Scroll Card to Flip</div>
+    </main>
+
+    <script type="module" src="drill_overview.entry.js"></script>
+</body>
+
+</html>

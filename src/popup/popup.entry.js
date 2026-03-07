@@ -1,0 +1,14 @@
+console.log('[Popup Entry] Starting to load modules...');
+import '../shared/config.js';
+console.log('[Popup Entry] Config loaded, window.THEMES:', typeof window !== 'undefined' ? window.THEMES : 'N/A');
+import '../algorithms/fsrs_logic.js';
+import '../shared/storage.js';
+import '../algorithms/vector_db.js';
+import '../content/skill_graph.js';
+import '../content/drill_queue.js';
+import '../content/skill_animations.js';
+import '../background/agent_loader.js';
+console.log('[Popup Entry] All dependencies loaded');
+import './popup_ui.js';
+import './popup.js';
+console.log('[Popup Entry] Popup modules loaded');

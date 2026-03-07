@@ -1,0 +1,303 @@
+:root {
+    --paper-base: #f4f3ef;
+    --paper-shadow: #d1cfc7;
+    --paper-highlight: #ffffff;
+    --ink: #1a1a1a;
+    --accent: #3a5a40;
+    --debossed-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -3px -3px 7px rgba(255, 255, 255, 0.8);
+    --embossed-shadow: 4px 4px 10px rgba(0, 0, 0, 0.08), -4px -4px 10px rgba(255, 255, 255, 0.9);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background-color: var(--paper-base);
+    font-family: 'Outfit', sans-serif;
+    color: var(--ink);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+/* SVG Grain Texture Overlay */
+.texture-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.04;
+    z-index: 1000;
+    mix-blend-mode: multiply;
+}
+
+/* Sidebar: Folder Navigation */
+aside {
+    width: 320px;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.brand {
+    font-weight: 800;
+    font-size: 1.5rem;
+    letter-spacing: -0.05em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+}
+
+.folder-list {
+    list-style: none;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    /* Important for flex scrolling */
+}
+
+.folder-item {
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    background: var(--paper-base);
+    box-shadow: var(--embossed-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.folder-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 6px 15px rgba(0, 0, 0, 0.05);
+}
+
+.folder-item.active {
+    box-shadow: var(--debossed-shadow);
+    transform: translateY(1px);
+    color: var(--accent);
+}
+
+.folder-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    opacity: 0.5;
+}
+
+/* Main Workspace */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    perspective: 2000px;
+}
+
+/* The Card Stack / Perspective Container */
+.card-scroller {
+    position: relative;
+    width: 650px;
+    /* Increased width */
+    height: 600px;
+    /* Increased height */
+    cursor: pointer;
+    /* Changed to pointer for click affordance */
+    transition: transform 0.1s ease-out;
+    transform-style: preserve-3d;
+}
+
+.card {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    border-radius: 12px;
+    background: var(--paper-base);
+    box-shadow: var(--embossed-shadow);
+}
+
+.card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    /* Reduced padding */
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.card-back {
+    transform: rotateX(180deg);
+    background: #fbfaf8;
+}
+
+/* Card Content Components */
+.tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+    /* Reduced margin */
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+h2 {
+    font-size: 1.4rem;
+    /* Reduced font size */
+    font-weight: 300;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+    /* Reduced margin */
+}
+
+.problem-description {
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+    max-height: 100px;
+    overflow-y: auto;
+    font-family: sans-serif;
+}
+
+.code-block {
+    font-family: 'JetBrains Mono', monospace;
+    background: #ecebe4;
+    padding: 1.5rem;
+    border-radius: 6px;
+    box-shadow: var(--debossed-shadow);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    position: relative;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    overflow-y: auto;
+    /* Enable vertical scroll */
+    max-height: 400px;
+    /* Limit height to force scroll if needed */
+    flex: 1;
+    /* Allow it to grow */
+}
+
+.fill-input {
+    border: none;
+    background: none;
+    border-bottom: 2px solid var(--accent);
+    min-width: 60px;
+    font-family: inherit;
+    font-size: inherit;
+    text-align: center;
+    outline: none;
+    color: var(--accent);
+    font-weight: 600;
+    padding: 0 4px;
+}
+
+/* Review Control */
+.controls {
+    margin-top: 1rem;
+    /* Further reduced margin */
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.btn-start {
+    padding: 0.8rem 2rem;
+    /* Reduced padding */
+    background: var(--paper-base);
+    border: none;
+    border-radius: 50px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.8rem;
+    /* Slightly smaller font */
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: var(--embossed-shadow);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-start:hover {
+    transform: scale(1.02);
+    box-shadow: 8px 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.btn-start:active {
+    box-shadow: var(--debossed-shadow);
+    transform: scale(0.98);
+}
+
+.scroll-hint {
+    position: absolute;
+    right: 4rem;
+    top: 50%;
+    transform: translateY(-50%) rotate(90deg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    opacity: 0.4;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.scroll-hint::before {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--ink), transparent);
+}
+
+/* Animation States */
+.is-flipped {
+    transform: rotateX(180deg);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.reveal {
+    animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Empty State */
+.empty-message {
+    text-align: center;
+    opacity: 0.5;
+    font-size: 1.2rem;
+}

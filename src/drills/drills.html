@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Drill Practice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="drills.css">
+    <!-- Load Dexie before module scripts -->
+    <script src="../assets/libs/dexie.min.js"></script>
+</head>
+
+<body>
+    <svg class="texture-overlay">
+        <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#grain)" />
+    </svg>
+    <div class="page-container">
+        <!-- Header -->
+        <header class="drill-header-bar">
+            <div class="logo">🧠 Drill Practice</div>
+            <div class="progress-info">
+                <span id="drill-progress">Drill 1 of 3</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 33%"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="drill-main">
+            <div id="drill-content">
+                <!-- Drill content rendered here by JS -->
+                <div class="loading">Loading drill...</div>
+            </div>
+
+            <div id="drill-result" style="display: none;">
+                <!-- Result rendered here after submission -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="drill-footer">
+            <div class="skill-badge" id="skill-badge">
+                <span class="skill-icon">📊</span>
+                <span id="current-skill">Loading...</span>
+            </div>
+            <div class="session-info">
+                <span id="session-time">00:00</span>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="drills.entry.js"></script>
+</body>
+
+</html>

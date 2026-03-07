@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+requests
+pydantic
+mcp
+e2b-code-interpreter
+python-dotenv

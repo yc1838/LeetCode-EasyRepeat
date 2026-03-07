@@ -1,0 +1,1113 @@
+:root {
+    --void: #0A0A0A;
+
+    /* 🏳️‍🌈 Lesbian Flag Color Palette */
+    --flag-red: #D52D00;
+    /* Deep red - top stripe */
+    --flag-orange: #EF7627;
+    /* Orange */
+    --flag-peach: #FF9A56;
+    /* Light orange/peach */
+    --flag-white: #FFFFFF;
+    /* White - middle */
+    --flag-pink: #D162A4;
+    /* Light pink */
+    --flag-dusty: #B55690;
+    /* Dusty pink/mauve */
+    --flag-magenta: #A30262;
+    /* Deep magenta - bottom */
+
+    /* Primary UI Colors - using lighter, glowing tones */
+    --terminal: #FF9A56;
+    /* Neon Peach - primary (lighter, more vibrant!) */
+    --electric: #D162A4;
+    /* Light Pink - secondary */
+    --accent: #EF7627;
+    /* Bright Orange - accent */
+
+    /* Glass & Glow Effects */
+    --glass: rgba(20, 10, 15, 0.85);
+    --border-glow: rgba(255, 154, 86, 0.5);
+    --border-glow-pink: rgba(209, 98, 164, 0.5);
+    --border-glow-orange: rgba(239, 118, 39, 0.5);
+    --border-dim: rgba(255, 154, 86, 0.25);
+
+    /* Heatmap cells using flag gradient */
+    --cell-1: #A30262;
+    /* Deep magenta */
+    --cell-2: #D162A4;
+    /* Light pink */
+    --cell-3: #FF9A56;
+    /* Peach */
+    --cell-4: #EF7627;
+    /* Bright orange */
+
+    --font-main: 'JetBrains Mono', monospace;
+    --font-data: 'Fira Code', monospace;
+
+    /* Status Colors for Timeline */
+    --status-done: #EF7627;
+    /* Orange (Accomplished) */
+    --status-missed: rgba(255, 80, 80, 0.25);
+    /* Visible Faint Red/Gray (Procrastinated) */
+    --status-due: #A30262;
+    /* Deep Magenta (Action Required) */
+    --status-projected: rgba(163, 2, 98, 0.3);
+    /* Faint Magenta (Future) */
+
+    /* Theme-controlled UI properties */
+    --radius: 0px;
+    --scanline-opacity: 1;
+    --backdrop-filter: blur(5px);
+    --bg-main: #0A0A0A;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    cursor: crosshair;
+    border-radius: var(--radius);
+    /* Global rounded corners */
+}
+
+body {
+    background-color: var(--void);
+    color: var(--terminal);
+    font-family: var(--font-main);
+    width: 400px;
+    /* Adjusted to fit extension window better than 800 */
+    height: auto;
+    max-height: 600px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* SCANLINE OVERLAY - with lesbian flag gradient */
+body::before {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background:
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+        linear-gradient(90deg,
+            rgba(213, 45, 0, 0.03),
+            /* flag-red */
+            rgba(239, 118, 39, 0.04),
+            /* flag-orange */
+            rgba(255, 154, 86, 0.05),
+            /* flag-peach */
+            rgba(209, 98, 164, 0.04),
+            /* flag-pink */
+            rgba(163, 2, 98, 0.03)
+            /* flag-magenta */
+        );
+    z-index: 100;
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+    opacity: var(--scanline-opacity);
+}
+
+.extension-container {
+    width: 100%;
+    min-height: 100vh;
+    height: auto;
+    background: var(--bg-main);
+    backdrop-filter: var(--backdrop-filter);
+    border: 2px solid var(--terminal);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+        /* GLASS HIGHLIGHT (Rim Light) */
+        0 0 20px rgba(255, 154, 86, 0.3),
+        /* peach glow */
+        0 0 40px rgba(209, 98, 164, 0.15),
+        /* pink outer glow */
+        inset 0 0 30px rgba(239, 118, 39, 0.05);
+    /* orange inner glow */
+    position: relative;
+    display: grid;
+    grid-template-columns: 50px 1fr;
+    grid-template-rows: 35px auto;
+    overflow: hidden;
+}
+
+/* TOP NAVIGATION / STATUS */
+.status-bar {
+    grid-column: 1 / span 2;
+    border-bottom: 1px solid var(--terminal);
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    justify-content: space-between;
+    font-size: 0.45rem;
+    letter-spacing: 0.5px;
+    background: rgba(255, 16, 240, 0.05);
+    height: 100%;
+    /* Ensure it fills the grid cell */
+    line-height: normal;
+    /* usage of specific line-height to fix vertical alignment */
+}
+
+.status-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.status-ready {
+    color: var(--electric);
+    /* No more blinking - it was annoying */
+}
+
+.ai-toggle {
+    background: transparent;
+    border: 1px solid var(--border-dim);
+    color: var(--terminal);
+    font-family: inherit;
+    font-size: 0.45rem;
+    letter-spacing: 0.4px;
+    padding: 3px 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ai-toggle:hover {
+    border-color: var(--terminal);
+    box-shadow: 0 0 8px var(--border-glow);
+}
+
+.ai-toggle.on {
+    color: var(--void);
+    background: var(--terminal);
+    border-color: var(--terminal);
+}
+
+/* SIDEBAR TACTICAL SWITCHES */
+.sidebar {
+    border-right: 1px solid var(--terminal);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 20px;
+    gap: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 101;
+    /* Above scanline if overlapping */
+}
+
+.nav-icon {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.nav-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: #fff;
+    stroke-width: 1.5;
+    fill: none;
+}
+
+.nav-icon:hover {
+    border-color: var(--terminal);
+    box-shadow: 0 0 10px var(--border-glow);
+    transform: scale(1.05);
+}
+
+.nav-icon.active {
+    background: var(--terminal);
+    border-color: var(--terminal);
+}
+
+.nav-icon.active svg {
+    stroke: var(--void);
+}
+
+.nav-icon-setup svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* MAIN CONTENT AREA */
+.viewport {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: 570px;
+    overflow-y: auto;
+}
+
+/* COGNITIVE HEATMAP (SRS DATA) */
+.heatmap-container {
+    border: 1px solid var(--border-dim);
+    padding: 10px;
+    background: var(--glass);
+    backdrop-filter: var(--backdrop-filter);
+    flex-shrink: 0;
+}
+
+.heatmap-header {
+    font-size: 0.65rem;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--electric);
+}
+
+.heatmap-header-welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 8px;
+}
+
+#welcome-message {
+    min-width: 0;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: break-word;
+}
+
+#streak-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    text-align: right;
+}
+
+#streak-display .streak-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.7px;
+    line-height: 1;
+    opacity: 0.85;
+}
+
+#streak-display .streak-value {
+    min-width: 2ch;
+    text-align: right;
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--terminal);
+    text-shadow: 0 0 10px var(--border-glow);
+}
+
+.heatmap-grid {
+    display: grid;
+    /* 5 rows, auto columns */
+    grid-template-rows: repeat(5, 10px);
+    grid-auto-flow: column;
+    gap: 4px;
+    overflow-x: hidden;
+    /* Or auto if we want scrolling */
+}
+
+/* Mini heatmap for projected timeline in cards */
+.mini-heatmap {
+    grid-template-rows: repeat(4, 14px);
+    gap: 4px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-dim);
+    border-radius: 4px;
+    margin-top: 8px;
+}
+
+.mini-heatmap-label {
+    font-size: 0.7rem;
+    color: var(--electric);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.cell {
+    width: 10px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease;
+    position: relative;
+    /* For tooltip positioning */
+}
+
+/* Global Tooltip (JS Controlled) */
+.srs-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background: var(--void);
+    color: var(--terminal);
+    border: 1px solid var(--terminal);
+    padding: 6px 10px;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+    border-radius: 4px;
+    font-family: var(--font-data);
+    opacity: 0;
+    transition: opacity 0.1s ease;
+    transform: translate(-50%, -100%);
+    margin-top: -8px;
+    /* Offset to float above cursor/target */
+}
+
+.srs-tooltip.visible {
+    opacity: 1;
+}
+
+.cell:hover {
+    transform: scale(1.2);
+    z-index: 10;
+}
+
+.cell.v-1 {
+    background: var(--cell-1);
+    border-color: var(--cell-1);
+    box-shadow: 0 0 4px var(--cell-1);
+}
+
+.cell.v-2 {
+    background: var(--cell-2);
+    border-color: var(--cell-2);
+    box-shadow: 0 0 6px var(--cell-2);
+}
+
+.cell.v-3 {
+    background: var(--cell-3);
+    border-color: var(--cell-3);
+    box-shadow: 0 0 8px var(--cell-3);
+}
+
+.cell.v-4 {
+    background: var(--cell-4);
+    border-color: var(--cell-4);
+    box-shadow: 0 0 12px var(--cell-4), 0 0 24px var(--cell-4);
+}
+
+/* Animated Heatmap Cells - Multiple Variations */
+.pulse-1 {
+    animation: colorPulse1 5s ease-in-out infinite;
+}
+
+.pulse-2 {
+    animation: colorPulse2 6s ease-in-out infinite;
+}
+
+.pulse-3 {
+    animation: colorPulse3 7s ease-in-out infinite;
+}
+
+.pulse-4 {
+    animation: colorPulse4 5.5s ease-in-out infinite;
+}
+
+.pulse-5 {
+    animation: colorPulse5 6.5s ease-in-out infinite;
+}
+
+/* Animation 1: Magenta to Pink cycle */
+@keyframes colorPulse1 {
+    0%, 100% {
+        background: var(--cell-1);
+        border-color: var(--cell-1);
+        box-shadow: 0 0 4px var(--cell-1);
+    }
+    50% {
+        background: var(--cell-2);
+        border-color: var(--cell-2);
+        box-shadow: 0 0 6px var(--cell-2);
+    }
+}
+
+/* Animation 2: Pink to Peach cycle */
+@keyframes colorPulse2 {
+    0%, 100% {
+        background: var(--cell-2);
+        border-color: var(--cell-2);
+        box-shadow: 0 0 6px var(--cell-2);
+    }
+    50% {
+        background: var(--cell-3);
+        border-color: var(--cell-3);
+        box-shadow: 0 0 8px var(--cell-3);
+    }
+}
+
+/* Animation 3: Peach to Orange cycle */
+@keyframes colorPulse3 {
+    0%, 100% {
+        background: var(--cell-3);
+        border-color: var(--cell-3);
+        box-shadow: 0 0 8px var(--cell-3);
+    }
+    50% {
+        background: var(--cell-4);
+        border-color: var(--cell-4);
+        box-shadow: 0 0 12px var(--cell-4), 0 0 24px var(--cell-4);
+    }
+}
+
+/* Animation 4: Bright Orange pulsing */
+@keyframes colorPulse4 {
+    0%, 100% {
+        background: var(--cell-4);
+        border-color: var(--cell-4);
+        box-shadow: 0 0 12px var(--cell-4), 0 0 24px var(--cell-4);
+    }
+    50% {
+        background: var(--cell-3);
+        border-color: var(--cell-3);
+        box-shadow: 0 0 8px var(--cell-3);
+    }
+}
+
+/* Animation 5: Full spectrum cycle */
+@keyframes colorPulse5 {
+    0%, 100% {
+        background: var(--cell-1);
+        border-color: var(--cell-1);
+        box-shadow: 0 0 4px var(--cell-1);
+    }
+    33% {
+        background: var(--cell-3);
+        border-color: var(--cell-3);
+        box-shadow: 0 0 8px var(--cell-3);
+    }
+    66% {
+        background: var(--cell-4);
+        border-color: var(--cell-4);
+        box-shadow: 0 0 12px var(--cell-4), 0 0 24px var(--cell-4);
+    }
+}
+
+/* PROBLEM VECTORS (CARDS) */
+.vector-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vector-card {
+    background: var(--glass);
+    border: 1px solid var(--border-dim);
+    padding: 12px;
+    position: relative;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: var(--backdrop-filter);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    /* Glass Rim Light */
+}
+
+.vector-card:hover {
+    border-color: var(--terminal);
+    background: var(--hover-bg);
+    box-shadow:
+        0 0 15px var(--border-glow),
+        0 0 30px var(--border-dim);
+}
+
+.vector-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 4px;
+    background: var(--terminal);
+}
+
+.vector-meta {
+    font-size: 0.6rem;
+    color: var(--electric);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.vector-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    color: #fff;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vector-stats {
+    display: flex;
+    gap: 10px;
+    font-family: var(--font-data);
+    font-size: 0.55rem;
+    margin-bottom: 8px;
+    align-items: center;
+    /* Prevent stretching */
+}
+
+.stat-tag {
+    padding: 2px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+}
+
+.difficulty-hard {
+    color: #ff2a6d;
+    border-color: #ff2a6d;
+}
+
+.difficulty-medium {
+    color: #f1c40f;
+    border-color: #f1c40f;
+}
+
+.difficulty-easy {
+    color: var(--terminal);
+    border-color: var(--terminal);
+}
+
+.topic-tag {
+    color: var(--electric);
+    border: 1px dashed var(--electric);
+    padding: 1px 5px;
+    font-size: 0.5rem;
+    opacity: 0.9;
+    white-space: nowrap;
+}
+
+/* TACTICAL SWITCHES (BUTTONS) */
+.tactical-btn {
+    background: none;
+    border: 1px solid var(--terminal);
+    color: var(--terminal);
+    padding: 6px 12px;
+    font-family: var(--font-main);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    transition: all 0.2s;
+    width: 100%;
+    text-align: left;
+    margin-top: 5px;
+    cursor: pointer;
+}
+
+.tactical-btn:hover {
+    background: var(--terminal);
+    color: var(--void);
+    box-shadow: 0 0 10px var(--terminal);
+}
+
+.tactical-btn::after {
+    content: ">>";
+    position: absolute;
+    right: 10px;
+}
+
+.tactical-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: inset 0 0 10px var(--void);
+}
+
+/* Expanded Card Details */
+.vector-details {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-dim);
+    animation: slideDown 0.2s ease;
+}
+
+.vector-card.expanded .vector-details {
+    display: block;
+}
+
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* DATA DENSITY DECOR */
+.decor-line {
+    height: 1px;
+    background: linear-gradient(90deg, var(--terminal) 0%, transparent 100%);
+    margin: 10px 0;
+    opacity: 0.3;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--void);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--terminal);
+    border-radius: 2px;
+}
+
+/* GO BUTTON */
+.go-btn {
+    /* margin-left: auto; Removed - handled by container */
+    background: var(--terminal);
+    color: var(--void);
+    border: none;
+    padding: 2px 8px;
+    font-family: var(--font-data);
+    font-weight: bold;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 32px;
+    /* Fixed width for alignment */
+    text-align: center;
+}
+
+.go-btn:hover {
+    background: var(--electric);
+    transform: scale(1.1);
+    box-shadow: 0 0 8px var(--electric);
+}
+
+.del-btn {
+    background: transparent;
+    border: 1px solid var(--flag-red);
+    color: var(--flag-red);
+    padding: 1px 6px;
+    font-family: var(--font-data);
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.7;
+    width: 32px;
+    /* Fixed width for alignment */
+    text-align: center;
+}
+
+.del-btn:hover {
+    background: var(--flag-red);
+    color: #fff;
+    opacity: 1;
+    box-shadow: 0 0 8px var(--flag-red);
+    transform: scale(1.1);
+}
+
+/* Notes Flashcard Style (Popup) */
+.notes-flashcard {
+    margin-top: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed var(--border-dim);
+    border-radius: 4px;
+    padding: 10px;
+    font-family: var(--font-data);
+    font-size: 0.7rem;
+    color: #e0e0e0;
+    position: relative;
+    overflow: hidden;
+}
+
+.notes-flashcard::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--terminal);
+    opacity: 0.5;
+}
+
+.notes-label {
+    color: var(--terminal);
+    font-size: 0.6rem;
+    margin-bottom: 4px;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.notes-content {
+    line-height: 1.4;
+    white-space: pre-wrap;
+    /* Preserve whitespace but wrap text */
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.notes-edit-hint {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--border-dim);
+    opacity: 0.8;
+    text-transform: uppercase;
+}
+
+.notes-edit-icon {
+    width: 10px;
+    height: 10px;
+    fill: currentColor;
+}
+
+/* Scrollbar for notes */
+.notes-content::-webkit-scrollbar {
+    width: 2px;
+}
+
+.notes-content::-webkit-scrollbar-thumb {
+    background: var(--border-dim);
+}
+
+/* ==========================================================================
+   THEME OVERRIDES: TYPOGRAPHY (Paper & Ink)
+   ========================================================================== */
+body.theme-typography {
+    background-image: radial-gradient(var(--border-dim) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+body.theme-typography .ai-toggle {
+    background: var(--electric);
+    color: #ffffff;
+    border: 2px solid var(--terminal);
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+body.theme-typography .extension-container {
+    border: 2px solid var(--terminal);
+    box-shadow: none !important;
+}
+
+body.theme-typography .status-bar {
+    border-bottom: 2px solid var(--terminal);
+    background: var(--accent);
+}
+
+body.theme-typography .sidebar {
+    border-right: 2px solid var(--terminal);
+    background: var(--accent);
+}
+
+body.theme-typography .nav-icon {
+    border: 2px solid var(--terminal);
+    background: #ffffff;
+    box-shadow: 2px 2px 0px var(--terminal);
+    color: var(--terminal);
+    /* FIX: Ink color for icons */
+}
+
+/* Fix: Ensure icons utilize the color property for stroke in this theme */
+body.theme-typography .nav-icon svg {
+    stroke: var(--terminal);
+}
+
+body.theme-typography .nav-icon.active {
+    background: var(--terminal);
+    border-color: var(--terminal);
+    color: #ffffff;
+}
+
+body.theme-typography .nav-icon.active svg {
+    stroke: #ffffff;
+}
+
+body.theme-typography .heatmap-container {
+    border: 2px solid var(--terminal);
+    background: var(--accent);
+    box-shadow: 5px 5px 0px var(--border-dim);
+    backdrop-filter: none;
+}
+
+body.theme-typography .vector-card {
+    border: 2px solid var(--terminal);
+    background: #ffffff;
+    box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.1);
+    backdrop-filter: none;
+}
+
+body.theme-typography .vector-title {
+    color: var(--void);
+}
+
+body.theme-typography .vector-meta {
+    color: var(--terminal);
+}
+
+body.theme-typography .vector-card:hover {
+    box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.2);
+    transform: translate(-1px, -1px);
+}
+
+body.theme-typography .go-btn {
+    background: var(--terminal);
+    color: #ffffff;
+    border: none;
+    box-shadow: 3px 3px 0px var(--electric);
+}
+
+body.theme-typography .tactical-btn {
+    background: var(--terminal);
+    color: #ffffff;
+    border: none;
+    font-weight: 700;
+    margin-top: 15px;
+    text-align: center;
+    box-shadow: 3px 3px 0px var(--electric);
+    /* Match go-btn shadow */
+}
+
+body.theme-typography .topic-tag {
+    border: 1px solid var(--terminal);
+    font-style: italic;
+    color: var(--terminal);
+}
+
+body.theme-typography .notes-flashcard {
+    border: 2px solid var(--terminal);
+    background: #ffffff;
+    color: var(--terminal);
+}
+
+body.theme-typography .badge,
+body.theme-typography .status-ready {
+    color: var(--terminal);
+    font-weight: 700;
+}
+
+
+/* ==========================================================================
+   THEME OVERRIDES: BRND.OS (Minimalist Dark)
+   ========================================================================== */
+body.theme-brnd {
+    background: #0a0a0a;
+}
+
+body.theme-brnd .extension-container {
+    border: none;
+    box-shadow: none;
+}
+
+body.theme-brnd .sidebar {
+    background: #1a1a1a;
+    border-right: 2px solid #2d2d2d;
+    padding-top: 20px;
+}
+
+body.theme-brnd .nav-icon {
+    border: 1px solid #2d2d2d;
+    background: #222;
+    border-radius: 4px;
+    color: #a0a0a0;
+}
+
+body.theme-brnd .nav-icon:hover,
+body.theme-brnd .nav-icon.active {
+    background: #f0f0f0;
+    color: #0a0a0a;
+    border-color: #f0f0f0;
+    transform: scale(0.95);
+}
+
+body.theme-brnd .nav-icon svg {
+    stroke: currentColor;
+}
+
+body.theme-brnd .status-bar {
+    background: #0a0a0a;
+    border-bottom: 2px solid #2d2d2d;
+    font-family: 'Space Mono', monospace;
+}
+
+body.theme-brnd .heatmap-container {
+    background: #1a1a1a;
+    border: 2px solid #2d2d2d;
+    box-shadow: 10px 10px 0px #000;
+}
+
+body.theme-brnd .vector-card {
+    background: #1a1a1a;
+    border: 2px solid #2d2d2d;
+    box-shadow: 12px 12px 0px #000;
+    margin-bottom: 15px;
+}
+
+body.theme-brnd .vector-card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 14px 14px 0px #000;
+    border-color: #f0f0f0;
+}
+
+body.theme-brnd .vector-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+}
+
+body.theme-brnd .tactical-btn {
+    background: #f0f0f0;
+    color: #0a0a0a;
+    font-weight: 900;
+    text-transform: uppercase;
+    border: none;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    padding: 18px;
+}
+
+body.theme-brnd .tactical-btn:hover {
+    background: #ffffff;
+    color: #000;
+    box-shadow: 4px 4px 0px #000;
+}
+
+body.theme-brnd .go-btn {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    background: #f0f0f0;
+    color: #0a0a0a;
+    box-shadow: 4px 4px 0 #000;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body.theme-brnd .del-btn {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    background: #ff4444;
+    color: #fff;
+    border: none;
+    box-shadow: 4px 4px 0 #000;
+    opacity: 1;
+}
+
+
+body.theme-brnd .tag-row .tag,
+body.theme-brnd .topic-tag {
+    background: #000;
+    border: 1px solid #2d2d2d;
+    padding: 2px 8px;
+    border-radius: 0;
+    color: #a0a0a0;
+}
+
+body.theme-brnd .status-ready {
+    font-family: 'Space Mono', monospace;
+    color: #a0a0a0;
+}
+
+body.theme-brnd .ai-toggle {
+    background: #222;
+    border: 1px solid #2d2d2d;
+    border-radius: 100px;
+    color: #f0f0f0;
+}
+
+body.theme-brnd .notes-flashcard {
+    background: #000;
+    border: 1px solid #2d2d2d;
+    font-family: 'Space Mono', monospace;
+}
+
+body.theme-brnd .notes-flashcard::before {
+    content: 'USER_NOTES //';
+    display: block;
+    margin-bottom: 8px;
+    color: #f0f0f0;
+    font-size: 10px;
+    background: transparent;
+    width: auto;
+    height: auto;
+    position: static;
+    opacity: 1;
+}
+
+/* Drill Action Buttons */
+.drill-action-btn {
+    background: transparent;
+    border: 1px solid var(--border-dim);
+    color: var(--electric);
+    padding: 3px 8px;
+    font-family: var(--font-main);
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.drill-action-btn:hover {
+    border-color: var(--terminal);
+    color: var(--terminal);
+    box-shadow: 0 0 8px var(--border-glow);
+}
+
+.drill-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.drill-action-btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.drill-action-btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border: 2px solid var(--border-dim);
+    border-top-color: var(--terminal);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

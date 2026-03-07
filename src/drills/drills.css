@@ -1,0 +1,577 @@
+/**
+ * Drill Practice - Paper UI Theme
+ * Matches the "All Drills" overview aesthetic.
+ */
+
+:root {
+    --paper-base: #f4f3ef;
+    --paper-shadow: #d1cfc7;
+    --paper-highlight: #ffffff;
+    --ink: #1a1a1a;
+    --accent: #3a5a40;
+    --accent-soft: rgba(58, 90, 64, 0.14);
+    --success: #2f7a4b;
+    --error: #b4493a;
+    --warning: #c7933a;
+    --debossed-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1), inset -3px -3px 7px rgba(255, 255, 255, 0.8);
+    --embossed-shadow: 4px 4px 10px rgba(0, 0, 0, 0.08), -4px -4px 10px rgba(255, 255, 255, 0.9);
+    --font-main: 'Outfit', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --overlay-bg: rgba(244, 243, 239, 0.9);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--paper-base);
+    color: var(--ink);
+    min-height: 100vh;
+}
+
+/* SVG Grain Texture Overlay */
+.texture-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.04;
+    z-index: 1000;
+    mix-blend-mode: multiply;
+}
+
+/* Page Container */
+.page-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 2rem;
+    gap: 1.5rem;
+}
+
+/* Header */
+.drill-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.4rem 1.8rem;
+    background: var(--paper-base);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--embossed-shadow);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+}
+
+.progress-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#drill-progress {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+
+.progress-bar {
+    width: 140px;
+    height: 6px;
+    background: #ecebe4;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: var(--debossed-shadow);
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+}
+
+/* Main Content */
+.drill-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Drill Container */
+.drill-container {
+    background: var(--paper-base);
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--embossed-shadow);
+}
+
+.drill-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.drill-icon {
+    font-size: 1.6rem;
+}
+
+.drill-type {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+}
+
+.drill-skill {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Code Block */
+.code-block {
+    background: #ecebe4;
+    padding: 1.4rem;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--debossed-shadow);
+    white-space: pre-wrap;
+    color: var(--ink);
+}
+
+/* Interactive Code (Spot-Bug) */
+.code-interactive {
+    background: #ecebe4;
+    padding: 1.2rem 0;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--debossed-shadow);
+    color: var(--ink);
+}
+
+.code-line {
+    display: flex;
+    padding: 2px 20px;
+    white-space: pre-wrap;
+}
+
+/* Token Styles */
+.code-token {
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0 2px;
+    transition: all 0.2s ease;
+}
+
+.code-token:hover {
+    background: var(--accent-soft);
+    color: var(--ink);
+}
+
+.code-token.selected {
+    background: var(--accent);
+    color: var(--paper-highlight);
+    box-shadow: 0 0 0 2px rgba(58, 90, 64, 0.35);
+}
+
+.line-num {
+    display: inline-block;
+    width: 30px;
+    color: var(--ink);
+    user-select: none;
+    text-align: right;
+    margin-right: 15px;
+    opacity: 0.4;
+}
+
+.line-content {
+    flex: 1;
+}
+
+.drill-instruction {
+    text-align: center;
+    opacity: 0.65;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    font-style: italic;
+}
+
+/* Drill Input */
+.drill-input {
+    margin-top: 1.5rem;
+}
+
+.drill-input label {
+    display: block;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.65;
+}
+
+.input-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.input-hint {
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(58, 90, 64, 0.2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.drill-input input,
+.drill-input textarea {
+    width: 100%;
+    padding: 14px;
+    background: #fbfaf8;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--font-main);
+    font-size: 1rem;
+    resize: vertical;
+    box-shadow: var(--debossed-shadow);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.drill-input input:focus,
+.drill-input textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(58, 90, 64, 0.18);
+}
+
+.drill-input textarea.code-input {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Actions */
+.drill-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 1.6rem;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 0.8rem 1.8rem;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.btn-primary {
+    background: var(--paper-base);
+    color: var(--ink);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--embossed-shadow);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.btn-primary:active {
+    box-shadow: var(--debossed-shadow);
+    transform: translateY(1px);
+}
+
+.btn-secondary {
+    background: var(--paper-highlight);
+    color: var(--ink);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    opacity: 0.75;
+}
+
+.btn-secondary:hover {
+    opacity: 1;
+}
+
+/* Result */
+.drill-result {
+    background: var(--paper-base);
+    border-radius: 16px;
+    padding: 2.5rem;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--embossed-shadow);
+}
+
+.drill-result.correct {
+    border-color: rgba(47, 122, 75, 0.45);
+}
+
+.drill-result.incorrect {
+    border-color: rgba(180, 73, 58, 0.45);
+}
+
+.result-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+}
+
+.result-message {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.drill-result.correct .result-message {
+    color: var(--success);
+}
+
+.drill-result.incorrect .result-message {
+    color: var(--error);
+}
+
+.result-feedback {
+    opacity: 0.75;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+    white-space: pre-wrap;
+}
+
+.result-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+/* Footer */
+.drill-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.2rem 1.6rem;
+    background: var(--paper-base);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: var(--embossed-shadow);
+}
+
+.skill-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.skill-icon {
+    font-size: 1.1rem;
+}
+
+#current-skill {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.session-info {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    opacity: 0.6;
+}
+
+/* Error/Loading States */
+.loading,
+.error-state,
+.completion-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.error-icon,
+.completion-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.error-message {
+    font-size: 1.2rem;
+    color: var(--error);
+    margin-bottom: 10px;
+}
+
+.error-state a {
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 15px;
+    font-weight: 600;
+}
+
+.completion-title {
+    font-size: 1.4rem;
+    margin-bottom: 0.4rem;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.completion-subtitle {
+    opacity: 0.7;
+    margin-bottom: 1.5rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.drill-container,
+.drill-result {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-container {
+        padding: 1.5rem 1rem;
+    }
+
+    .drill-header-bar,
+    .drill-footer {
+        flex-direction: column;
+        gap: 0.8rem;
+        align-items: flex-start;
+    }
+
+    .progress-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .drill-container {
+        padding: 1.5rem;
+    }
+
+    .drill-actions {
+        flex-direction: column;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(58, 90, 64, 0.2);
+    border-radius: 50%;
+    border-top-color: var(--accent);
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.loading-text {
+    opacity: 0.7;
+    font-size: 1rem;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--overlay-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    border-radius: 16px;
+}
+
+/* Retry Button */
+.btn-retry {
+    background: var(--warning);
+    color: var(--ink);
+    border: none;
+    padding: 0.7rem 1.4rem;
+    border-radius: 50px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    box-shadow: var(--embossed-shadow);
+    transition: opacity 0.2s;
+}
+
+.btn-retry:hover {
+    opacity: 0.9;
+}
