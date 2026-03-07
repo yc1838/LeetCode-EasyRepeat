@@ -1,6 +1,10 @@
 # LeetCode EasyRepeat
 
-A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System**( a learning technique that involves reviewing information at increasing intervals of time). 
+[English](#english) | [中文版](#中文版-chinese-version)
+
+<a id="english"></a>
+
+A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System** (a learning technique that involves reviewing information at increasing intervals of time). 
 
 It automatically tracks your "Accepted" submissions, schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
 
@@ -34,6 +38,7 @@ npm run build
 2. Enable **Developer mode** (toggle in the top-right corner)
 3. Click **Load unpacked**
 4. Select this entire repository folder (`leetcode-srs-extension`)
+5. Go to the leetcode problem page (has to be a specific problem's page!) and if you see a floating note, this setup is successful.
 
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
@@ -508,7 +513,144 @@ Uses Chrome's `chrome.storage.local` API to persist:
 MIT License - feel free to modify and distribute!
 
 
-## 🧠 Resources & Talks around Studying LeetCode
+## 🧠 Further thoughts around Studying LeetCode
 - My own strategy was to get at least 3-5 problems done in a topic, gain my brain "muscle memory" before moving on to the next topic. After finishing all topics, that's when I try to solve a problem without knowing which algorithm or topic it falls into. Do you also find this useful?
 - I recommend a free class, **Learning how to learn** from Coursera which help explains why doing leetcode problems by topics at first is a good strategy.
 - Leave an "issue" on this repo if you want to discuss this topic further! Or anything related to the science of learning
+
+---
+
+<br><br><br>
+
+<a id="中文版-chinese-version"></a>
+
+# LeetCode EasyRepeat (中文版)
+
+一个帮助你使用**间隔重复系统**(Spaced Repetition System，一种通过逐渐增加时间间隔复习来巩固记忆的学习技巧) 来掌握 LeetCode 题目的 Chrome 扩展程序。
+
+它能自动追踪你在 LeetCode 上 "Accepted" (通过) 的提交记录，基于目前最前沿的 **FSRS v4.5** 算法为你安排科学的复习周期，并且包含一套非常炫酷的赛博朋克风 UI 和可定制主题。
+
+## 🚀 快速安装启动
+
+安装扩展或运行测试前，请先安装依赖：
+
+```bash
+npm install
+```
+
+构建打包文件，生成 `dist/` 目录：
+
+```bash
+npm run build
+```
+
+### 📥 在 Chrome 扩展中加载
+
+<div align="center">
+  <img src="assets/extension_instruction.png" alt="Extension Installation Instruction" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
+
+1. 打开 Chrome 浏览器并前往 `chrome://extensions/`
+2. 打开右上角的 **开发者模式 (Developer mode)**
+3. 点击 **加载已解压的扩展程序 (Load unpacked)**
+4. 选择本仓库的整个文件夹 (`leetcode-srs-extension`)
+
+### 🤖 LLM (大语言模型) 配置 (可选)
+如果你想使用 AI 功能，你需要配置一个大语言模型 (LLM)。这里是极简配置指南。点击主面板左下角 ⚙️ 形状的设置图标进入扩展设置。
+
+<div >
+  <img src="assets/Setting.png" alt="Setting icon" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
+
+**使用本地 LLM (完全免费、保护隐私):**
+1. 安装 Ollama: https://ollama.com/
+2. 在终端运行 `OLLAMA_ORIGINS="*" ollama serve` 以及 `ollama pull gemma3:latest` (或者下载你选择的其他模型) 让模型运行起来。
+3. 扩展程序会自动检测到本地模型。
+
+**使用云端 LLM (质量更高):**
+1. 输入你的 API Key 并选择对应的模型名称即可。
+
+- **目前的 AI 功能:**
+  - **自动分析与保存**: 当你提交了错误的代码时，AI 会自动分析你的错误，并将具有操作性的反馈建议直接写进你页面的 **悬浮笔记 (Contextual Notes)** 中，方便之后复习。
+- **未来计划的 AI 功能:**
+  - 针对你的薄弱环节生成专属练习题。
+  - 为你的能力缺陷生成各种可视化图表分析。
+  - 每日夜间定时任务：分析你一天的进度并提供总结反馈。
+
+---
+
+## 为什么间隔重复系统 (Spaced Repetition) 能帮你记牢？
+- 在 1932 年，Hermann Ebbinghaus 发现了遗忘曲线，表明人类遗忘信息的速度呈指数级下落。
+- “间隔重复”是一种学习技巧，核心理念是在不断增加的时间间隔里复习同一份信息。由于在即将遗忘的边缘进行回忆，你的大脑会把这段记忆刻得更深。
+- 可以在可汗学院了解关于 [间隔重复的科学知识](https://www.khanacademy.org/science/learn-to-learn/x141050afa14cfed3:learn-to-learn/x141050afa14cfed3:spaced-repetition/a/l2l-spaced-repetition)。
+
+---
+
+## ✨ 核心功能
+
+### 🧠 间隔重复调度 (基于 FSRS v4.5 算法)
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/27a799e2-3883-45c8-b616-11711fc10038" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
+</div>
+
+- **自动检测提交**: 直接在 LeetCode 页面上捕获你做绿了 ("Accepted") 的题目。
+- **智能调度安排**: 采用顶尖的 **FSRS v4.5** 算法和优化的权重，为你量身定制题目复习计划。
+- **稳定性与难度建模**: 根据你在每道题上的表现反馈（忘记、困难、良好、简单），动态调整该题目的记忆稳定性和难度。
+- **题目难度检测**: 自动抓取并记录这道题在 LeetCode 上的官方难度阶级 (Easy / Medium / Hard)。
+- 注：FSRS 的高效性是由认知科学数据严格支撑的。你可以通过 [这篇文章](https://www.lesswrong.com/posts/G7fpGCi8r7nCKXsQk/the-history-of-fsrs-for-anki) 了解它背后的研究历史。
+
+### 📝 AI 错题分析 & 悬浮笔记面板 (Contextual Notes)
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/b9cf20ce-47c2-4114-ae65-04ccdaaafcc2" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
+</div>
+
+- **AI 自动总结填入**: 如果启用了 AI 功能，每次代码 Submit 失败后，AI 会立刻分析报错并指出修补建议，并**自动将其写入该题的专属笔记中**！（如果使用本地模型可能需要稍等片刻）。
+- **悬浮笔记按钮**: 在你刷题时不离开当前页面，就能随手记下思路、算法要点和感悟。
+- **智能手势提示**: 通过小工具提示教你如何操作面板。
+- **云端与存储自动同步**: 你的笔记会自动保存在 Chrome 本地存储中。下次你再打开这道题，笔记就会安安静静地在那里等你。
+- **可随意拖拽**: 长按 (0.4秒) 笔记按钮，可以将它拖拽放置到屏幕任何地方，防止遮挡你的代码。
+
+### 📊 面板数据可视化 (Visual Dashboard)
+
+- **认知留存热力图**: 类似 GitHub 的活跃度绿格子，记录你的刷题周期，处于活跃天数的格子会有非常赛博朋克的呼吸灯/脉冲动画！
+- **复习时间预测线**: 每张题目卡片都会画出预测的下几次复习的具体日期。
+- **题目卡片 (Vector Cards)**: 可展开的折叠卡片，清晰展示：
+  - 题目名称、链接和官方难度。
+  - 当前记忆间隔和已经复习的次数。
+  - Again(重来) / Hard(困难) / Good(良好) / Easy(简单) 评价按钮。
+
+### 🎨 赛博朋克风 UI (双主题系统)
+- **樱花主题 (Sakura / 默认)**: 灵感来自 Lesbian 旗帜配色，粉色、紫红与橙色的霓虹发光质感。
+- **矩阵主题 (Matrix)**: 经典的黑绿终端极客黑客风，带有亮青色点缀。
+- 随时通过侧边栏一键切换主题，你的选择会被永久保存。
+
+<div align="center">
+  <img src="assets/matrix_theme.png" alt="Matrix Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+  <img src="assets/sakura_theme.png" alt="Sakura Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
+
+---
+
+## ⚙️ 大语言模型 (AI) 配置清单与语种
+
+我们的扩展完美适配多种语言及多个平台的底层大模型，请在设置项进行修改。
+
+- **包含在本地化 (i18n) 里的语言选择项 (11种):**
+  英语，中文，印地语，日语，葡萄牙语，德语，韩语，法语，波兰语，西班牙语，土耳其语
+
+- **支持的本地运行模式 (零成本、绝对隐私):**
+  直接跑在你本机的 Ollama, LM Studio 等模型。不需要网络请求，安全隐私拉满（由于本机算力限制，逻辑推理能力相比云端大厂模型偏弱）。
+
+- **支持接入云端平台 (更聪颖强大的逻辑):**
+  完美支持 **Google Gemini** (最推荐的智力水平与性价比), **OpenAI (ChatGPT)** 以及 **Anthropic Claude**。输入 API 密钥即可启用，适合希望进行深度分析报错的用户。
+
+---
+
+## 🧠 关于刷题的进一步思考与经验分享
+- 我个人的刷题闭环策略是：**在同一个知识标签/话题下，至少连着做 3 到 5 道题**，让大脑强行产生这方面的“肌肉记忆”后，再切换到下一个类型。当所有的常规分类主题你都摸了一遍后，最后再进入“混做模式”（即打开题目前你并不知道这题考验到底是什么算法）。你觉得这个做法对你有用吗？
+- 我在此安利 Coursera 上非常经典的一门免费课程：**[Learning how to learn (学习如何学习)]**。这门课在科学上非常细致地解释了为什么“按题目类型集中轰炸”会产生更好的初始学习策略和建立记忆神经元。
+- 如果你对大脑的科学记忆、或是 LeetCode 刷题闭环有任何新的想法或探讨，欢迎直接在这个项目下提 Issue，咱们互相交流！
+
+---
