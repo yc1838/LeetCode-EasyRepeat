@@ -40,6 +40,25 @@ npm run build
 4. Select this entire repository folder (`leetcode-srs-extension`)
 5. Go to the leetcode problem page (has to be a specific problem's page!) and if you see a floating note, this setup is successful.
 
+### 🔄 Update After Pulling New Changes
+
+If you already installed this extension with **Load unpacked**, update it with:
+
+```bash
+git pull
+npm install
+npm run build
+```
+
+Then:
+1. Go to `chrome://extensions/`
+2. Click **Reload** on `LeetCode EasyRepeat`
+3. Refresh any already-open LeetCode problem tabs
+
+Notes:
+- `npm install` is only needed when dependencies changed (`package.json` or `package-lock.json`).
+- Running `npm run build` every time is recommended for consistency.
+
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
 
@@ -555,6 +574,25 @@ npm run build
 3. 点击 **加载已解压的扩展程序 (Load unpacked)**
 4. 选择本仓库的整个文件夹 (`leetcode-srs-extension`)
 5. 随便打开一道 LeetCode 的题目详情页（必须是在具体的做题页面内！），如果看到了一个悬浮的记笔记按钮 (floating note)，那就说明你已经安装成功啦！
+
+### 🔄 拉取新版本后如何更新
+
+如果你已经通过 **Load unpacked** 安装过扩展，后续更新可以按下面做：
+
+```bash
+git pull
+npm install
+npm run build
+```
+
+然后：
+1. 打开 `chrome://extensions/`
+2. 在 `LeetCode EasyRepeat` 上点击 **重新加载 (Reload)**
+3. 把已经打开的 LeetCode 题目页面也刷新一下
+
+说明：
+- `npm install` 只有在依赖变化时才需要（`package.json` 或 `package-lock.json` 有改动）。
+- 为了稳妥，建议每次更新都执行一次 `npm run build`。
 
 ### 🤖 LLM (大语言模型) 配置 (可选)
 如果你想使用 AI 功能，你需要配置一个大语言模型 (LLM)。这里是极简配置指南。点击主面板左下角 ⚙️ 形状的设置图标进入扩展设置。
