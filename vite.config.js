@@ -21,6 +21,18 @@ function chromeExtensionPlugin() {
                 console.log('Copied dexie.min.js');
             }
 
+            // 1.5. Copy icons
+            const iconsSrc = path.resolve(rootDir, 'src/assets/icons');
+            const iconsDestDir = path.resolve(rootDir, 'dist/src/assets/icons');
+            if (existsSync(iconsSrc)) {
+                if (!existsSync(iconsDestDir)) mkdirSync(iconsDestDir, { recursive: true });
+                const files = require('fs').readdirSync(iconsSrc);
+                for (let file of files) {
+                    copyFileSync(path.join(iconsSrc, file), path.join(iconsDestDir, file));
+                }
+                console.log('Copied icons');
+            }
+
             // 2. Copy and fix manifest.json
             const manifestPath = path.resolve(rootDir, 'manifest.json');
             const distManifestPath = path.resolve(rootDir, 'dist/manifest.json');
