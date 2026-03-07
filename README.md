@@ -37,19 +37,21 @@ npm run build
 
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
-
+<div >
+  <img src="assets/setting.png" alt="notes on leetcode problem page" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
 For Local LLM:
 1. Install Ollama: https://ollama.com/
 2. Run `OLLAMA_ORIGINS="*" ollama serve` and
 `ollama pull gemma3:latestt` or other model of your choice to download and run the model
-3. The extension will automatically detect the model
+1. The extension will automatically detect the model
 
 For Cloud LLM:
 1. 
 2. Enter your API key and select the model name
 
 - Current AI features:
-  - Analyze wrong submissions and provide feedback
+  - **Auto-Analyze & Save**: When you submit a wrong answer, the AI automatically analyzes your mistake and writes the actionable feedback directly into your **Contextual Notes** floating panel for future review.
 - AI features in the future:
   - Generate practice problems for weak areas
   - Generate visualizations for your weaknesses
@@ -99,18 +101,16 @@ For Cloud LLM:
   - **Mini Projection Timelines**: Each problem card shows projected future review dates
 - **☀️ Themes**: Choose between Cyberpunk Sakura and Cyberpunk Matrix themes
 - **⚙️ Settings**: Set up your local or cloud LLM here, so that you may use AI to analyze wrong submissions.
-### Sidebar Navigation(to be live)
 
 
 ---
-### 📝 Contextual Notes
+### 📝 AI Error Submission Analysis & Contextual Notes
+- **AI Auto-Population**: If you have AI enabled, whenever you submit a wrong answer, the AI's analysis and suggested fixes will automatically be saved into these notes! (Takes a longer time if you use a local LLM)
 - **Floating Notes Button**: Quickly jot down your thoughts, algorithms, or key insights for any problem without leaving the page.
 - **Smart Helpers**: Helpful tooltips guide you on valid interactions (like how to drag).
 - **Auto-Sync**: Notes are automatically saved to Chrome Storage and synced with the problem. So next time you open the leetcode problem page, the notes stay there.
 - **Draggable Interface**: Long-press (0.4s) the "Notes" button to drag and reposition it anywhere on your screen.
-<div align="center">
-  <img src="assets/notes_on_the_side.png" alt="notes on leetcode problem page" width="90%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
-</div>
+https://github.com/user-attachments/assets/b9cf20ce-47c2-4114-ae65-04ccdaaafcc2
 
 ### ⚙️ Advanced Tools
 - **Streak Repair**: Manually mark specific dates as active to fix missed activity logs
