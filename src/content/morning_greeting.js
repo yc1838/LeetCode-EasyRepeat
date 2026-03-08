@@ -15,30 +15,43 @@
     const WEAK_THRESHOLD = 0.5;
     const STRONG_THRESHOLD = 0.7;
 
+    function getI18n() {
+        if (typeof EasyRepeatI18n !== 'undefined') return EasyRepeatI18n;
+        if (typeof window !== 'undefined' && window.EasyRepeatI18n) return window.EasyRepeatI18n;
+        return null;
+    }
+
+    function translate(key, values = {}, language = 'en') {
+        const i18n = getI18n();
+        return i18n ? i18n.t(key, values, language) : key;
+    }
+
     /**
      * Create a time-based greeting message.
      */
     function createGreetingMessage(options) {
-        const { hour, totalSkills, weakSkills, topWeakSkill } = options;
+        const { hour, totalSkills, weakSkills, topWeakSkill, language = 'en' } = options;
 
         // Time-based greeting
         let greeting;
         if (hour < 12) {
-            greeting = 'Good morning';
+            greeting = translate('greeting_morning', {}, language);
         } else if (hour < 17) {
-            greeting = 'Good afternoon';
+            greeting = translate('greeting_afternoon', {}, language);
         } else {
-            greeting = 'Good evening';
+            greeting = translate('greeting_evening', {}, language);
         }
 
         // Skill message
         let skillMessage;
         if (weakSkills === 0) {
-            skillMessage = "You're doing great! All skills are strong. 💪";
+            skillMessage = translate('greeting_all_strong', {}, language);
         } else if (weakSkills === 1) {
-            skillMessage = `1 skill needs practice${topWeakSkill ? ` (${formatSkillName(topWeakSkill)})` : ''}. Let's work on it!`;
+            skillMessage = translate('greeting_one_skill', {
+                skill: topWeakSkill ? ` (${formatSkillName(topWeakSkill)})` : ''
+            }, language);
         } else {
-            skillMessage = `${weakSkills} skills need practice. Ready for some drills?`;
+            skillMessage = translate('greeting_many_skills', { count: weakSkills }, language);
         }
 
         return `${greeting}! ${skillMessage}`;
@@ -57,10 +70,13 @@
      * Render the greeting banner HTML element.
      */
     function renderBanner(options) {
-        const { message, pendingDrills } = options;
+        const { message, pendingDrills, language = 'en' } = options;
 
         const banner = document.createElement('div');
         banner.className = 'morning-greeting neural-agent-ui';
+        banner.dataset.pendingDrills = String(pendingDrills || 0);
+        banner.dataset.message = message;
+        banner.dataset.language = language;
 
         banner.innerHTML = `
             <div class="greeting-content">
@@ -68,10 +84,12 @@
                 <div class="greeting-text">
                     <p class="greeting-message">${message}</p>
                     ${pendingDrills > 0 ? `
-                        <span class="drill-badge">${pendingDrills} drill${pendingDrills > 1 ? 's' : ''} ready</span>
+                        <span class="drill-badge">${pendingDrills === 1
+                            ? translate('greeting_drills_ready_one', { count: pendingDrills }, language)
+                            : translate('greeting_drills_ready_many', { count: pendingDrills }, language)}</span>
                     ` : ''}
                 </div>
-                <button class="dismiss-btn" title="Dismiss">×</button>
+                <button class="dismiss-btn" title="${translate('greeting_dismiss', {}, language)}">×</button>
             </div>
         `;
 
@@ -80,7 +98,12 @@
         if (dismissBtn) {
             dismissBtn.addEventListener('click', () => {
                 banner.classList.add('dismissing');
-                setTimeout(() => banner.remove(), 300);
+                setTimeout(() => {
+                    if (typeof banner._cleanupI18n === 'function') {
+                        banner._cleanupI18n();
+                    }
+                    banner.remove();
+                }, 300);
                 markAsShown();
             });
         }
@@ -159,6 +182,10 @@
      */
     async function show(options = {}) {
         const targetSelector = options.targetSelector || '.problem-content, #qd-content, main';
+        const i18n = getI18n();
+        const language = i18n && typeof i18n.getLanguage === 'function'
+            ? await i18n.getLanguage()
+            : 'en';
 
         // Check if already shown today
         let state = { lastShown: null };
@@ -180,13 +207,42 @@
 
         const message = createGreetingMessage({
             hour: new Date().getHours(),
+            language,
             ...summary
         });
 
         const banner = renderBanner({
             message,
-            pendingDrills: options.pendingDrills || 0
+            pendingDrills: options.pendingDrills || 0,
+            language
         });
+
+        if (i18n && typeof i18n.onLanguageChange === 'function') {
+            const unsubscribe = i18n.onLanguageChange((nextLanguage) => {
+                const nextMessage = createGreetingMessage({
+                    hour: new Date().getHours(),
+                    language: nextLanguage,
+                    ...summary
+                });
+                banner.dataset.message = nextMessage;
+                banner.dataset.language = nextLanguage;
+
+                const messageEl = banner.querySelector('.greeting-message');
+                if (messageEl) messageEl.textContent = nextMessage;
+
+                const badgeEl = banner.querySelector('.drill-badge');
+                const pending = Number(options.pendingDrills || 0);
+                if (badgeEl) {
+                    badgeEl.textContent = pending === 1
+                        ? translate('greeting_drills_ready_one', { count: pending }, nextLanguage)
+                        : translate('greeting_drills_ready_many', { count: pending }, nextLanguage);
+                }
+
+                const dismissBtn = banner.querySelector('.dismiss-btn');
+                if (dismissBtn) dismissBtn.title = translate('greeting_dismiss', {}, nextLanguage);
+            });
+            banner._cleanupI18n = unsubscribe;
+        }
 
         injectIntoPage(banner, targetSelector);
         markAsShown();

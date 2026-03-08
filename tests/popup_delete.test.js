@@ -2,6 +2,36 @@
  * @jest-environment jsdom
  */
 
+const path = require('path');
+const fs = require('fs');
+const vm = require('vm');
+
+function loadPopupUiModule() {
+    const sourcePath = path.resolve(__dirname, '../src/popup/popup_ui.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace(/export function /g, 'function ');
+    const context = {
+        window,
+        document,
+        chrome: global.chrome,
+        console,
+        Date,
+        Math,
+        Intl,
+        setTimeout,
+        clearTimeout,
+        fsrs: global.fsrs,
+        projectSchedule: global.projectSchedule,
+        module: { exports: {} },
+        exports: {}
+    };
+    context.global = context;
+    context.globalThis = context;
+    vm.createContext(context);
+    vm.runInContext(`${source}\nmodule.exports = { renderVectors, renderMiniHeatmap, renderGlobalHeatmap, showNotification };`, context);
+    return context.module.exports;
+}
+
 // Mock Chrome API
 global.chrome = {
     tabs: {
@@ -42,8 +72,8 @@ describe('Popup Delete Button', () => {
         `;
 
         // Load modules
-        jest.resetModules();
-        popupUI = require('../src/popup/popup_ui.js');
+        window.EasyRepeatI18n = require('../src/shared/ui_i18n.js');
+        popupUI = loadPopupUiModule();
 
         // We need to mock the updateDashboard function from popup.js 
         // because deleteProblem calls it.
@@ -78,6 +108,30 @@ describe('Popup Delete Button', () => {
         const delBtn = document.querySelector('.del-btn');
         expect(delBtn).not.toBeNull();
         expect(delBtn.textContent).toBe('DEL');
+    });
+
+    test('should render wider horizontal Chinese action labels', () => {
+        const problems = [
+            {
+                slug: 'two-sum',
+                title: 'Two Sum',
+                difficulty: 'Easy',
+                interval: 1,
+                nextReviewDate: new Date().toISOString()
+            }
+        ];
+
+        popupUI.renderVectors(problems, 'vector-list', true, { language: 'zh' });
+
+        const actionGroup = document.querySelector('.action-group');
+        const delBtn = document.querySelector('.del-btn');
+        const goBtn = document.querySelector('.go-btn');
+
+        expect(actionGroup.classList.contains('action-group-zh')).toBe(true);
+        expect(delBtn.classList.contains('del-btn-zh')).toBe(true);
+        expect(goBtn.classList.contains('go-btn-zh')).toBe(true);
+        expect(delBtn.textContent).toBe('删除');
+        expect(goBtn.textContent).toBe('去做题');
     });
 
     test('should be positioned above or near the GO button', () => {
@@ -128,13 +182,13 @@ describe('Popup Delete Button', () => {
         popupUI.renderVectors(problems, 'vector-list', true);
 
         // Mock the global handler that popup.js will implement
-        global.deleteProblem = jest.fn();
+        window.deleteProblem = jest.fn();
 
         const delBtn = document.querySelector('.del-btn');
         delBtn.click();
 
         // We expect it to call the global delete function
         // Note: popup_ui.js renders the button with an onclick that should call deleteProblem
-        expect(global.deleteProblem).toHaveBeenCalledWith('two-sum');
+        expect(window.deleteProblem).toHaveBeenCalledWith('two-sum');
     });
 });

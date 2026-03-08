@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeetCode SRS OS</title>
+    <title data-i18n="popup_page_title">LeetCode EasyRepeat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -18,15 +18,16 @@
     <div class="extension-container">
         <!-- STATUS BAR -->
         <header class="status-bar">
-            <div>LeetCode EasyRepeat OS</div>
+            <div id="brand-title" data-i18n="popup_brand">LeetCode EasyRepeat OS</div>
             <div class="status-controls">
-                <div class="status-ready">[SYS_READY] <span id="clock">00:00:00</span></div>
+                <button id="lang-toggle" class="lang-toggle" type="button" title="Switch to 中文">E</button>
+                <div class="status-ready"><span id="status-ready-label" data-i18n="popup_sys_ready">[SYS_READY]</span> <span id="clock">00:00:00</span></div>
             </div>
         </header>
 
         <!-- SIDEBAR -->
         <aside class="sidebar">
-            <div class="nav-icon active" id="tab-dashboard" title="Dashboard">
+            <div class="nav-icon active" id="tab-dashboard" title="Dashboard" data-i18n-title="popup_nav_dashboard_title">
                 <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                     <line x1="16" y1="2" x2="16" y2="6" />
@@ -34,7 +35,7 @@
                     <line x1="3" y1="10" x2="21" y2="10" />
                 </svg>
             </div>
-            <div class="nav-icon" id="tab-all" title="All Vectors">
+            <div class="nav-icon" id="tab-all" title="All Vectors" data-i18n-title="popup_nav_all_vectors_title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
                     <polyline points="2 12 12 17 22 12"></polyline>
@@ -42,7 +43,7 @@
                 </svg>
             </div>
             <!-- Theme Toggle -->
-            <div class="nav-icon" id="btn-theme" title="Switch Theme">
+            <div class="nav-icon" id="btn-theme" title="Switch Theme" data-i18n-title="popup_nav_switch_theme_title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <circle cx="12" cy="12" r="5" />
                     <path
@@ -50,7 +51,7 @@
                 </svg>
             </div>
             <!-- Options / Setup -->
-            <div class="nav-icon nav-icon-setup" id="btn-setup" title="Open Setup">
+            <div class="nav-icon nav-icon-setup" id="btn-setup" title="Open Setup" data-i18n-title="popup_nav_open_setup_title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
@@ -66,9 +67,9 @@
             <!-- COGNITIVE MAP (Global Stats) -->
             <section class="heatmap-container">
                 <div class="heatmap-header heatmap-header-welcome">
-                    <span id="welcome-message">WELCOME! READY FOR SOME LEETCODE?</span>
+                    <span id="welcome-message" data-i18n="popup_welcome">WELCOME! READY FOR SOME LEETCODE?</span>
                     <span id="streak-display" aria-live="polite">
-                        <span class="streak-label">STREAK DAYS:</span>
+                        <span class="streak-label" data-i18n="popup_streak_days">STREAK DAYS:</span>
                         <span id="streak-value" class="streak-value">--</span>
                     </span>
                 </div>

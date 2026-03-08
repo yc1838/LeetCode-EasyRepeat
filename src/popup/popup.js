@@ -1,82 +1,45 @@
 /**
  * LeetCode EasyRepeat - Popup Script
- * 
- * WHAT IS THE POPUP?
- * This script runs when you click the extension icon in the Chrome toolbar.
- * It creates and manages the small UI window that appears below the icon.
- * 
- * POPUP LIFECYCLE:
- * - Each time you click the icon, the popup is CREATED fresh
- * - When you click away, the popup is DESTROYED
- * - Unlike content scripts, the popup doesn't persist in the background
- * 
- * FILE DEPENDENCIES:
- * - popup.html: The HTML structure the popup displays
- * - popup.css: Styling for the popup
- * - srs_logic.js: Shared SRS algorithm functions
  */
-
-/**
- * THEME CONFIGURATION OBJECT:
- *
- * This object defines two visual themes: "sakura" (pink) and "matrix" (green).
- * Each theme contains color values that will be applied as CSS custom properties.
- *
- * WHY OBJECTS FOR CONFIGURATION?
- * - Easy to add new themes (just add another key)
- * - All theme values in one place (maintainability)
- * - Can be loaded from storage or server in the future
- */
-// THEMES is loaded via popup.entry.js which imports config.js (sets window.THEMES)
 const THEMES = window.THEMES || {};
 
-// Debug logging for module import issues
 console.log('[Popup] Resolved THEMES:', THEMES);
 
-import { renderGlobalHeatmap, renderVectors, renderMiniHeatmap, showNotification } from './popup_ui.js';
-// THEMES is now loaded from configuration (config.js)
+import { renderGlobalHeatmap, renderVectors, showNotification } from './popup_ui.js';
 
-// MODULE-LEVEL STATE:
-// Variables at the top level of a script persist for the popup's lifetime
-let currentTheme = 'sakura';  // Default theme
+let currentTheme = 'sakura';
+let currentLanguage = 'en';
+let currentView = 'dashboard';
+let currentDueProblems = [];
+let currentAllProblems = [];
+let currentTitleCache = {};
 let storageListenersReady = false;
+let clockIntervalId = null;
+let sidebarReady = false;
+let localizedTitleHydrationInFlight = false;
 
-/**
- * DOMContentLoaded EVENT:
- * 
- * This event fires when the HTML document has been completely parsed.
- * It does NOT wait for images, stylesheets, or subframes to finish loading.
- * 
- * WHY USE IT?
- * If you try to access DOM elements before the HTML parses, they won't exist yet!
- * DOMContentLoaded ensures the DOM is ready for our JavaScript to manipulate.
- * 
- * TIMING (from fastest to slowest):
- * 1. script executes (HTML might not be ready)
- * 2. DOMContentLoaded (HTML parsed, DOM ready)
- * 3. load (everything including images loaded)
- * 
- * ASYNC/AWAIT IN EVENT HANDLER:
- * The async keyword allows us to use await inside the handler.
- * This makes the code cleaner than chains of .then() callbacks.
- */
+function getI18n() {
+    return window.EasyRepeatI18n || null;
+}
+
+function getProblemTitles() {
+    return window.EasyRepeatProblemTitles || null;
+}
+
+function t(key, values = {}) {
+    const i18n = getI18n();
+    return i18n ? i18n.t(key, values, currentLanguage) : key;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    // 0. Load and apply theme from storage
     await setupTheme();
-
-    // 0.5 Options/setup button
+    await setupLanguage();
     setupOptionsButton();
-
-    // 1. Fetch data from storage and show the list of problems due for review
+    setupSidebar();
     await updateDashboard();
-
-    // 1.5 Live refresh when notes update in storage
     setupStorageListeners();
 });
 
-/**
- * Listen to storage changes and refresh the dashboard when problems update.
- */
 function setupStorageListeners() {
     if (storageListenersReady) return;
     if (!chrome?.storage?.onChanged) return;
@@ -84,51 +47,74 @@ function setupStorageListeners() {
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace !== 'local') return;
-        if (changes.problems) {
+        if (changes.problems || changes.localizedProblemTitles) {
             void updateDashboard();
         }
     });
 }
 
-/**
- * ============================================================================
- * THEME SYSTEM
- * ============================================================================
- */
-
-/**
- * Load theme preference from storage and set up the toggle button.
- */
 async function setupTheme() {
-    /**
-     * CHROME.STORAGE.LOCAL.GET WITH DEFAULT:
-     * { theme: 'sakura' } is the default value if 'theme' doesn't exist in storage.
-     * This is cleaner than checking: if (storage.theme === undefined) {...}
-     */
     const storage = await chrome.storage.local.get({ theme: 'sakura' });
-    currentTheme = storage.theme === 'neural' ? 'typography' : storage.theme; // Migration
+    currentTheme = storage.theme === 'neural' ? 'typography' : storage.theme;
     applyTheme(currentTheme);
 
-    /**
-     * ONCLICK HANDLER ASSIGNMENT:
-     * element.onclick = function is an alternative to addEventListener.
-     * Only ONE onclick handler can be set this way (it gets overwritten).
-     * addEventListener allows multiple handlers for the same event.
-     */
-    document.getElementById('btn-theme').onclick = async () => {
+    const themeButton = document.getElementById('btn-theme');
+    if (!themeButton) return;
+
+    themeButton.onclick = async () => {
         const themes = Object.keys(THEMES);
         const currentIndex = themes.indexOf(currentTheme);
         const nextIndex = (currentIndex + 1) % themes.length;
         currentTheme = themes[nextIndex];
-
         applyTheme(currentTheme);
         await chrome.storage.local.set({ theme: currentTheme });
     };
 }
 
-/**
- * Open the Options / Setup page.
- */
+async function setupLanguage() {
+    const i18n = getI18n();
+    const button = document.getElementById('lang-toggle');
+    currentLanguage = i18n ? await i18n.getLanguage() : 'en';
+    applyLanguage(currentLanguage);
+
+    if (button) {
+        button.onclick = async () => {
+            if (!i18n) return;
+            currentLanguage = await i18n.toggleLanguage();
+            applyLanguage(currentLanguage);
+            await updateDashboard();
+        };
+    }
+
+    if (i18n && typeof i18n.onLanguageChange === 'function') {
+        i18n.onLanguageChange((nextLanguage) => {
+            if (nextLanguage === currentLanguage) return;
+            currentLanguage = nextLanguage;
+            applyLanguage(currentLanguage);
+            void updateDashboard();
+        });
+    }
+}
+
+function applyLanguage(language) {
+    const i18n = getI18n();
+    currentLanguage = language;
+
+    if (i18n && typeof i18n.applyTranslations === 'function') {
+        i18n.applyTranslations(document, currentLanguage);
+    }
+
+    const button = document.getElementById('lang-toggle');
+    if (button && i18n) {
+        button.textContent = i18n.getToggleLabel(currentLanguage);
+        button.title = t('common_language_toggle_title');
+    }
+
+    applyTheme(currentTheme);
+    updateQueueTitle();
+    rerenderCurrentView();
+}
+
 function setupOptionsButton() {
     const btn = document.getElementById('btn-setup');
     if (!btn) return;
@@ -143,48 +129,20 @@ function setupOptionsButton() {
     };
 }
 
-/**
- * Apply a theme by updating CSS custom properties.
- * 
- * CSS CUSTOM PROPERTIES (CSS Variables):
- * CSS variables are defined in CSS like: --variable-name: value;
- * They can be used anywhere with: var(--variable-name)
- * 
- * Changing them with JavaScript updates ALL elements using that variable!
- * This is how we implement instant theme switching without reloading CSS.
- * 
- * @param {string} themeName - 'sakura' or 'matrix'
- */
 function applyTheme(themeName) {
     const theme = THEMES[themeName];
+    if (!theme) return;
 
-    /**
-     * document.documentElement:
-     * This is the <html> element - the root of the document.
-     * CSS variables defined here cascade down to all elements.
-     */
     const root = document.documentElement;
-
-    /**
-     * element.style.setProperty(name, value):
-     * Sets a CSS custom property (variable) programmatically.
-     * 
-     * These update the :root CSS variables defined in popup.css.
-     * All elements using var(--terminal), var(--electric), etc. will update!
-     */
     root.style.setProperty('--terminal', theme.terminal);
     root.style.setProperty('--electric', theme.electric);
     root.style.setProperty('--accent', theme.accent);
     root.style.setProperty('--border-glow', theme.borderGlow);
     root.style.setProperty('--border-dim', theme.borderDim);
-
-    // Update heatmap cell colors (v-1, v-2, v-3, v-4 intensity levels)
     root.style.setProperty('--cell-1', theme.cellColors[0]);
     root.style.setProperty('--cell-2', theme.cellColors[1]);
     root.style.setProperty('--cell-3', theme.cellColors[2]);
     root.style.setProperty('--cell-4', theme.cellColors[3]);
-
-    // Apply structural properties (Modern vs Retro)
     root.style.setProperty('--font-main', theme.fontMain);
     root.style.setProperty('--font-data', theme.fontData);
     root.style.setProperty('--radius', theme.borderRadius);
@@ -192,12 +150,9 @@ function applyTheme(themeName) {
     root.style.setProperty('--glass-opacity', theme.glassOpacity);
     root.style.setProperty('--backdrop-filter', theme.backdropFilter);
     root.style.setProperty('--bg-main', theme.bgMain);
-
-    // Some elements need direct style updates (can't use CSS variables everywhere)
     root.style.setProperty('--hover-bg', theme.hoverBg);
-    root.style.setProperty('--glass', theme.glass || 'rgba(20, 10, 15, 0.85)'); // Fallback
+    root.style.setProperty('--glass', theme.glass || 'rgba(20, 10, 15, 0.85)');
 
-    // Apply Body Class for Theme-Specific Overrides (e.g. .theme-typography)
     document.body.className = `theme-${themeName}`;
 
     const statusBar = document.querySelector('.status-bar');
@@ -206,79 +161,27 @@ function applyTheme(themeName) {
     const container = document.querySelector('.extension-container');
     if (container) container.style.boxShadow = `0 0 20px ${theme.containerShadow}`;
 
-    // Re-render heatmap with new colors (cells already use CSS variables)
     renderGlobalHeatmap();
 
-    // Update Title for BRND.OS
-    const brandTitle = document.querySelector('.status-bar div:first-child');
+    const brandTitle = document.getElementById('brand-title');
     if (brandTitle) {
-        brandTitle.innerText = themeName === 'brnd' ? 'BRND.OS' : 'LeetCode EasyRepeat OS';
+        brandTitle.innerText = themeName === 'brnd' ? 'BRND.OS' : t('popup_brand');
     }
 }
 
-/**
- * ============================================================================
- * DASHBOARD LOGIC - Main UI Rendering
- * ============================================================================
- */
-
-/**
- * Fetch data from Chrome storage and render the dashboard.
- * This is called on popup open and after any data changes.
- */
 async function updateDashboard() {
-    // Fetch 'problems' object from storage
-    const result = await chrome.storage.local.get({ problems: {} });
-
-    /**
-     * OBJECT.VALUES():
-     * Converts an object's values into an array.
-     * 
-     * Input:  { "two-sum": {title: "Two Sum", ...}, "valid-anagram": {title: "Valid Anagram", ...} }
-     * Output: [ {title: "Two Sum", ...}, {title: "Valid Anagram", ...} ]
-     * 
-     * Related methods:
-     * - Object.keys(obj)    → ["two-sum", "valid-anagram"]  (keys as array)
-     * - Object.entries(obj) → [["two-sum", {...}], [...]]   (key-value pairs)
-     */
+    const result = await chrome.storage.local.get({ problems: {}, localizedProblemTitles: {} });
     const problems = Object.values(result.problems);
+    const now = getCurrentDate();
 
-    const now = getCurrentDate();  // May be mocked for testing
-
-    /**
-     * ARRAY.FILTER():
-     * Creates a NEW array containing only elements that pass the test.
-     * 
-     * problems.filter(p => ...)
-     *   - p: each element (problem object)
-     *   - Arrow function returns true/false
-     *   - Only elements where function returns true are included
-     * 
-     * This finds problems whose review date has passed (they're "due").
-     */
-    const dueProblems = problems.filter(p => new Date(p.nextReviewDate) <= now);
-
-    /**
-     * ARRAY.SORT() - In-Place Sorting:
-     * 
-     * sort() modifies the original array (unlike filter which creates new).
-     * It takes a "comparator" function that determines order.
-     * 
-     * HOW THE COMPARATOR WORKS:
-     * compare(a, b) should return:
-     *   - Negative number: a should come BEFORE b
-     *   - Positive number:  a should come AFTER b
-     *   - Zero:            order doesn't matter
-     * 
-     * For dates, subtracting them gives:
-     *   earlierDate - laterDate = negative (earlier comes first)
-     */
+    const dueProblems = problems.filter(problem => new Date(problem.nextReviewDate) <= now);
     dueProblems.sort((a, b) => new Date(a.nextReviewDate) - new Date(b.nextReviewDate));
-
-    // Sort All Problems: Sort exactly like dueProblems (Ascending Review Date)
     problems.sort((a, b) => new Date(a.nextReviewDate) - new Date(b.nextReviewDate));
 
-    // Update streak display in the heatmap header
+    currentDueProblems = dueProblems;
+    currentAllProblems = problems;
+    currentTitleCache = result.localizedProblemTitles || {};
+
     const streakValueEl = document.getElementById('streak-value');
     if (streakValueEl) {
         const streakCount = await calculateStreakFn();
@@ -287,51 +190,113 @@ async function updateDashboard() {
         const streakEl = document.getElementById('streak-display');
         if (streakEl) {
             const streakCount = await calculateStreakFn();
-            streakEl.innerText = `STREAK DAYS: ${streakCount}`;
+            streakEl.innerText = `${t('popup_streak_days')} ${streakCount}`;
         }
     }
 
-    // Initial Render
-    // 'dashboard' view = Due Problems
-    renderVectors(dueProblems, 'vector-list', true);
-
-    // Setup Sidebar Tabs
-    setupSidebar(dueProblems, problems);
-
-    // Global Heatmap (Decorative + Real)
+    rerenderCurrentView();
     renderGlobalHeatmap();
-
-    // Updates
     updateClock();
-    setInterval(updateClock, 1000);
+    if (!clockIntervalId) {
+        clockIntervalId = setInterval(updateClock, 1000);
+    }
 
-    // Sync difficulty for current problem (fixes stale data)
     await syncCurrentProblemDifficulty();
+    void hydrateLocalizedTitles(problems);
 }
 
-// Query the content script for the correct difficulty and update storage if needed
+function rerenderCurrentView() {
+    const problems = currentView === 'all' ? currentAllProblems : currentDueProblems;
+    renderVectors(problems, 'vector-list', currentView === 'dashboard', {
+        language: currentLanguage,
+        titleCache: currentTitleCache
+    });
+    updateQueueTitle();
+    syncSidebarState();
+}
+
+function setupSidebar() {
+    if (sidebarReady) {
+        syncSidebarState();
+        return;
+    }
+
+    sidebarReady = true;
+    const tabDash = document.getElementById('tab-dashboard');
+    const tabAll = document.getElementById('tab-all');
+
+    if (tabDash) {
+        tabDash.onclick = () => {
+            currentView = 'dashboard';
+            rerenderCurrentView();
+        };
+    }
+
+    if (tabAll) {
+        tabAll.onclick = () => {
+            currentView = 'all';
+            rerenderCurrentView();
+        };
+    }
+
+    syncSidebarState();
+}
+
+function syncSidebarState() {
+    const tabDash = document.getElementById('tab-dashboard');
+    const tabAll = document.getElementById('tab-all');
+    if (!tabDash || !tabAll) return;
+
+    tabDash.classList.toggle('active', currentView === 'dashboard');
+    tabAll.classList.toggle('active', currentView === 'all');
+}
+
+function updateQueueTitle() {
+    const title = document.getElementById('queue-title');
+    if (!title) return;
+    title.innerText = currentView === 'all'
+        ? t('popup_queue_all_problems')
+        : t('popup_queue_due_today');
+}
+
+async function hydrateLocalizedTitles(problems) {
+    if (currentLanguage !== 'zh') return;
+    const problemTitles = getProblemTitles();
+    if (!problemTitles || localizedTitleHydrationInFlight) return;
+
+    const missing = (problems || [])
+        .map(problem => problem.slug)
+        .filter(slug => slug && !currentTitleCache[slug]?.zh);
+
+    if (!missing.length) return;
+
+    localizedTitleHydrationInFlight = true;
+    try {
+        await problemTitles.ensureLocalizedTitles(missing, { language: currentLanguage });
+    } finally {
+        localizedTitleHydrationInFlight = false;
+    }
+}
+
 async function syncCurrentProblemDifficulty() {
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
 
-        // Extract slug from URL
         const match = tab.url.match(/\/problems\/([^\/]+)/);
         if (!match) return;
         const currentSlug = match[1];
 
-        // Ask content script for current difficulty
-        chrome.tabs.sendMessage(tab.id, { action: "getDifficulty" }, async (response) => {
+        chrome.tabs.sendMessage(tab.id, { action: 'getDifficulty' }, async (response) => {
             if (chrome.runtime.lastError || !response || !response.difficulty) return;
 
             const result = await chrome.storage.local.get({ problems: {} });
             const problems = result.problems;
 
             if (problems[currentSlug] && problems[currentSlug].difficulty !== response.difficulty) {
-                console.log(`[Popup] Syncing difficulty for ${currentSlug}: ${problems[currentSlug].difficulty} → ${response.difficulty}`);
+                console.log(`[Popup] Syncing difficulty for ${currentSlug}: ${problems[currentSlug].difficulty} -> ${response.difficulty}`);
                 problems[currentSlug].difficulty = response.difficulty;
                 await chrome.storage.local.set({ problems });
-                // Re-render with updated data
                 await updateDashboard();
             }
         });
@@ -352,57 +317,26 @@ function updateClock() {
     if (el) el.innerText = `${dateStr} ${time}`;
 }
 
-function setupSidebar(dueProblems, allProblems) {
-    const tabDash = document.getElementById('tab-dashboard');
-    const tabAll = document.getElementById('tab-all');
-    const title = document.getElementById('queue-title');
-
-    // Remove old active classes
-    tabDash.classList.remove('active');
-    tabAll.classList.remove('active');
-    tabDash.classList.add('active'); // Default
-
-    tabDash.onclick = () => {
-        updateTabUI(tabDash, [tabAll]);
-        title.innerText = "PROBLEMS DUE TODAY";
-        toggleViews('dashboard');
-        renderVectors(dueProblems, 'vector-list', true);
-    };
-
-    tabAll.onclick = () => {
-        updateTabUI(tabAll, [tabDash]);
-        title.innerText = "ALL PROBLEMS";
-        toggleViews('dashboard');
-        renderVectors(allProblems, 'vector-list', false);
-    };
-}
-
-function updateTabUI(active, others) {
-    active.classList.add('active');
-    others.forEach(t => t?.classList.remove('active'));
-}
-
-function toggleViews(view) {
-    const dash = document.querySelector('.heatmap-container'); // Global heatmap
-    const list = document.querySelector('#vector-list').parentElement; // List section
-
-    // Dashboard view
+function toggleViews() {
+    const dash = document.querySelector('.heatmap-container');
+    const list = document.querySelector('#vector-list')?.parentElement;
     if (dash) dash.style.display = 'block';
     if (list) list.style.display = 'block';
 }
+
+toggleViews();
 
 async function calculateStreakFn() {
     const res = await chrome.storage.local.get({ problems: {}, activityLog: null });
     let log = res.activityLog;
     const problems = res.problems;
 
-    // --- MIGRATION: Populate Activity Log from History if missing ---
     if (!log) {
         log = [];
-        Object.values(problems).forEach(p => {
-            if (p.history) {
-                p.history.forEach(h => {
-                    const dateObj = new Date(h.date);
+        Object.values(problems).forEach(problem => {
+            if (problem.history) {
+                problem.history.forEach(historyEntry => {
+                    const dateObj = new Date(historyEntry.date);
                     const dateStr = dateObj.getFullYear() + '-' +
                         (dateObj.getMonth() + 1).toString().padStart(2, '0') + '-' +
                         dateObj.getDate().toString().padStart(2, '0');
@@ -411,17 +345,13 @@ async function calculateStreakFn() {
             }
         });
         log.sort();
-        console.log("[Streak] Migrated history to Activity Log:", log);
+        console.log('[Streak] Migrated history to Activity Log:', log);
         await chrome.storage.local.set({ activityLog: log });
     }
 
-    console.log("[LeetCode EasyRepeat] DEBUG - Full Activity Log:", log);
-
-    // --- CALCULATION ---
     let streak = 0;
-    let checkDate = getCurrentDate(); // Handles Test Mode logic
+    const checkDate = getCurrentDate();
 
-    // Check backwards
     for (let i = 0; i < 3650; i++) {
         const checkStr = checkDate.getFullYear() + '-' +
             (checkDate.getMonth() + 1).toString().padStart(2, '0') + '-' +
@@ -429,98 +359,73 @@ async function calculateStreakFn() {
 
         if (log.includes(checkStr)) {
             streak++;
-            // Move back 1 day
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else if (i === 0) {
             checkDate.setDate(checkDate.getDate() - 1);
         } else {
-            // Grace Period: If "Today" is missing, check Yesterday
-            if (i === 0) {
-                checkDate.setDate(checkDate.getDate() - 1);
-                continue;
-            } else {
-                break; // Streak broken
-            }
+            break;
         }
     }
     return streak;
 }
 
-// ... existing deleteProblem ...
-
-
-
-// showNotification moved to popup_ui.js
-
 function getCurrentDate() {
-    // Use today at 23:59:59
-    // This ensures that any Card due "Today" (even if due at 10pm and it's 9am)
-    // shows up in the "Due" list. Standard SRS behavior: "Due" = "Due Today".
     const now = new Date();
     now.setHours(23, 59, 59, 999);
     return now;
 }
 
-// Function called when you click Hard/Med/Easy
 async function updateProblemSRS(slug, ease) {
     const result = await chrome.storage.local.get({ problems: {} });
     const problems = result.problems;
-    const p = problems[slug];
+    const problem = problems[slug];
 
-    if (!p) return;
+    if (!problem) return;
 
     let nextStep;
-    const now = getCurrentDate(); // Handles Test Mode
+    const now = getCurrentDate();
     const nowISO = now.toISOString();
 
-    // Determine FSRS Rating from legacy "ease" param
-    // UI sends: Again (1.0), Hard (~1.3), Med (~2.5), Easy (~3.5)
-    let rating = 3; // Default Good
-    if (ease <= 1.1) rating = 1; // Again
-    else if (ease < 2.0) rating = 2; // Hard
-    else if (ease > 3.0) rating = 4; // Easy
+    let rating = 3;
+    if (ease <= 1.1) rating = 1;
+    else if (ease < 2.0) rating = 2;
+    else if (ease > 3.0) rating = 4;
 
-    // Check if FSRS is available
     if (typeof fsrs !== 'undefined' && fsrs.calculateFSRS) {
-        // Calculate elapsed days
-        const lastReview = p.fsrs_last_review ? new Date(p.fsrs_last_review) : (p.lastSolved ? new Date(p.lastSolved) : new Date());
-        let elapsed = Math.max(0, (now - lastReview) / (1000 * 60 * 60 * 24)); // Fractional days allowed in FSRS logic? Standard is integers usually, but float is fine for math.
-
-        // FSRS Input Card
+        const lastReview = problem.fsrs_last_review ? new Date(problem.fsrs_last_review) : (problem.lastSolved ? new Date(problem.lastSolved) : new Date());
+        const elapsed = Math.max(0, (now - lastReview) / (1000 * 60 * 60 * 24));
         const card = {
-            state: p.fsrs_state || (p.repetition > 0 ? 'Review' : 'New'),
-            stability: p.fsrs_stability || 0,
-            difficulty: p.fsrs_difficulty || 0,
+            state: problem.fsrs_state || (problem.repetition > 0 ? 'Review' : 'New'),
+            stability: problem.fsrs_stability || 0,
+            difficulty: problem.fsrs_difficulty || 0,
             last_review: lastReview
         };
 
         const res = fsrs.calculateFSRS(card, rating, elapsed);
-
         nextStep = {
             nextInterval: res.nextInterval,
-            nextRepetition: p.repetition + 1,
-            nextEaseFactor: p.easeFactor, // Legacy field upkeep
+            nextRepetition: problem.repetition + 1,
+            nextEaseFactor: problem.easeFactor,
             nextReviewDate: (() => {
-                const d = new Date(now);
-                d.setDate(d.getDate() + res.nextInterval);
-                return d.toISOString();
+                const date = new Date(now);
+                date.setDate(date.getDate() + res.nextInterval);
+                return date.toISOString();
             })(),
             fsrs_stability: res.newStability,
             fsrs_difficulty: res.newDifficulty,
             fsrs_state: res.nextState,
             fsrs_last_review: nowISO
         };
-
     } else {
-        // Fallback to SM-2
         if (typeof calculateNextReview !== 'function') {
-            console.error("SRS Logic not loaded");
+            console.error('SRS Logic not loaded');
             return;
         }
-        nextStep = calculateNextReview(p.interval, p.repetition, ease, now);
+        nextStep = calculateNextReview(problem.interval, problem.repetition, ease, now);
     }
 
-    // Save update
     problems[slug] = {
-        ...p,
+        ...problem,
         interval: nextStep.nextInterval,
         repetition: nextStep.nextRepetition,
         easeFactor: nextStep.nextEaseFactor,
@@ -529,21 +434,15 @@ async function updateProblemSRS(slug, ease) {
         fsrs_difficulty: nextStep.fsrs_difficulty,
         fsrs_state: nextStep.fsrs_state,
         fsrs_last_review: nextStep.fsrs_last_review,
-        // Log this review in history
-        history: [...p.history, { date: nowISO, status: 'Reviewed', rating: rating }]
+        history: [...problem.history, { date: nowISO, status: 'Reviewed', rating }]
     };
 
     await chrome.storage.local.set({ problems });
-    // Re-render the dashboard to remove the item from the "Due" list
     await updateDashboard();
 }
 
-/**
- * Delete a problem from storage.
- * @param {string} slug - The problem unique identifier
- */
 async function deleteProblem(slug) {
-    if (!confirm(`Are you sure you want to delete "${slug}" from your SRS history ? This cannot be undone.`)) {
+    if (!confirm(t('popup_delete_confirm', { slug }))) {
         return;
     }
 
@@ -553,20 +452,17 @@ async function deleteProblem(slug) {
     if (problems[slug]) {
         delete problems[slug];
         await chrome.storage.local.set({ problems });
-        await updateDashboard(); // Refresh UI
+        await updateDashboard();
     }
 }
 
-// Make globally available for popup_ui.js
 if (typeof window !== 'undefined') {
     window.deleteProblem = deleteProblem;
-    // Also attach updateProblemSRS if not already
     window.updateProblemSRS = updateProblemSRS;
     window.getCurrentDate = getCurrentDate;
+    window.showNotification = showNotification;
 }
 
-// Export for testing
-// Export for testing initialization logic if needed
 if (typeof module !== 'undefined') {
     module.exports = {
         updateDashboard,

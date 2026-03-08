@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flash UI - Embossed Cardstock Relief</title>
+    <title data-i18n="drill_overview_page_title">Drill Overview</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -26,7 +26,7 @@
     </svg>
 
     <aside>
-        <div class="brand">Drill Practices</div>
+        <div class="brand" data-i18n="drill_overview_brand">Drill Practices</div>
         <ul class="folder-list" id="folder-list">
             <!-- Folders injected via JS -->
         </ul>
@@ -38,16 +38,16 @@
             <div class="card" id="card">
                 <!-- Data injected via JS -->
                 <div class="card-face">
-                    <div class="empty-message">Select a folder to view drills</div>
+                    <div class="empty-message" data-i18n="drill_select_folder_prompt">Select a folder to view drills</div>
                 </div>
             </div>
         </div>
 
         <div class="controls reveal" style="animation-delay: 0.2s;">
-            <button class="btn-start" id="btn-start">Start Review Session</button>
+            <button class="btn-start" id="btn-start" data-i18n="drill_start_review_session">Start Review Session</button>
         </div>
 
-        <div class="scroll-hint">Scroll Card to Flip</div>
+        <div class="scroll-hint" data-i18n="drill_scroll_hint">Scroll Card to Flip</div>
     </main>
 
     <script type="module" src="drill_overview.entry.js"></script>

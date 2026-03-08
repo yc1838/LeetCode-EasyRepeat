@@ -9,7 +9,24 @@ const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
 global.document = dom.window.document;
 global.window = dom.window;
+global.self = dom.window;
 global.HTMLElement = dom.window.HTMLElement;
+global.EasyRepeatI18n = {
+    t: (key, values = {}) => {
+        const dict = {
+            greeting_morning: 'Good morning',
+            greeting_afternoon: 'Good afternoon',
+            greeting_evening: 'Good evening',
+            greeting_all_strong: "You're doing great! All skills are strong. 💪",
+            greeting_one_skill: `1 skill needs practice${values.skill || ''}. Let's work on it!`,
+            greeting_many_skills: `${values.count} skills need practice. Ready for some drills?`,
+            greeting_drills_ready_one: `${values.count} drill ready`,
+            greeting_drills_ready_many: `${values.count} drills ready`,
+            greeting_dismiss: 'Dismiss'
+        };
+        return dict[key] || key;
+    }
+};
 
 // Setup fake IndexedDB
 require('fake-indexeddb/auto');
@@ -18,10 +35,8 @@ global.Dexie = Dexie;
 
 describe('Morning Greeting Component', () => {
     let MorningGreeting;
-    let SkillMatrix;
 
     beforeAll(() => {
-        SkillMatrix = require('../src/background/skill_matrix');
         MorningGreeting = require('../src/content/morning_greeting');
     });
 

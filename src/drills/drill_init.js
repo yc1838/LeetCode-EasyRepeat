@@ -5,24 +5,76 @@
  */
 
 (async function () {
+    const i18n = window.EasyRepeatI18n || null;
+    let currentLanguage = i18n ? await i18n.getLanguage() : 'en';
+    let currentRenderedDrill = null;
+    let currentRenderedResult = null;
+    let currentScreen = 'loading';
+    let lastErrorMessage = '';
+
+    const t = (key, values = {}) => i18n ? i18n.t(key, values, currentLanguage) : key;
+
+    const applyStaticTranslations = () => {
+        if (i18n && typeof i18n.applyTranslations === 'function') {
+            i18n.applyTranslations(document, currentLanguage);
+        }
+    };
+
+    applyStaticTranslations();
+
     // drillId is the single source of truth for which drill we should render.
     // If this is missing, we cannot decide what to show.
     const drillId = DrillPage.getDrillFromURL(window.location.search);
     let sessionDrills = []; // Store all drills for navigation
 
-    if (!drillId) {
+    function renderMissingDrill() {
+        currentScreen = 'missing';
         const overviewUrl = chrome.runtime.getURL('dist/src/drills/drill_overview.html');
         document.getElementById('drill-content').innerHTML = `
             <div class="error-state">
                 <div class="error-icon">⚠️</div>
-                <div class="error-message">No drill specified</div>
-                <a href="#" id="btn-return-to-overview">Return to Extension</a>
+                <div class="error-message">${t('drill_missing_id')}</div>
+                <a href="#" id="btn-return-to-overview">${t('drill_return_extension')}</a>
             </div>
         `;
         document.getElementById('btn-return-to-overview').addEventListener('click', (e) => {
             e.preventDefault();
             window.location.href = overviewUrl;
         });
+    }
+
+    function renderLoadError(message) {
+        currentScreen = 'error';
+        lastErrorMessage = message || '';
+        document.getElementById('drill-content').innerHTML = `
+            <div class="error-state">
+                <div class="error-icon">❌</div>
+                <div class="error-message">${t('drill_load_failed')}</div>
+                <p>${lastErrorMessage}</p>
+            </div>
+        `;
+    }
+
+    if (i18n && typeof i18n.onLanguageChange === 'function') {
+        i18n.onLanguageChange((language) => {
+            currentLanguage = language;
+            applyStaticTranslations();
+            if (currentScreen === 'drill' && currentRenderedDrill) {
+                renderDrill(currentRenderedDrill);
+            } else if (currentScreen === 'result' && currentRenderedDrill && currentRenderedResult) {
+                renderResultScreen(currentRenderedDrill, currentRenderedResult);
+            } else if (currentScreen === 'completion') {
+                showCompletionScreen();
+            } else if (currentScreen === 'missing') {
+                renderMissingDrill();
+            } else if (currentScreen === 'error') {
+                renderLoadError(lastErrorMessage);
+            }
+        });
+    }
+
+    if (!drillId) {
+        renderMissingDrill();
         return;
     }
 
@@ -63,6 +115,7 @@
      */
     function showCompletionScreen() {
         console.log('[DrillInit] Showing completion screen');
+        currentScreen = 'completion';
         // Replace drill UI with a simple "done" message and a close button.
         const overviewUrl = chrome.runtime.getURL('dist/src/drills/drill_overview.html');
         console.log('[DrillInit] Overview URL:', overviewUrl);
@@ -70,9 +123,9 @@
         document.getElementById('drill-content').innerHTML = `
             <div class="completion-state">
                 <div class="completion-icon">🎉</div>
-                <div class="completion-title">Session Complete!</div>
-                <div class="completion-subtitle">You've finished all drills in this session.</div>
-                <button id="btn-close-session" class="btn-primary">Close</button>
+                <div class="completion-title">${t('drill_session_complete')}</div>
+                <div class="completion-subtitle">${t('drill_session_complete_subtitle')}</div>
+                <button id="btn-close-session" class="btn-primary">${t('common_close')}</button>
             </div>
         `;
         document.getElementById('drill-result').style.display = 'none';
@@ -160,21 +213,18 @@
 
     } catch (e) {
         console.error('Failed to load drill:', e);
-        document.getElementById('drill-content').innerHTML = `
-            <div class="error-state">
-                <div class="error-icon">❌</div>
-                <div class="error-message">Failed to load drill</div>
-                <p>${e.message}</p>
-            </div>
-        `;
+        renderLoadError(e.message);
     }
 
     function renderDrill(drill) {
+        currentScreen = 'drill';
+        currentRenderedDrill = drill;
+        currentRenderedResult = null;
         // Render the drill HTML, then wire up progress + handlers.
         const contentEl = document.getElementById('drill-content');
         const skillBadge = document.getElementById('current-skill');
 
-        contentEl.innerHTML = DrillPage.renderDrillContent(drill);
+        contentEl.innerHTML = DrillPage.renderDrillContent(drill, { language: currentLanguage });
         skillBadge.textContent = DrillPage.getSkillDisplayName(drill.skillId);
 
         // Update progress UI based on the position in sessionDrills.
@@ -194,7 +244,7 @@
         const progressText = document.getElementById('drill-progress');
         const progressFill = document.getElementById('progress-fill');
 
-        if (progressText) progressText.textContent = `Drill ${current} of ${total}`;
+        if (progressText) progressText.textContent = t('drill_progress', { current, total });
         if (progressFill) progressFill.style.width = `${(current / total) * 100}%`;
 
         // If the user is typing code, use Tab to indent instead of moving focus.
@@ -268,7 +318,7 @@
                         drillId: drill.id
                     });
                 }
-                alert('Please enter an answer');
+                alert(t('drill_enter_answer'));
                 return;
             }
 
@@ -300,7 +350,7 @@
                 loadingOverlay.className = 'loading-overlay';
                 loadingOverlay.innerHTML = `
                     <div class="loading-spinner"></div>
-                    <div class="loading-text">AI Evaluating Solution...</div>
+                    <div class="loading-text">${t('drill_ai_evaluating')}</div>
                 `;
                 document.querySelector('.drill-container').style.position = 'relative';
                 document.querySelector('.drill-container').appendChild(loadingOverlay);
@@ -401,7 +451,7 @@
                         });
                     } else {
                         // AI couldn't generate valid code.
-                        const errorMsg = genResult.error || 'Unknown error';
+                        const errorMsg = genResult.error || t('drill_unknown_error');
                         console.warn('[DrillAI] Generation failed', {
                             drillId: drill.id,
                             error: errorMsg,
@@ -455,7 +505,9 @@
                 }
                 result = {
                     correct: drill.answer && answer.toLowerCase().includes(drill.answer.toLowerCase()),
-                    feedback: drill.answer ? `Expected: ${drill.answer}` : 'Answer recorded'
+                    feedback: drill.answer
+                        ? t('drill_expected_answer', { answer: drill.answer })
+                        : t('drill_answer_recorded')
                 };
             }
 
@@ -470,23 +522,7 @@
             }
 
             // Show result panel and hide the drill content.
-            document.getElementById('drill-content').style.display = 'none';
-            const resultEl = document.getElementById('drill-result');
-            resultEl.style.display = 'block';
-            resultEl.style.display = 'block';
-            resultEl.innerHTML = DrillPage.renderResult(result);
-
-            // Add Retry Button if applicable (AI failure).
-            if (result.retryable) {
-                const actionsContainer = resultEl.querySelector('.result-actions');
-                const retryBtn = document.createElement('button');
-                retryBtn.className = 'btn-retry';
-                retryBtn.textContent = '↻ Retry';
-                retryBtn.onclick = () => {
-                    document.getElementById('btn-submit').click();
-                };
-                actionsContainer.insertBefore(retryBtn, actionsContainer.firstChild);
-            }
+            renderResultScreen(drill, result);
 
             // Track result (don't let tracking errors block navigation).
             try {
@@ -500,19 +536,11 @@
             } catch (e) {
                 console.warn('[DrillInit] Tracking failed, continuing:', e.message);
             }
-
-            // Wire buttons - navigate to next drill instead of closing.
-            document.getElementById('btn-next')?.addEventListener('click', () => {
-                goToNextDrill(drill.id);
-            });
-            document.getElementById('btn-finish')?.addEventListener('click', () => {
-                window.close();
-            });
         };
 
         // Skip handler - navigate to next drill instead of closing.
         document.getElementById('btn-skip')?.addEventListener('click', async () => {
-            if (confirm('Skip this drill?')) {
+            if (confirm(t('drill_skip_confirm'))) {
                 // Track skip (don't let tracking errors block navigation).
                 try {
                     if (typeof DrillTracker !== 'undefined' && DrillTracker.recordAttempt) {
@@ -528,6 +556,40 @@
                 }
                 goToNextDrill(drill.id);
             }
+        });
+    }
+
+    function renderResultScreen(drill, result) {
+        currentScreen = 'result';
+        currentRenderedDrill = drill;
+        currentRenderedResult = result;
+
+        document.getElementById('drill-content').style.display = 'none';
+        const resultEl = document.getElementById('drill-result');
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = DrillPage.renderResult(result, { language: currentLanguage });
+
+        if (result.retryable) {
+            const actionsContainer = resultEl.querySelector('.result-actions');
+            if (actionsContainer) {
+                const retryBtn = document.createElement('button');
+                retryBtn.className = 'btn-retry';
+                retryBtn.textContent = `↻ ${t('common_retry')}`;
+                retryBtn.onclick = () => {
+                    document.getElementById('drill-content').style.display = 'block';
+                    document.getElementById('drill-result').style.display = 'none';
+                    currentScreen = 'drill';
+                    document.getElementById('btn-submit')?.click();
+                };
+                actionsContainer.insertBefore(retryBtn, actionsContainer.firstChild);
+            }
+        }
+
+        document.getElementById('btn-next')?.addEventListener('click', () => {
+            goToNextDrill(drill.id);
+        });
+        document.getElementById('btn-finish')?.addEventListener('click', () => {
+            window.close();
         });
     }
 })();

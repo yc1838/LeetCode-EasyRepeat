@@ -6,18 +6,47 @@
  */
 
 (async function () {
+    const i18n = window.EasyRepeatI18n || null;
     const card = document.getElementById('card');
     const scroller = document.getElementById('scroller');
     const folderList = document.getElementById('folder-list');
     const btnStart = document.getElementById('btn-start');
 
+    let currentLanguage = i18n ? await i18n.getLanguage() : 'en';
     let scrollAccumulator = 0;
     let isFlipped = false;
     let tiltDecay = null;
 
     let allDrills = [];
     let currentDrills = [];
+    let currentFolderKey = 'All';
     let activeDrill = null; // The drill currently being previewed
+
+    const t = (key, values = {}) => i18n ? i18n.t(key, values, currentLanguage) : key;
+    const formatDifficulty = (difficulty) => i18n ? i18n.formatDifficulty(difficulty, currentLanguage) : difficulty;
+
+    function applyStaticTranslations() {
+        if (i18n && typeof i18n.applyTranslations === 'function') {
+            i18n.applyTranslations(document, currentLanguage);
+        }
+    }
+
+    applyStaticTranslations();
+
+    if (i18n && typeof i18n.onLanguageChange === 'function') {
+        i18n.onLanguageChange((language) => {
+            currentLanguage = language;
+            applyStaticTranslations();
+            renderFolders();
+            if (activeDrill) {
+                renderCard(activeDrill, currentDrills.length);
+                btnStart.textContent = t('drill_start_review_count', { count: currentDrills.length });
+            } else {
+                renderEmptyCard();
+                btnStart.textContent = t('drill_no_drills');
+            }
+        });
+    }
 
     // --- Kinetic Interaction Logic ---
 
@@ -106,28 +135,33 @@
 
     function renderFolders() {
         folderList.innerHTML = '';
+        const generalLabel = currentLanguage === 'zh' ? '通用' : 'General';
+        const generalKey = '__general__';
 
         // Group by Skill
         const skillsCount = allDrills.reduce((acc, drill) => {
-            const skill = drill.skillId || 'General';
+            const skill = drill.skillId || generalKey;
             acc[skill] = (acc[skill] || 0) + 1;
             return acc;
         }, {});
 
         // Add "All" folder
-        addFolderItem('All Drills', allDrills.length, () => selectFolder('All', allDrills));
+        addFolderItem(t('drill_all_drills'), allDrills.length, () => selectFolder('All', allDrills), 'All');
 
         // Add Skill folders
         Object.entries(skillsCount).forEach(([skill, count]) => {
-            const skillLabel = skill.replace(/_/g, ' ');
-            const filtered = allDrills.filter(d => (d.skillId || 'General') === skill);
-            addFolderItem(skillLabel, count, () => selectFolder(skill, filtered));
+            const skillLabel = skill === generalKey ? generalLabel : skill.replace(/_/g, ' ');
+            const filtered = allDrills.filter(d => (d.skillId || generalKey) === skill);
+            addFolderItem(skillLabel, count, () => selectFolder(skill, filtered), skill);
         });
     }
 
-    function addFolderItem(label, count, onClick) {
+    function addFolderItem(label, count, onClick, folderKey) {
         const li = document.createElement('li');
         li.className = 'folder-item';
+        if (folderKey === currentFolderKey) {
+            li.classList.add('active');
+        }
         li.innerHTML = `
             <span>${label}</span>
             <span class="folder-count">${count}</span>
@@ -142,6 +176,7 @@
     }
 
     function selectFolder(name, drills) {
+        currentFolderKey = name;
         currentDrills = drills;
 
         // Reset card state
@@ -155,12 +190,12 @@
                 activeDrill = drills[0]; // Show first drill as preview
                 renderCard(activeDrill, drills.length);
                 btnStart.disabled = false;
-                btnStart.textContent = `Start Review (${drills.length})`;
+                btnStart.textContent = t('drill_start_review_count', { count: drills.length });
             } else {
                 activeDrill = null;
                 renderEmptyCard();
                 btnStart.disabled = true;
-                btnStart.textContent = 'No Drills';
+                btnStart.textContent = t('drill_no_drills');
             }
 
             // Animate in
@@ -170,8 +205,8 @@
     }
 
     function renderCard(drill, totalCount) {
-        const skillName = (drill.skillId || 'General').replace(/_/g, ' ');
-        const difficulty = drill.difficulty || 'medium';
+        const skillName = (drill.skillId || (currentLanguage === 'zh' ? '通用' : 'General')).replace(/_/g, ' ');
+        const difficulty = formatDifficulty(drill.difficulty || 'medium');
         const rawContent = drill.content || '';
         const answerText = drill.answer || '';
         const explanationText = drill.explanation || '';
@@ -207,21 +242,21 @@
                 ${frontContent}
 
                 <div style="margin-top: auto; font-size: 0.8rem; opacity: 0.5">
-                    Drill 1 of ${totalCount}
+                    ${t('drill_card_progress', { count: totalCount })}
                 </div>
             </div>
 
             <!-- Back Face -->
             <div class="card-face card-back">
-                <div class="tag">Solution</div>
-                <h2>Key Concept</h2>
+                <div class="tag">${t('drill_solution')}</div>
+                <h2>${t('drill_key_concept')}</h2>
 
                 <div class="code-block" style="color: var(--accent);">
                     ${escapeHtml(answerText)}
                 </div>
 
                 <div style="margin-top: 2rem; font-size: 0.9rem; opacity: 0.7; line-height: 1.6;">
-                    ${explanationText ? escapeHtml(explanationText) : 'No explanation provided.'}
+                    ${explanationText ? escapeHtml(explanationText) : t('drill_no_explanation')}
                 </div>
             </div>
         `;
@@ -252,22 +287,22 @@
     function getDrillInstruction(type) {
         switch (type) {
             case 'fill-in-blank':
-                return 'Fill in the Blanks';
+                return t('drill_type_fill_in_blank');
             case 'spot-bug':
-                return 'Find the Bug';
+                return t('drill_type_spot_bug');
             case 'critique':
-                return 'Critique the Code';
+                return t('drill_type_critique');
             case 'muscle-memory':
-                return 'Type the Solution';
+                return t('drill_type_muscle_memory');
             default:
-                return 'Problem Statement';
+                return currentLanguage === 'zh' ? '题目描述' : 'Problem Statement';
         }
     }
 
     function renderEmptyCard() {
         card.innerHTML = `
             <div class="card-face reveal" style="align-items: center; justify-content: center;">
-                <div class="empty-message">No drills in this folder.</div>
+                <div class="empty-message">${t('drill_empty_folder')}</div>
             </div>
              <div class="card-face card-back"></div>
         `;

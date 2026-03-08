@@ -55,10 +55,58 @@
         });
     }
 
+    function getI18n() {
+        if (typeof EasyRepeatI18n !== 'undefined') return EasyRepeatI18n;
+        if (typeof window !== 'undefined' && window.EasyRepeatI18n) return window.EasyRepeatI18n;
+        return null;
+    }
+
+    function getProblemTitles() {
+        if (typeof EasyRepeatProblemTitles !== 'undefined') return EasyRepeatProblemTitles;
+        if (typeof window !== 'undefined' && window.EasyRepeatProblemTitles) return window.EasyRepeatProblemTitles;
+        return null;
+    }
+
+    async function getCurrentLanguage() {
+        const i18n = getI18n();
+        if (!i18n || typeof i18n.getLanguage !== 'function') return 'en';
+        return await i18n.getLanguage();
+    }
+
+    function translate(key, values = {}, language = 'en') {
+        const i18n = getI18n();
+        return i18n ? i18n.t(key, values, language) : key;
+    }
+
+    function formatDate(dateValue, language = 'en') {
+        const i18n = getI18n();
+        if (!i18n || typeof i18n.formatDate !== 'function') {
+            return new Date(dateValue).toLocaleDateString();
+        }
+        return i18n.formatDate(dateValue, language, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    async function resolveDisplayTitle(title, options = {}) {
+        const problemTitles = getProblemTitles();
+        const language = options.language || await getCurrentLanguage();
+        if (!problemTitles || typeof problemTitles.getDisplayTitle !== 'function') {
+            return title;
+        }
+
+        return await problemTitles.getDisplayTitle({
+            slug: options.slug,
+            title: title
+        }, language);
+    }
+
     /**
      * Show a custom Toast notification on the page.
      */
-    async function showCompletionToast(title, nextDate) {
+    async function showCompletionToast(title, nextDate, options = {}) {
         const existing = document.querySelector('.lc-srs-toast');
         if (existing) existing.remove();
 
@@ -76,6 +124,11 @@
         }
 
         const theme = getTheme(themeName);
+        const language = await getCurrentLanguage();
+        const displayTitle = await resolveDisplayTitle(title, {
+            slug: options.slug,
+            language
+        });
 
         const style = document.createElement('style');
         style.id = 'lc-srs-toast-styles';
@@ -129,18 +182,18 @@
         `;
         document.head.appendChild(style);
 
-        const dateStr = new Date(nextDate).toLocaleDateString();
+        const dateStr = formatDate(nextDate, language);
         const toast = document.createElement('div');
         toast.className = 'lc-srs-toast';
         toast.innerHTML = `
             <div class="lc-srs-toast-content">
                 <div class="lc-srs-toast-header">
                     <span class="lc-srs-toast-icon">✓</span>
-                    <span class="lc-srs-toast-title">Submission Captured</span>
+                    <span class="lc-srs-toast-title">${translate('content_submission_captured', {}, language)}</span>
                 </div>
-                <div class="lc-srs-toast-problem">${title}</div>
+                <div class="lc-srs-toast-problem">${displayTitle}</div>
                 <div class="lc-srs-toast-meta">
-                    <span class="lc-srs-toast-label">NEXT_REVIEW:</span>
+                    <span class="lc-srs-toast-label">${translate('content_next_review', {}, language)}</span>
                     <span class="lc-srs-toast-date">${dateStr}</span>
                 </div>
             </div>
@@ -159,7 +212,13 @@
     /**
      * Show a modal asking using FSRS ratings.
      */
-    function showRatingModal(title) {
+    async function showRatingModal(title, options = {}) {
+        const language = await getCurrentLanguage();
+        const displayTitle = await resolveDisplayTitle(title, {
+            slug: options.slug,
+            language
+        });
+
         return new Promise((resolve) => {
             resolveModalTheme((modalTheme) => {
                 const backdrop = document.createElement('div');
@@ -173,31 +232,31 @@
                 header.className = 'lc-rating-header';
 
                 const heading = document.createElement('h3');
-                heading.innerText = "Difficulty Check"; // Toast like title
+                heading.innerText = translate('content_difficulty_check', {}, language);
                 header.appendChild(heading);
 
                 const sub = document.createElement('div');
                 sub.className = 'lc-rating-subtitle';
-                sub.innerText = title;
+                sub.innerText = displayTitle;
 
                 const hint = document.createElement('div');
                 hint.className = 'lc-rating-hint';
-                hint.innerText = 'Rate your recall difficulty. This helps FSRS algo to adjust the next review time.';
+                hint.innerText = translate('content_difficulty_hint', {}, language);
 
                 const btnContainer = document.createElement('div');
                 btnContainer.className = 'lc-rating-btn-container';
                 btnContainer.classList.add('lc-rating-btn-container-ramp');
 
                 const ratings = [
-                    { label: "Again", value: 1, desc: "Could not recall" },
-                    { label: "Hard", value: 2, desc: "Struggled" },
-                    { label: "Good", value: 3, desc: "Recalled" },
-                    { label: "Easy", value: 4, desc: "Trivial" }
+                    { tone: 'again', label: translate('rating_again', {}, language), value: 1, desc: translate('rating_again_desc', {}, language) },
+                    { tone: 'hard', label: translate('rating_hard', {}, language), value: 2, desc: translate('rating_hard_desc', {}, language) },
+                    { tone: 'good', label: translate('rating_good', {}, language), value: 3, desc: translate('rating_good_desc', {}, language) },
+                    { tone: 'easy', label: translate('rating_easy', {}, language), value: 4, desc: translate('rating_easy_desc', {}, language) }
                 ];
 
                 ratings.forEach(r => {
                     const btn = document.createElement('button');
-                    btn.className = `lc-rating-btn rating-btn-${r.label.toLowerCase()}`;
+                    btn.className = `lc-rating-btn rating-btn-${r.tone}`;
 
                     // Construct button content
                     const labelDiv = document.createElement('div');
@@ -361,8 +420,10 @@
      * Show a modal asking if the user wants to analyze their mistake.
      * Returns Promise<boolean> (true = analyze, false = cancel)
      */
-    function showAnalysisModal(errorType) {
+    async function showAnalysisModal(errorType) {
         console.log(`[LeetCode EasyRepeat] [DEBUG] showAnalysisModal triggered for: ${errorType}`);
+        const language = await getCurrentLanguage();
+
         return new Promise((resolve) => {
             resolveModalTheme((modalTheme) => {
                 const backdrop = document.createElement('div');
@@ -376,14 +437,14 @@
                 const header = document.createElement('div');
                 header.className = 'lc-rating-header';
                 const heading = document.createElement('h3');
-                heading.innerText = "Mistake Detected";
+                heading.innerText = translate('content_mistake_detected', {}, language);
                 heading.style.color = '#ef4444'; // Red for error
                 header.appendChild(heading);
 
                 // Subtitle
                 const sub = document.createElement('div');
                 sub.className = 'lc-rating-subtitle';
-                sub.innerText = `Type: ${errorType}`;
+                sub.innerText = translate('content_error_type', { errorType }, language);
                 sub.style.marginBottom = '20px';
 
                 // Checkbox Container
@@ -407,7 +468,7 @@
                 }
 
                 const label = document.createElement('label');
-                label.innerText = "Always analyze mistakes";
+                label.innerText = translate('content_always_analyze', {}, language);
                 label.htmlFor = 'lc-always-analyze';
                 label.style.fontFamily = 'var(--font-mono)';
                 label.style.fontSize = '12px';
@@ -426,7 +487,7 @@
                 cancelBtn.className = 'lc-rating-btn';
                 cancelBtn.style.textAlign = 'center';
                 cancelBtn.style.width = '120px';
-                cancelBtn.innerHTML = '<div class="lc-rating-btn-label">Cancel</div>';
+                cancelBtn.innerHTML = `<div class="lc-rating-btn-label">${translate('common_cancel', {}, language)}</div>`;
                 cancelBtn.onclick = () => {
                     backdrop.remove();
                     resolve(false);
@@ -438,7 +499,7 @@
                 analyzeBtn.style.background = 'rgba(34, 211, 238, 0.1)';
                 analyzeBtn.style.textAlign = 'center';
                 analyzeBtn.style.width = '120px';
-                analyzeBtn.innerHTML = '<div class="lc-rating-btn-label" style="color:#22d3ee">Analyze</div>';
+                analyzeBtn.innerHTML = `<div class="lc-rating-btn-label" style="color:#22d3ee">${translate('common_analyze', {}, language)}</div>`;
                 analyzeBtn.onclick = () => {
                     // Save preference logic
                     if (checkbox.checked && typeof chrome !== 'undefined' && chrome.runtime?.id) {
@@ -471,59 +532,100 @@
      * Create the Draggable Notes Widget (Handle + Dropdown Panel)
      */
     function createNotesWidget(slug, loadContentFn, onSaveFn) {
-        // 1. Container
-
         const container = document.createElement('div');
         container.className = 'lc-notes-container';
         container.dataset.slug = slug;
 
-        // 2. Handle (The "Button")
         const handle = document.createElement('div');
         handle.className = 'lc-notes-handle';
         handle.innerHTML = `
         <svg viewBox="0 0 24 24" style="pointer-events: none;">
             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
         </svg>
-        <span class="lc-notes-label">Notes</span>
+        <span class="lc-notes-label"></span>
         <span class="lc-notes-toggle-icon" style="font-size: 10px; margin-left: auto;">▼</span>
     `;
 
-        // 3. Panel (Hidden content)
         const panel = document.createElement('div');
         panel.className = 'lc-notes-panel';
 
-        // Textarea
         const textarea = document.createElement('textarea');
         textarea.className = 'lc-notes-textarea';
-        textarea.placeholder = "Type your notes here... (CMD+Enter to Save)";
 
-        // Footer
         const footer = document.createElement('div');
         footer.className = 'lc-notes-footer';
 
         const status = document.createElement('span');
         status.className = 'lc-notes-status';
-        status.innerText = 'Synced'; // initial state
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'lc-btn lc-btn-save';
-        saveBtn.innerText = 'Save';
 
         footer.appendChild(status);
         footer.appendChild(saveBtn);
         panel.appendChild(textarea);
         panel.appendChild(footer);
-
         container.appendChild(handle);
         container.appendChild(panel);
 
-        // --- State & Logic ---
+        let currentLanguage = 'en';
+        let statusState = 'synced';
+        let statusTimer = null;
         let isOpen = false;
         let isDragging = false;
         let dragTimer = null;
         let hasLoaded = false;
         let lastSyncedValue = '';
         let pendingExternalValue = null;
+        const cleanupFns = [];
+
+        const setStatusText = (state) => {
+            statusState = state;
+            if (statusTimer) {
+                clearTimeout(statusTimer);
+                statusTimer = null;
+            }
+
+            if (state === 'saving') {
+                status.innerText = translate('content_saving', {}, currentLanguage);
+                status.style.color = '#eab308';
+                return;
+            }
+
+            if (state === 'saved') {
+                status.innerText = translate('content_saved_via_sync', {}, currentLanguage);
+                status.style.color = '#22c55e';
+                statusTimer = setTimeout(() => setStatusText('synced'), 2000);
+                return;
+            }
+
+            if (state === 'external') {
+                status.innerText = translate('content_external_update_pending', {}, currentLanguage);
+                status.style.color = '#38bdf8';
+                return;
+            }
+
+            status.innerText = translate('common_synced', {}, currentLanguage);
+            status.style.color = '#666';
+        };
+
+        const applyLanguage = (language) => {
+            currentLanguage = language || 'en';
+            const notesLabel = handle.querySelector('.lc-notes-label');
+            if (notesLabel) {
+                notesLabel.innerText = translate('content_notes', {}, currentLanguage);
+            }
+            textarea.placeholder = translate('content_notes_placeholder', {}, currentLanguage);
+            saveBtn.innerText = translate('common_save', {}, currentLanguage);
+            setStatusText(statusState);
+        };
+
+        const i18n = getI18n();
+        if (i18n && typeof i18n.onLanguageChange === 'function') {
+            cleanupFns.push(i18n.onLanguageChange(applyLanguage, { immediate: true }));
+        } else {
+            applyLanguage('en');
+        }
 
         const applyExternalNotesUpdate = (nextValue) => {
             const normalized = nextValue || '';
@@ -532,8 +634,7 @@
             if (hasUnsavedChanges) {
                 pendingExternalValue = normalized;
                 if (isOpen) {
-                    status.innerText = 'External update pending';
-                    status.style.color = '#38bdf8';
+                    setStatusText('external');
                 }
                 return;
             }
@@ -544,35 +645,32 @@
             hasLoaded = true;
 
             if (isOpen) {
-                status.innerText = 'Synced';
-                status.style.color = '#666';
+                setStatusText('synced');
             }
         };
 
-        // Toggle Logic
         const togglePanel = async () => {
-            if (isDragging) return; // Don't toggle if dragging
+            if (isDragging) return;
 
             isOpen = !isOpen;
             if (isOpen) {
                 container.classList.add('expanded');
                 handle.querySelector('.lc-notes-toggle-icon').innerText = '▲';
 
-                // Load content if not loaded
                 if (pendingExternalValue !== null) {
                     applyExternalNotesUpdate(pendingExternalValue);
                 }
                 if (!hasLoaded) {
-                    textarea.value = "Loading...";
+                    textarea.value = translate('content_loading_notes', {}, currentLanguage);
                     const content = await loadContentFn();
-                    const normalized = content || "";
+                    const normalized = content || '';
                     textarea.value = normalized;
                     lastSyncedValue = normalized;
                     pendingExternalValue = null;
                     hasLoaded = true;
+                    setStatusText('synced');
                 }
 
-                // Focus
                 setTimeout(() => textarea.focus(), 100);
             } else {
                 container.classList.remove('expanded');
@@ -580,16 +678,12 @@
             }
         };
 
-        // Save Logic
         const performSave = async () => {
-            status.innerText = 'Saving...';
-            status.style.color = '#eab308'; // yellow
+            setStatusText('saving');
             await onSaveFn(textarea.value);
             lastSyncedValue = textarea.value;
             pendingExternalValue = null;
-            status.innerText = 'Saved via Sync';
-            status.style.color = '#22c55e'; // green
-            setTimeout(() => { status.innerText = 'Synced'; status.style.color = '#666'; }, 2000);
+            setStatusText('saved');
         };
 
         saveBtn.onclick = performSave;
@@ -598,10 +692,8 @@
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 performSave();
             }
-            // No escape to close for sidebar? Maybe user wants to keep it open.
-            // Let's allow Esc to close if focused.
             if (e.key === 'Escape') {
-                togglePanel(); // Close
+                togglePanel();
             }
         };
 
@@ -617,19 +709,14 @@
             };
 
             chrome.storage.onChanged.addListener(handleStorageChange);
-            container._lcNotesCleanup = () => chrome.storage.onChanged.removeListener(handleStorageChange);
+            cleanupFns.push(() => chrome.storage.onChanged.removeListener(handleStorageChange));
         }
 
-        // --- Drag Logic (Applied to Container via Handle) ---
-        // Repurposing logic from previous implementation but targeting 'container' and triggering on 'handle'
-
         let startX, startY, initialLeft, initialTop;
-        const DRAG_DELAY = 300; // slightly faster
+        const DRAG_DELAY = 300;
 
         const startDragCheck = (e) => {
             if (e.button !== 0) return;
-            // If clicking inside the panel (textarea, buttons), do NOT drag.
-            // Only drag if clicking the handle.
             if (!handle.contains(e.target)) return;
 
             startX = e.clientX;
@@ -644,8 +731,6 @@
             dragTimer = setTimeout(() => {
                 isDragging = true;
                 container.classList.add('dragging');
-
-                // Fix position
                 container.style.right = 'auto';
                 container.style.bottom = 'auto';
                 container.style.left = `${initialLeft}px`;
@@ -662,9 +747,8 @@
             let newLeft = initialLeft + dx;
             let newTop = initialTop + dy;
 
-            // Bounds
             const maxLeft = window.innerWidth - container.offsetWidth;
-            const maxTop = window.innerHeight - 40; // minimal visibility
+            const maxTop = window.innerHeight - 40;
             newLeft = Math.max(0, Math.min(newLeft, maxLeft));
             newTop = Math.max(0, Math.min(newTop, maxTop));
 
@@ -672,7 +756,7 @@
             container.style.top = `${newTop}px`;
         };
 
-        const endDrag = (e) => {
+        const endDrag = () => {
             if (dragTimer) {
                 clearTimeout(dragTimer);
                 dragTimer = null;
@@ -681,21 +765,32 @@
             if (isDragging) {
                 isDragging = false;
                 container.classList.remove('dragging');
-                // Prevent click propagation logic
-                // We use a short timeout flag to block 'click' event on handle
-                handle.dataset.justDragged = "true";
-                setTimeout(() => { handle.dataset.justDragged = "false"; }, 50);
+                handle.dataset.justDragged = 'true';
+                setTimeout(() => { handle.dataset.justDragged = 'false'; }, 50);
             }
         };
 
         handle.onmousedown = startDragCheck;
         window.addEventListener('mousemove', performDrag);
         window.addEventListener('mouseup', endDrag);
+        cleanupFns.push(() => window.removeEventListener('mousemove', performDrag));
+        cleanupFns.push(() => window.removeEventListener('mouseup', endDrag));
 
         handle.onclick = (e) => {
             e.preventDefault();
-            if (handle.dataset.justDragged === "true") return;
+            if (handle.dataset.justDragged === 'true') return;
             togglePanel();
+        };
+
+        container._lcNotesCleanup = () => {
+            if (statusTimer) clearTimeout(statusTimer);
+            cleanupFns.forEach((cleanup) => {
+                try {
+                    if (typeof cleanup === 'function') cleanup();
+                } catch (e) {
+                    console.warn('[LeetCode EasyRepeat] Notes cleanup failed:', e);
+                }
+            });
         };
 
         return container;
@@ -707,10 +802,18 @@
     function showDragTooltip(targetElement) {
         if (!targetElement) return;
         // ... reused logic ...
+        const languagePromise = getCurrentLanguage().catch(() => 'en');
         const tooltip = document.createElement('div');
         tooltip.className = 'lc-notes-tooltip';
-        tooltip.innerHTML = `Long press to drag!<div class="lc-notes-tooltip-arrow"></div><button class="lc-tooltip-close">×</button>`;
+        tooltip.innerHTML = `<span class="lc-tooltip-text"></span><div class="lc-notes-tooltip-arrow"></div><button class="lc-tooltip-close">×</button>`;
         document.body.appendChild(tooltip);
+
+        languagePromise.then((language) => {
+            const text = tooltip.querySelector('.lc-tooltip-text');
+            if (text) {
+                text.textContent = translate('content_drag_tooltip', {}, language);
+            }
+        });
 
         const updatePosition = () => {
             try {
@@ -805,29 +908,40 @@
 
         const container = document.createElement('div');
         container.className = 'lc-analysis-progress';
-        container.innerHTML = `
-            <div class="lc-analysis-header">
-                <div class="lc-analysis-status">
-                    <div class="lc-spinner"></div>
-                    <span>Analyzing Request...</span>
-                </div>
-            </div>
-            <div class="lc-progress-track">
-                <div class="lc-progress-bar indeterminate"></div>
-            </div>
-            <button class="lc-analysis-cancel-btn">Cancel Analysis</button>
-        `;
+        let liveLanguage = 'en';
 
+        const renderProgressUI = (language) => {
+            container.innerHTML = `
+                <div class="lc-analysis-header">
+                    <div class="lc-analysis-status">
+                        <div class="lc-spinner"></div>
+                        <span>${translate('content_analyzing_request', {}, language)}</span>
+                    </div>
+                </div>
+                <div class="lc-progress-track">
+                    <div class="lc-progress-bar indeterminate"></div>
+                </div>
+                <button class="lc-analysis-cancel-btn">${translate('content_cancel_analysis', {}, language)}</button>
+            `;
+
+            const cancelBtn = container.querySelector('.lc-analysis-cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.onclick = () => {
+                    if (onCancel) onCancel();
+                    close();
+                };
+            }
+        };
+
+        renderProgressUI('en');
         document.body.appendChild(container); // Fix: Append to body immediately
+        getCurrentLanguage().then((language) => {
+            liveLanguage = language;
+            renderProgressUI(language);
+        }).catch(() => { });
 
         // Animate in
         requestAnimationFrame(() => container.classList.add('show'));
-
-        const cancelBtn = container.querySelector('.lc-analysis-cancel-btn');
-        cancelBtn.onclick = () => {
-            if (onCancel) onCancel();
-            close();
-        };
 
         function close() {
             container.classList.remove('show');
@@ -836,7 +950,15 @@
 
         function update(text, percent) {
             const statusText = container.querySelector('.lc-analysis-status span');
-            if (statusText) statusText.innerText = text;
+            if (statusText) {
+                if (text === 'Analysis Complete') {
+                    statusText.innerText = translate('content_analysis_complete', {}, liveLanguage);
+                } else if (typeof text === 'string' && text.startsWith('Error: ')) {
+                    statusText.innerText = `${translate('common_error', {}, liveLanguage)}: ${text.slice(7)}`;
+                } else {
+                    statusText.innerText = text;
+                }
+            }
 
             // If we ever want real progress
             // const bar = container.querySelector('.lc-progress-bar');

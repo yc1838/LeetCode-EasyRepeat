@@ -2,6 +2,36 @@
  * @jest-environment jsdom
  */
 
+const path = require('path');
+const fs = require('fs');
+const vm = require('vm');
+
+function loadPopupUiModule() {
+    const sourcePath = path.resolve(__dirname, '../src/popup/popup_ui.js');
+    const source = fs.readFileSync(sourcePath, 'utf8')
+        .replace(/export function /g, 'function ');
+    const context = {
+        window,
+        document,
+        chrome: global.chrome,
+        console,
+        Date,
+        Math,
+        Intl,
+        setTimeout,
+        clearTimeout,
+        fsrs: global.fsrs,
+        projectSchedule: global.projectSchedule,
+        module: { exports: {} },
+        exports: {}
+    };
+    context.global = context;
+    context.globalThis = context;
+    vm.createContext(context);
+    vm.runInContext(`${source}\nmodule.exports = { renderVectors, renderMiniHeatmap, renderGlobalHeatmap, showNotification };`, context);
+    return context.module.exports;
+}
+
 // Mock Chrome API
 global.chrome = {
     tabs: {
@@ -35,12 +65,8 @@ describe('Popup GO Button', () => {
             <div id="vector-list"></div>
         `;
 
-        // Reload module to ensure fresh state
-        // Reload module to ensure fresh state
-        jest.resetModules();
-        // popup.js still needed for other logic if required, but renderVectors is in popup_ui
-        // We can just require popup_ui directly for testing the UI
-        popup = require('../src/popup/popup_ui.js');
+        window.EasyRepeatI18n = require('../src/shared/ui_i18n.js');
+        popup = loadPopupUiModule();
 
         // Mock global updateProblemSRS if needed
         global.updateProblemSRS = jest.fn();

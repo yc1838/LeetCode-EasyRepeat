@@ -82,9 +82,9 @@
                 // Still show toast to confirm to user
                 const existingNextDate = problems[problemKey].nextReviewDate || new Date().toISOString();
                 if (typeof showCompletionToast === 'function') {
-                    showCompletionToast(problemTitle, existingNextDate);
+                    showCompletionToast(problemTitle, existingNextDate, { slug: problemSlug });
                 } else if (typeof global !== 'undefined' && global.showCompletionToast) {
-                    global.showCompletionToast(problemTitle, existingNextDate);
+                    global.showCompletionToast(problemTitle, existingNextDate, { slug: problemSlug });
                 }
 
                 return { duplicate: true, problemTitle: problemTitle };
@@ -171,7 +171,7 @@
             fsrs_state: nextStep.fsrs_state !== undefined ? nextStep.fsrs_state : currentProblem.fsrs_state,
             fsrs_last_review: nextStep.fsrs_last_review !== undefined ? nextStep.fsrs_last_review : currentProblem.fsrs_last_review,
             topics: (topics && topics.length > 0) ? topics : (currentProblem.topics || []),
-            history: [...currentProblem.history, { date: nowISO, status: 'Accepted', rating: rating }]
+            history: [...currentProblem.history, { date: nowISO, status: difficultySource === 'api_poll_fail' ? 'Wrong Answer' : 'Accepted', rating: rating }]
         };
 
         await chrome.storage.local.set({ problems });
@@ -181,9 +181,9 @@
         console.log(`[LeetCode EasyRepeat] ✅ Saved to Chrome Storage!`);
 
         if (typeof showCompletionToast === 'function') {
-            showCompletionToast(problemTitle, nextStep.nextReviewDate);
+            showCompletionToast(problemTitle, nextStep.nextReviewDate, { slug: problemSlug });
         } else if (typeof global !== 'undefined' && global.showCompletionToast) {
-            global.showCompletionToast(problemTitle, nextStep.nextReviewDate);
+            global.showCompletionToast(problemTitle, nextStep.nextReviewDate, { slug: problemSlug });
         }
 
         return { success: true };

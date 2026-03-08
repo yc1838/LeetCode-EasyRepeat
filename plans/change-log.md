@@ -1,5 +1,22 @@
 # Change Log
 
+## 2026-03-07
+- Timestamp: 2026-03-07
+- Change: Unified API-first problem info capture via new `getQuestionInfo(slug)` function with in-memory cache (5-min TTL). Both correct and wrong submission paths now share a single source of truth for title, difficulty, and topics from LeetCode's GraphQL API. Wrong Answer submissions are now saved to the problem list with FSRS rating=1 (Again) for spaced repetition scheduling. History entries correctly record 'Wrong Answer' vs 'Accepted' status.
+- Reason: Previously, wrong submissions used `apiData.title` without the questionId prefix (e.g., "Two Sum" instead of "1. Two Sum"), and wrong answers were not saved to the problem list at all — violating standard SRS/flashcard logic where failed cards should re-enter the review queue with shorter intervals.
+- Impact: Wrong answers now correctly capture problem number and are saved for SRS review. In-memory cache reduces redundant GraphQL calls within a session. `extractProblemDetails()` DOM scraping is no longer used in the submission pipeline.
+- Scope Decision: in-scope
+
+---
+
+- Timestamp: 2026-03-07
+- Change: Content UI updates — toast title changed from "Vector Captured" to "Submission Captured", toast styling updates (border-radius, scanline overlay), and rating modal theme support via `resolveModalTheme()`.
+- Reason: Improve clarity of toast messaging and visual polish of the submission feedback UI.
+- Impact: Toast and rating modal now reflect the correct branding and support dark/light themes.
+- Scope Decision: in-scope
+
+---
+
 ## 2026-02-09
 - Timestamp: 2026-02-09T16:26:11-0500
 - Change: Restored popup streak display in the heatmap header, reconnected streak calculation rendering, and updated header layout so long welcome text wraps on the left while streak stays visible on the right.

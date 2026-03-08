@@ -6,7 +6,7 @@
 
 A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System** (a learning technique that involves reviewing information at increasing intervals of time). 
 
-It automatically tracks your "Accepted" submissions, schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
+It automatically tracks your submissions (both Accepted and Wrong Answer), schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
 
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green?logo=google-chrome)
@@ -101,7 +101,7 @@ For Cloud LLM:
   <video src="https://github.com/user-attachments/assets/27a799e2-3883-45c8-b616-11711fc10038" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
 </div>
 
-- **Automatic Submission Detection**: Captures "Accepted" submissions directly on LeetCode
+- **Automatic Submission Detection**: Captures both "Accepted" and "Wrong Answer" submissions directly on LeetCode
 - **Smart Scheduling**: Uses the state-of-the-art **FSRS v4.5** algorithm with optimized weights for superior retention modeling
 - **Stability & Difficulty Modeling**: Dynamically adjusts stability and difficulty based on your performance
 - **Problem Difficulty Tracking**: Automatically detects and saves LeetCode difficulty (Easy/Medium/Hard)
@@ -153,6 +153,7 @@ For Cloud LLM:
 
 ### Major Changes Since v1.0.0
 
+- **Wrong Answer SRS Tracking**: Failed submissions are now saved to the problem list with FSRS rating=1 (Again), scheduling an early review — matching standard flashcard behavior (like Anki's "Again" button)
 - **Multi-Provider AI Support**: Added support for Google Gemini, OpenAI, Anthropic Claude, and local models (Ollama, LM Studio) through a unified LLMGateway
 - **Internationalization**: Full i18n support with 11 languages available in the options page
 - **Enhanced UI**:
@@ -209,6 +210,7 @@ Choose from 11 languages in the options page:
 - Português (Portuguese), Deutsch (German), 한국어 (Korean)
 - Français (French), Polski (Polish), Español (Spanish), Türkçe (Turkish)
 
+Choose from 2 languages for the UI on dashboard: English and Chinese
 ---
 
 ## 🛠 Usage
@@ -445,7 +447,7 @@ graph TD
     Orchestrator --> UI
 
     API <--> LCAPI
-    API -- Accepted --> StorageMod
+    API -- Accepted/Wrong Answer --> StorageMod
     API -- Wrong Answer + AI enabled --> LLM
 
     StorageMod --> SRS
@@ -640,7 +642,7 @@ npm run build
   <video src="https://github.com/user-attachments/assets/27a799e2-3883-45c8-b616-11711fc10038" width="80%" autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></video>
 </div>
 
-- **自动检测提交**: 直接在 LeetCode 页面上捕获你做绿了 ("Accepted") 的题目。
+- **自动检测提交**: 直接在 LeetCode 页面上捕获你的提交结果，无论是通过 ("Accepted") 还是错误 ("Wrong Answer") 都会被记录到复习系统中。
 - **智能调度安排**: 采用顶尖的 **FSRS v4.5** 算法和优化的权重，为你量身定制题目复习计划。
 - **稳定性与难度建模**: 根据你在每道题上的表现反馈（忘记、困难、良好、简单），动态调整该题目的记忆稳定性和难度。
 - **题目难度检测**: 自动抓取并记录这道题在 LeetCode 上的官方难度阶级 (Easy / Medium / Hard)。

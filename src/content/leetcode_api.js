@@ -161,7 +161,7 @@
                 };
 
                 // Prompt for rating manually too? Yes.
-                const rating = await showRatingModal(details.title);
+                const rating = await showRatingModal(details.title, { slug });
                 const result = await saveSubmission(details.title, details.slug, details.difficulty, 'manual_api_scan', rating, details.topics);
                 return result || { success: true };
             }
@@ -269,7 +269,7 @@
 
                         if (showRatingModal && saveSubmission) {
                             // Use already-fetched apiData (no duplicate call!)
-                            const rating = await showRatingModal(finalTitle);
+                            const rating = await showRatingModal(finalTitle, { slug });
                             await saveSubmission(finalTitle, slug, finalDifficulty, 'api_poll', rating, finalTopics);
                             return true;
                         } else {
@@ -277,7 +277,15 @@
                             return false;
                         }
                     } else {
-                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg || 'Error'}). Triggering AI Hook...`);
+                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg || 'Error'}). Saving as failed attempt...`);
+
+                        // Save failed attempt to problem list with rating=1 (Again)
+                        // so SRS schedules an early review
+                        const saveSubmission = getDep('saveSubmission');
+                        if (saveSubmission) {
+                            await saveSubmission(finalTitle, slug, finalDifficulty, 'api_poll_fail', 1, finalTopics);
+                            console.log(`[LeetCode EasyRepeat] Failed attempt saved for ${finalTitle}`);
+                        }
 
                         console.log("[LeetCode EasyRepeat] [DEBUG] Checking window.LLMSidecar:", typeof window.LLMSidecar !== 'undefined');
                         if (typeof window.LLMSidecar !== 'undefined') {

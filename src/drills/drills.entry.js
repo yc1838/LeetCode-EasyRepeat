@@ -1,4 +1,6 @@
 import '../shared/config.js';
+import '../shared/ui_i18n.js';
+import '../shared/problem_titles.js';
 import '../shared/storage.js';
 // Dexie is loaded via script tag in HTML before this module
 import '../background/drill_store.js';

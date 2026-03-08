@@ -16,6 +16,7 @@
     ],
     "host_permissions": [
         "https://leetcode.com/*",
+        "https://leetcode.cn/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
     ],
@@ -45,6 +46,8 @@
             "js": [
                 "src/algorithms/srs_logic.js",
                 "src/shared/config.js",
+                "src/shared/ui_i18n.js",
+                "src/shared/problem_titles.js",
                 "src/algorithms/fsrs_logic.js",
                 "src/content/content_ui.js",
                 "src/content/leetcode_dom.js",

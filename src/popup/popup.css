@@ -160,6 +160,26 @@ body::before {
     gap: 8px;
 }
 
+.lang-toggle {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border: 1px solid var(--border-dim);
+    background: transparent;
+    color: var(--terminal);
+    font-family: var(--font-data);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-toggle:hover {
+    border-color: var(--terminal);
+    box-shadow: 0 0 8px var(--border-glow);
+}
+
 .status-ready {
     color: var(--electric);
     /* No more blinking - it was annoying */
@@ -564,6 +584,39 @@ body::before {
     /* Prevent stretching */
 }
 
+.action-group {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.action-group button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+}
+
+.action-group-zh button {
+    width: auto;
+    min-width: 54px;
+    padding-inline: 8px;
+}
+
+.go-btn-zh {
+    font-size: 0.58rem;
+    letter-spacing: 0;
+}
+
+.del-btn-zh {
+    font-size: 0.6rem;
+    letter-spacing: 0;
+}
+
 .stat-tag {
     padding: 2px 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -690,6 +743,7 @@ body::before {
     cursor: pointer;
     transition: all 0.2s;
     width: 32px;
+    min-height: 22px;
     /* Fixed width for alignment */
     text-align: center;
 }
@@ -711,6 +765,7 @@ body::before {
     transition: all 0.2s;
     opacity: 0.7;
     width: 32px;
+    min-height: 22px;
     /* Fixed width for alignment */
     text-align: center;
 }
@@ -1020,6 +1075,14 @@ body.theme-brnd .del-btn {
     border: none;
     box-shadow: 4px 4px 0 #000;
     opacity: 1;
+}
+
+body.theme-brnd .action-group-zh .go-btn,
+body.theme-brnd .action-group-zh .del-btn {
+    width: auto;
+    min-width: 58px;
+    padding-inline: 10px;
+    border-radius: 999px;
 }
 
 

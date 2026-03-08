@@ -1,5 +1,7 @@
 console.log('[Popup Entry] Starting to load modules...');
 import '../shared/config.js';
+import '../shared/ui_i18n.js';
+import '../shared/problem_titles.js';
 console.log('[Popup Entry] Config loaded, window.THEMES:', typeof window !== 'undefined' ? window.THEMES : 'N/A');
 import '../algorithms/fsrs_logic.js';
 import '../shared/storage.js';
