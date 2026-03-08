@@ -289,6 +289,48 @@ Date string of when the morning greeting banner was last displayed.
 
 ---
 
+## Backup Metadata
+
+### `backupMeta`
+
+Metadata for manual backup/export and restore actions shown in the options page.
+This is **not** the backup itself. The actual recovery artifact is the downloaded JSON backup file stored outside Chrome.
+
+**Type:** `Object`
+**Default:** see below
+
+```ts
+interface BackupMeta {
+  lastBackupAt: string;             // ISO 8601 datetime of latest manual export
+  lastBackupFileName: string;       // Suggested filename used for export
+  lastBackupProblemCount: number;   // Problem entries present in exported snapshot
+  lastBackupKeyCount: number;       // Total chrome.storage.local keys in exported snapshot
+  lastRestoreAt: string;            // ISO 8601 datetime of latest restore
+  lastRestoreFileName: string;      // Filename selected for restore
+  lastRestoreProblemCount: number;  // Problem entries restored
+  lastRestoreKeyCount: number;      // Total keys restored
+  lastRestoredExportedAt: string;   // Export timestamp embedded in the imported backup file
+}
+```
+
+**Default value:**
+
+```json
+{
+  "lastBackupAt": "",
+  "lastBackupFileName": "",
+  "lastBackupProblemCount": 0,
+  "lastBackupKeyCount": 0,
+  "lastRestoreAt": "",
+  "lastRestoreFileName": "",
+  "lastRestoreProblemCount": 0,
+  "lastRestoreKeyCount": 0,
+  "lastRestoredExportedAt": ""
+}
+```
+
+---
+
 ## Storage Budget
 
 | Category | Estimated Size | Notes |

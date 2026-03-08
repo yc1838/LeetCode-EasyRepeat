@@ -1,6 +1,14 @@
 # Change Log
 
 ## 2026-03-07
+- Timestamp: 2026-03-07T20:14:52-0500
+- Change: Added a formal persistence redesign document (`plans/persistence-architecture-redesign.md`) that starts from functional requirements and non-functional requirements, then defines the target storage split, domain model, repository boundary, and phased migration plan.
+- Reason: The current storage architecture has drifted into a mixed `chrome.storage.local` / session / localStorage / IndexedDB model with unclear ownership and documentation mismatch. Architecture needs to be stabilized before any storage refactor work begins.
+- Impact: Establishes a requirements-first design baseline and constrains follow-up work to a migration plan instead of ad hoc rewrites. No runtime behavior changed in this step.
+- Scope Decision: swap-required
+
+---
+
 - Timestamp: 2026-03-07
 - Change: Unified API-first problem info capture via new `getQuestionInfo(slug)` function with in-memory cache (5-min TTL). Both correct and wrong submission paths now share a single source of truth for title, difficulty, and topics from LeetCode's GraphQL API. Wrong Answer submissions are now saved to the problem list with FSRS rating=1 (Again) for spaced repetition scheduling. History entries correctly record 'Wrong Answer' vs 'Accepted' status.
 - Reason: Previously, wrong submissions used `apiData.title` without the questionId prefix (e.g., "Two Sum" instead of "1. Two Sum"), and wrong answers were not saved to the problem list at all — violating standard SRS/flashcard logic where failed cards should re-enter the review queue with shorter intervals.

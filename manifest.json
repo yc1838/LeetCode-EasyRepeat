@@ -12,7 +12,8 @@
     "permissions": [
         "storage",
         "alarms",
-        "notifications"
+        "notifications",
+        "downloads"
     ],
     "host_permissions": [
         "https://leetcode.com/*",

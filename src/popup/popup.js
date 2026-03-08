@@ -17,6 +17,9 @@ let storageListenersReady = false;
 let clockIntervalId = null;
 let sidebarReady = false;
 let localizedTitleHydrationInFlight = false;
+let themePersistInFlight = false;
+let queuedThemeForPersist = null;
+let currentFilters = { difficulty: 'all', topic: 'all', timeRange: 'all' };
 
 function getI18n() {
     return window.EasyRepeatI18n || null;
@@ -31,11 +34,46 @@ function t(key, values = {}) {
     return i18n ? i18n.t(key, values, currentLanguage) : key;
 }
 
+function getThemeNames() {
+    const themeNames = Object.keys(THEMES);
+    return themeNames.length > 0 ? themeNames : ['sakura'];
+}
+
+function getNextThemeName(themeName) {
+    const themeNames = getThemeNames();
+    const currentIndex = themeNames.indexOf(themeName);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    return themeNames[(safeIndex + 1) % themeNames.length];
+}
+
+async function flushQueuedThemePersist() {
+    if (themePersistInFlight || !chrome?.storage?.local?.set) return;
+    themePersistInFlight = true;
+
+    try {
+        while (queuedThemeForPersist !== null) {
+            const themeToPersist = queuedThemeForPersist;
+            queuedThemeForPersist = null;
+            await chrome.storage.local.set({ theme: themeToPersist });
+        }
+    } catch (error) {
+        console.warn('[Popup] Failed to persist theme:', error);
+    } finally {
+        themePersistInFlight = false;
+    }
+}
+
+function queueThemePersist(themeName) {
+    queuedThemeForPersist = themeName;
+    void flushQueuedThemePersist();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     await setupTheme();
     await setupLanguage();
     setupOptionsButton();
     setupSidebar();
+    await setupFilters();
     await updateDashboard();
     setupStorageListeners();
 });
@@ -61,13 +99,10 @@ async function setupTheme() {
     const themeButton = document.getElementById('btn-theme');
     if (!themeButton) return;
 
-    themeButton.onclick = async () => {
-        const themes = Object.keys(THEMES);
-        const currentIndex = themes.indexOf(currentTheme);
-        const nextIndex = (currentIndex + 1) % themes.length;
-        currentTheme = themes[nextIndex];
+    themeButton.onclick = () => {
+        currentTheme = getNextThemeName(currentTheme);
         applyTheme(currentTheme);
-        await chrome.storage.local.set({ theme: currentTheme });
+        queueThemePersist(currentTheme);
     };
 }
 
@@ -195,6 +230,7 @@ async function updateDashboard() {
     }
 
     rerenderCurrentView();
+    populateTopicDropdown(problems);
     renderGlobalHeatmap();
     updateClock();
     if (!clockIntervalId) {
@@ -206,7 +242,15 @@ async function updateDashboard() {
 }
 
 function rerenderCurrentView() {
-    const problems = currentView === 'all' ? currentAllProblems : currentDueProblems;
+    const baseProblems = currentView === 'all' ? currentAllProblems : currentDueProblems;
+
+    // Apply filters
+    const PopupFilter = window.PopupFilter;
+    let problems = baseProblems;
+    if (PopupFilter && PopupFilter.filterProblems) {
+        problems = PopupFilter.filterProblems(baseProblems, currentFilters);
+    }
+
     renderVectors(problems, 'vector-list', currentView === 'dashboard', {
         language: currentLanguage,
         titleCache: currentTitleCache
@@ -257,6 +301,89 @@ function updateQueueTitle() {
     title.innerText = currentView === 'all'
         ? t('popup_queue_all_problems')
         : t('popup_queue_due_today');
+}
+
+/**
+ * Set up filter dropdowns: restore persisted selections, populate topic list.
+ */
+async function setupFilters() {
+    // Restore persisted filter selections
+    try {
+        const stored = await chrome.storage.local.get({ popupFilters: null });
+        if (stored.popupFilters) {
+            currentFilters = { ...currentFilters, ...stored.popupFilters };
+        }
+    } catch (e) {
+        console.warn('[Popup] Could not restore filters:', e);
+    }
+
+    const difficultySelect = document.getElementById('filter-difficulty');
+    const topicSelect = document.getElementById('filter-topic');
+    const timeSelect = document.getElementById('filter-time');
+
+    // Set initial values from persisted state
+    if (difficultySelect) difficultySelect.value = currentFilters.difficulty || 'all';
+    if (timeSelect) timeSelect.value = currentFilters.timeRange || 'all';
+
+    // Wire change listeners
+    const onFilterChange = () => {
+        if (difficultySelect) currentFilters.difficulty = difficultySelect.value;
+        if (topicSelect) currentFilters.topic = topicSelect.value;
+        if (timeSelect) currentFilters.timeRange = timeSelect.value;
+
+        rerenderCurrentView();
+        void persistFilters();
+    };
+
+    if (difficultySelect) difficultySelect.addEventListener('change', onFilterChange);
+    if (topicSelect) topicSelect.addEventListener('change', onFilterChange);
+    if (timeSelect) timeSelect.addEventListener('change', onFilterChange);
+}
+
+/**
+ * Populate the topic dropdown from all known problems.
+ */
+function populateTopicDropdown(allProblems) {
+    const topicSelect = document.getElementById('filter-topic');
+    if (!topicSelect) return;
+
+    const PopupFilter = window.PopupFilter;
+    const topics = PopupFilter ? PopupFilter.extractAllTopics(allProblems) : [];
+
+    // Preserve current selection
+    const currentValue = topicSelect.value;
+
+    // Clear existing options except the first ("All Topics")
+    while (topicSelect.options.length > 1) {
+        topicSelect.remove(1);
+    }
+
+    // Add topic options
+    for (const topic of topics) {
+        const option = document.createElement('option');
+        option.value = topic;
+        option.textContent = topic;
+        topicSelect.appendChild(option);
+    }
+
+    // Restore selection if it still exists
+    if (currentValue && topics.includes(currentValue)) {
+        topicSelect.value = currentValue;
+    } else {
+        topicSelect.value = 'all';
+        currentFilters.topic = 'all';
+    }
+}
+
+/**
+ * Persist current filter selections across popup open/close.
+ */
+async function persistFilters() {
+    try {
+        await chrome.storage.local.set({ popupFilters: currentFilters });
+    } catch (e) {
+        console.warn('[Popup] Could not persist filters:', e);
+    }
 }
 
 async function hydrateLocalizedTitles(problems) {

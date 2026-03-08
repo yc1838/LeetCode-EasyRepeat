@@ -529,6 +529,7 @@ Uses Chrome's `chrome.storage.local` API to persist:
 - Theme preference
 - Activity log for streak tracking
 - Vector embeddings for RAG
+- Backup metadata for manual export/restore from the options page
 
 ---
 

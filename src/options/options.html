@@ -226,6 +226,25 @@ Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
                 <button id="streak-repair-btn" class="btn" data-i18n="streak_repair_button">Repair Streak Day</button>
                 <span id="streak-repair-status" class="status-text"></span>
             </div>
+
+            <hr class="section-divider">
+
+            <div class="grid" style="gap: 15px; margin-top: 15px;">
+                <div class="field">
+                    <label for="backup-export-btn" data-i18n="backup_heading">Backup &amp; Restore</label>
+                    <span class="hint" data-i18n="backup_hint">Export a full JSON snapshot so you can recover after Chrome profile cleanup or a local storage wipe.</span>
+                    <div class="local-warning ai-feature-list backup-note">
+                        <p><strong data-i18n="backup_note_title">Backup note:</strong> <span data-i18n="backup_note_body">The backup file includes your review history, notes, settings, and saved API keys. Store it somewhere you control.</span></p>
+                    </div>
+                    <div id="backup-meta" class="backup-meta hint" data-i18n="backup_meta_empty">No manual backup recorded yet.</div>
+                    <input id="backup-file-input" type="file" accept="application/json,.json" class="hidden">
+                </div>
+            </div>
+            <div class="actions">
+                <button id="backup-export-btn" class="btn" data-i18n="backup_export_button">Export Backup JSON</button>
+                <button id="backup-restore-btn" class="btn secondary" data-i18n="backup_restore_button">Restore from Backup File</button>
+                <span id="backup-status" class="status-text"></span>
+            </div>
         </section>
 
     </div>

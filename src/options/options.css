@@ -220,6 +220,21 @@ h2 {
     padding-left: 18px;
 }
 
+.backup-note {
+    margin-top: 12px;
+}
+
+.backup-note p {
+    margin: 0;
+}
+
+.backup-meta {
+    margin-top: 10px;
+    white-space: pre-line;
+    line-height: 1.5;
+    min-height: 40px;
+}
+
 .actions {
     display: flex;
     align-items: center;

@@ -55,6 +55,11 @@
         });
     }
 
+    function applyNotesWidgetTheme(widget, themeName) {
+        if (!widget) return;
+        widget.classList.toggle('theme-sakura', themeName === 'sakura');
+    }
+
     function getI18n() {
         if (typeof EasyRepeatI18n !== 'undefined') return EasyRepeatI18n;
         if (typeof window !== 'undefined' && window.EasyRepeatI18n) return window.EasyRepeatI18n;
@@ -333,6 +338,9 @@
         const existingContainer = document.querySelector('.lc-notes-container');
         if (existingContainer) {
             if (existingContainer.dataset.slug === slug) {
+                if (typeof existingContainer._lcSyncTheme === 'function') {
+                    try { void existingContainer._lcSyncTheme(); } catch (e) { /* context invalidated */ }
+                }
                 return; // Already exists
             } else {
                 if (typeof existingContainer._lcNotesCleanup === 'function') {
@@ -360,34 +368,56 @@
         };
 
         const widget = createNotesWidget(slug, loadContent, onSave);
+        const baseCleanup = widget._lcNotesCleanup;
+        const extraCleanupFns = [];
 
         // --- THEME LOGIC ---
-        // 1. Initial Load
         if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get({ theme: 'sakura' }, (result) => {
-                if (chrome.runtime?.lastError) return;
-                const theme = result.theme || 'sakura';
-                if (theme === 'sakura') {
-                    widget.classList.add('theme-sakura');
-                } else {
-                    widget.classList.remove('theme-sakura');
+            const syncWidgetTheme = () => new Promise((resolve) => {
+                try {
+                    if (!chrome.runtime?.id) { resolve(); return; }
+                    chrome.storage.local.get({ theme: 'sakura' }, (result) => {
+                        if (!chrome.runtime?.lastError) {
+                            applyNotesWidgetTheme(widget, result.theme || 'sakura');
+                        }
+                        resolve();
+                    });
+                } catch (e) {
+                    // Extension context invalidated — skip silently
+                    resolve();
                 }
             });
 
-            // 2. Listen for changes (Live Update)
+            widget._lcSyncTheme = syncWidgetTheme;
+            void syncWidgetTheme();
+
             if (chrome.storage.onChanged) {
-                chrome.storage.onChanged.addListener((changes, namespace) => {
-                    if (namespace === 'local' && changes.theme) {
-                        const newTheme = changes.theme.newValue;
-                        if (newTheme === 'sakura') {
-                            widget.classList.add('theme-sakura');
-                        } else {
-                            widget.classList.remove('theme-sakura');
+                const handleThemeChange = (changes, namespace) => {
+                    try {
+                        if (namespace === 'local' && changes.theme) {
+                            void syncWidgetTheme();
                         }
-                    }
-                });
+                    } catch (e) { /* context invalidated */ }
+                };
+
+                chrome.storage.onChanged.addListener(handleThemeChange);
+                extraCleanupFns.push(() => chrome.storage.onChanged.removeListener(handleThemeChange));
             }
         }
+
+        widget._lcNotesCleanup = () => {
+            extraCleanupFns.forEach((cleanup) => {
+                try {
+                    if (typeof cleanup === 'function') cleanup();
+                } catch (e) {
+                    console.warn('[LeetCode EasyRepeat] Notes theme cleanup failed:', e);
+                }
+            });
+
+            if (typeof baseCleanup === 'function') {
+                baseCleanup();
+            }
+        };
 
         document.body.appendChild(widget);
 

@@ -189,7 +189,12 @@ if (typeof monitorSubmissionClicks === 'function') {
 // Run periodically to handle navigation (mounting/unmounting of React components)
 const isTestEnv = (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
 if (!isTestEnv) {
-    setInterval(() => {
+    const notesInjectionInterval = setInterval(() => {
+        // Stop polling if extension context is gone
+        if (!(typeof chrome !== 'undefined' && chrome.runtime?.id)) {
+            clearInterval(notesInjectionInterval);
+            return;
+        }
         if (typeof insertNotesButton === 'function') {
             // Collect dependencies from global scope (loaded by manifest)
             const deps = {

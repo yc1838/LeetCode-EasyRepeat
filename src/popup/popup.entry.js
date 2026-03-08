@@ -11,6 +11,7 @@ import '../content/drill_queue.js';
 import '../content/skill_animations.js';
 import '../background/agent_loader.js';
 console.log('[Popup Entry] All dependencies loaded');
+import './popup_filter.js';
 import './popup_ui.js';
 import './popup.js';
 console.log('[Popup Entry] Popup modules loaded');

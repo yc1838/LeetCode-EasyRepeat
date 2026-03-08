@@ -72,4 +72,145 @@ describe('Notes UI', () => {
             expect(w2).not.toBe(w1); // Should be new element
         });
     });
+
+    describe('theme sync', () => {
+        let deps;
+        let currentTheme;
+        let storageListeners;
+
+        beforeEach(() => {
+            document.body.innerHTML = '';
+            deps = {
+                getCurrentProblemSlug: jest.fn(),
+                getNotes: jest.fn(),
+                saveNotes: jest.fn(),
+                extractProblemDetails: jest.fn()
+            };
+
+            currentTheme = 'matrix';
+            storageListeners = [];
+
+            global.chrome = {
+                runtime: {
+                    id: 'test-extension',
+                    lastError: null
+                },
+                storage: {
+                    local: {
+                        get: jest.fn((keys, callback) => {
+                            const result = {};
+                            if (keys && typeof keys === 'object' && Object.prototype.hasOwnProperty.call(keys, 'theme')) {
+                                result.theme = currentTheme;
+                            }
+                            if (Array.isArray(keys) && keys.includes('seenDragTooltip')) {
+                                result.seenDragTooltip = true;
+                            }
+                            callback(result);
+                        }),
+                        set: jest.fn()
+                    },
+                    onChanged: {
+                        addListener: jest.fn((listener) => storageListeners.push(listener)),
+                        removeListener: jest.fn((listener) => {
+                            storageListeners = storageListeners.filter((item) => item !== listener);
+                        })
+                    }
+                }
+            };
+        });
+
+        afterEach(() => {
+            delete global.chrome;
+        });
+
+        test('should re-sync theme for the existing widget on repeat insert attempts', async () => {
+            deps.getCurrentProblemSlug.mockReturnValue('two-sum');
+
+            contentUI.insertNotesButton(deps);
+            const widget = document.querySelector('.lc-notes-container');
+            expect(widget.classList.contains('theme-sakura')).toBe(false);
+
+            currentTheme = 'sakura';
+            contentUI.insertNotesButton(deps);
+            await Promise.resolve();
+
+            expect(document.querySelector('.lc-notes-container')).toBe(widget);
+            expect(widget.classList.contains('theme-sakura')).toBe(true);
+        });
+
+        test('should re-read storage on theme changes instead of trusting stale event payloads', async () => {
+            deps.getCurrentProblemSlug.mockReturnValue('two-sum');
+
+            contentUI.insertNotesButton(deps);
+            const widget = document.querySelector('.lc-notes-container');
+            expect(widget.classList.contains('theme-sakura')).toBe(false);
+
+            currentTheme = 'sakura';
+            storageListeners.forEach((listener) => listener({
+                theme: {
+                    oldValue: 'matrix',
+                    newValue: 'matrix'
+                }
+            }, 'local'));
+            await Promise.resolve();
+
+            expect(widget.classList.contains('theme-sakura')).toBe(true);
+        });
+
+        test('should not throw when extension context is invalidated (chrome.runtime.id is falsy)', () => {
+            deps.getCurrentProblemSlug.mockReturnValue('two-sum');
+
+            // First insert with valid context
+            contentUI.insertNotesButton(deps);
+            const widget = document.querySelector('.lc-notes-container');
+            expect(widget).not.toBeNull();
+
+            // Simulate extension context invalidation
+            global.chrome.runtime.id = undefined;
+
+            // Re-insert should NOT throw even with invalid context
+            expect(() => {
+                contentUI.insertNotesButton(deps);
+            }).not.toThrow();
+
+            // Widget should still exist
+            expect(document.querySelector('.lc-notes-container')).not.toBeNull();
+        });
+
+        test('should not throw when chrome.storage.local.get throws due to invalidated context', async () => {
+            // Set up chrome.storage.local.get to throw (simulates invalidated context)
+            global.chrome.storage.local.get = jest.fn(() => {
+                throw new Error('Extension context invalidated.');
+            });
+
+            deps.getCurrentProblemSlug.mockReturnValue('three-sum');
+
+            // Should not throw
+            expect(() => {
+                contentUI.insertNotesButton(deps);
+            }).not.toThrow();
+
+            const widget = document.querySelector('.lc-notes-container');
+            expect(widget).not.toBeNull();
+        });
+
+        test('should not throw when onChanged listener fires after context invalidation', async () => {
+            deps.getCurrentProblemSlug.mockReturnValue('two-sum');
+
+            contentUI.insertNotesButton(deps);
+
+            // Invalidate context
+            global.chrome.runtime.id = undefined;
+            global.chrome.storage.local.get = jest.fn(() => {
+                throw new Error('Extension context invalidated.');
+            });
+
+            // Fire theme change event — should not throw
+            expect(() => {
+                storageListeners.forEach((listener) => listener({
+                    theme: { oldValue: 'matrix', newValue: 'sakura' }
+                }, 'local'));
+            }).not.toThrow();
+        });
+    });
 });

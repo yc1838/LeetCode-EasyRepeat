@@ -518,6 +518,52 @@ body::before {
     }
 }
 
+/* FILTER BAR */
+.filter-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-select {
+    flex: 1;
+    min-width: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-dim);
+    color: var(--terminal);
+    font-family: var(--font-data);
+    font-size: 0.55rem;
+    padding: 4px 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4' viewBox='0 0 8 4'%3E%3Cpath d='M0 0l4 4 4-4z' fill='%23FF9A56'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    padding-right: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filter-select:hover {
+    border-color: var(--terminal);
+    box-shadow: 0 0 8px var(--border-glow);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--electric);
+    box-shadow: 0 0 10px var(--border-glow-pink);
+}
+
+.filter-select option {
+    background: var(--void);
+    color: var(--terminal);
+    font-family: var(--font-data);
+}
+
 /* PROBLEM VECTORS (CARDS) */
 .vector-list {
     display: flex;

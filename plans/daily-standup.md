@@ -1,5 +1,21 @@
 # Daily Standup
 
+### Date: 2026-03-07
+- Done:
+  - Audited the actual storage topology across `chrome.storage.local`, `chrome.storage.session`, `localStorage`, and Dexie/IndexedDB stores.
+  - Confirmed that the documented storage schema no longer matches the true runtime architecture.
+  - Wrote a requirements-first persistence redesign document covering functional requirements, non-functional requirements, target storage roles, canonical domain entities, repository boundaries, and phased migration strategy.
+- Next:
+  - Review and approve the target persistence architecture.
+  - Write the canonical target schema and repository contracts.
+  - Decide cutover rules for `skillDNA`, submission event retention, and whether to merge or keep separate Dexie databases.
+- Blockers:
+  - Storage ownership is currently split across multiple mechanisms with no single persistence boundary.
+  - Current schema documentation is not authoritative relative to the codebase.
+- Risk: behind
+
+---
+
 ### Date: 2026-02-09
 - Done:
   - Diagnosed popup streak regression: streak display element and render update were removed during earlier popup header refactor, not because welcome text string length.

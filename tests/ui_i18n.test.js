@@ -76,5 +76,33 @@ describe('EasyRepeatI18n', () => {
         changeListeners[0]({ uiLanguage: { newValue: 'zh' } }, 'local');
 
         expect(listener).toHaveBeenCalledWith('zh');
+        it('contains all required filter translation keys', () => {
+        const en = EasyRepeatI18n.DICTIONARY.en;
+        const zh = EasyRepeatI18n.DICTIONARY.zh;
+
+        const filterKeys = [
+            'filter_all_difficulty',
+            'filter_all_topics',
+            'filter_all_time',
+            'filter_last_7d',
+            'filter_last_30d',
+            'filter_last_90d'
+        ];
+
+        filterKeys.forEach(key => {
+            expect(en).toHaveProperty(key);
+            expect(zh).toHaveProperty(key);
+        });
+
+        // Verify specific values
+        expect(en.filter_all_difficulty).toBe('Difficulty');
+        expect(zh.filter_all_difficulty).toBe('难度');
+        
+        expect(en.filter_all_time).toBe('All Time');
+        expect(zh.filter_all_time).toBe('全部时间');
+        
+        expect(en.filter_last_7d).toBe('Last 7 Days');
+        expect(zh.filter_last_7d).toBe('最近7天');
     });
+});
 });

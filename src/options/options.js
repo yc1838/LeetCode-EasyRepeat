@@ -33,6 +33,21 @@
         uiLanguage: 'en'
     };
 
+    const BACKUP_SCHEMA_VERSION = 2;
+    const BACKUP_METADATA_KEY = 'backupMeta';
+    const BACKUP_FILE_PREFIX = 'leetcode-easyrepeat-backup';
+    const BACKUP_META_DEFAULT = {
+        lastBackupAt: '',
+        lastBackupFileName: '',
+        lastBackupProblemCount: 0,
+        lastBackupKeyCount: 0,
+        lastRestoreAt: '',
+        lastRestoreFileName: '',
+        lastRestoreProblemCount: 0,
+        lastRestoreKeyCount: 0,
+        lastRestoredExportedAt: ''
+    };
+
     const SUPPORTED_LANGUAGES = new Set([
         'en',
         'zh',
@@ -109,7 +124,25 @@
             streak_repair_button: 'Repair Streak Day',
             status_streak_invalid_date: 'Invalid date. Use YYYY-MM-DD.',
             status_streak_repair_saved: '✅ Streak activity logged for {date}.',
-            status_streak_repair_exists: 'ℹ️ {date} is already in your streak log.'
+            status_streak_repair_exists: 'ℹ️ {date} is already in your streak log.',
+            backup_heading: 'Backup & Restore',
+            backup_hint: 'Export a full JSON snapshot so you can recover after Chrome profile cleanup or a local storage wipe.',
+            backup_note_title: 'Backup note:',
+            backup_note_body: 'The backup file includes your review history, notes, settings, and saved API keys. Store it somewhere you control.',
+            backup_export_button: 'Export Backup JSON',
+            backup_restore_button: 'Restore from Backup File',
+            backup_meta_empty: 'No manual backup recorded yet.',
+            backup_meta_last_backup: 'Last export: {date} · {file} · {problems} problems / {keys} storage keys',
+            backup_meta_last_restore: 'Last restore: {date} · {file} · {problems} problems / {keys} storage keys{exported}',
+            backup_meta_source_exported_at: ' · backup created {date}',
+            status_backup_exporting: 'Exporting backup JSON...',
+            status_backup_exported: '✅ Backup exported: {file} ({problems} problems / {keys} keys).',
+            status_backup_restoring: 'Restoring backup...',
+            status_backup_restored: '✅ Backup restored from {file} ({problems} problems / {keys} keys).',
+            status_backup_invalid: 'Invalid backup format.',
+            status_backup_parse_failed: 'Could not read this backup file.',
+            status_backup_restore_cancelled: 'Restore cancelled.',
+            confirm_backup_restore: 'Restore this backup and replace current local data?'
         },
         zh: {
             page_title: 'LeetCode EasyRepeat - AI 设置',
@@ -226,7 +259,25 @@
             streak_repair_button: '补记连续天数',
             status_streak_invalid_date: '日期格式错误，请使用 YYYY-MM-DD。',
             status_streak_repair_saved: '✅ 已记录 {date} 的活跃状态。',
-            status_streak_repair_exists: 'ℹ️ {date} 已存在于连续记录中。'
+            status_streak_repair_exists: 'ℹ️ {date} 已存在于连续记录中。',
+            backup_heading: '备份与恢复',
+            backup_hint: '导出完整 JSON 快照，这样即使 Chrome profile 被清理或本地存储被抹掉，也还能恢复。',
+            backup_note_title: '备份提醒：',
+            backup_note_body: '备份文件会包含你的复习历史、笔记、设置，以及已保存的 API Key。请放在你自己可控的位置。',
+            backup_export_button: '导出备份 JSON',
+            backup_restore_button: '从备份文件恢复',
+            backup_meta_empty: '还没有记录到手动备份。',
+            backup_meta_last_backup: '最近导出：{date} · {file} · {problems} 道题 / {keys} 个存储键',
+            backup_meta_last_restore: '最近恢复：{date} · {file} · {problems} 道题 / {keys} 个存储键{exported}',
+            backup_meta_source_exported_at: ' · 备份创建于 {date}',
+            status_backup_exporting: '正在导出备份 JSON...',
+            status_backup_exported: '✅ 备份已导出：{file}（{problems} 道题 / {keys} 个键）。',
+            status_backup_restoring: '正在恢复备份...',
+            status_backup_restored: '✅ 已从 {file} 恢复备份（{problems} 道题 / {keys} 个键）。',
+            status_backup_invalid: '备份格式无效。',
+            status_backup_parse_failed: '无法读取这个备份文件。',
+            status_backup_restore_cancelled: '已取消恢复。',
+            confirm_backup_restore: '恢复这个备份并覆盖当前本地数据吗？'
         }
     };
 
@@ -1321,6 +1372,172 @@
         return interpolate(template, values);
     }
 
+    function isPlainObject(value) {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    function formatDateTime(value) {
+        if (!value) return '-';
+
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        return new Intl.DateTimeFormat(getLocaleTag(currentLanguage), {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        }).format(date);
+    }
+
+    function normalizeBackupMeta(rawMeta) {
+        return {
+            ...BACKUP_META_DEFAULT,
+            ...(isPlainObject(rawMeta) ? rawMeta : {})
+        };
+    }
+
+    function summarizeStorageSnapshot(storageData = {}) {
+        const data = isPlainObject(storageData) ? storageData : {};
+        return {
+            totalKeys: Object.keys(data).length,
+            problemCount: isPlainObject(data.problems) ? Object.keys(data.problems).length : 0,
+            activityDays: Array.isArray(data.activityLog) ? data.activityLog.length : 0
+        };
+    }
+
+    function buildBackupFileName(exportedAt) {
+        const safeIso = new Date(exportedAt || Date.now()).toISOString().replace(/[:.]/g, '-');
+        return `${BACKUP_FILE_PREFIX}-${safeIso}.json`;
+    }
+
+    function buildBackupPayload(storageData = {}, indexedDBData = null) {
+        const exportedAt = new Date().toISOString();
+        const data = isPlainObject(storageData) ? storageData : {};
+
+        const payload = {
+            backupSchemaVersion: BACKUP_SCHEMA_VERSION,
+            storageArea: 'chrome.storage.local',
+            exportedAt,
+            extensionVersion: chrome.runtime?.getManifest?.().version || '',
+            counts: summarizeStorageSnapshot(data),
+            data
+        };
+
+        if (indexedDBData) {
+            payload.indexedDBData = indexedDBData;
+        }
+
+        return payload;
+    }
+
+    function extractBackupData(parsed) {
+        // v2 with indexedDBData
+        if (isPlainObject(parsed) && isPlainObject(parsed.data) && isPlainObject(parsed.indexedDBData)) {
+            return {
+                storageData: parsed.data,
+                indexedDBData: parsed.indexedDBData,
+                exportedAt: parsed.exportedAt || ''
+            };
+        }
+
+        // v1 envelope (data but no indexedDBData)
+        if (isPlainObject(parsed) && isPlainObject(parsed.data)) {
+            return {
+                storageData: parsed.data,
+                indexedDBData: null,
+                exportedAt: parsed.exportedAt || ''
+            };
+        }
+
+        // Raw object (no envelope)
+        if (isPlainObject(parsed)) {
+            return {
+                storageData: parsed,
+                indexedDBData: null,
+                exportedAt: ''
+            };
+        }
+
+        throw new Error(t('status_backup_invalid'));
+    }
+
+    function renderBackupMeta(meta) {
+        if (!els.backupMeta) return;
+
+        const normalized = normalizeBackupMeta(meta);
+        const lines = [];
+
+        if (normalized.lastBackupAt) {
+            lines.push(t('backup_meta_last_backup', {
+                date: formatDateTime(normalized.lastBackupAt),
+                file: normalized.lastBackupFileName || '-',
+                problems: normalized.lastBackupProblemCount || 0,
+                keys: normalized.lastBackupKeyCount || 0
+            }));
+        }
+
+        if (normalized.lastRestoreAt) {
+            const exported = normalized.lastRestoredExportedAt
+                ? t('backup_meta_source_exported_at', {
+                    date: formatDateTime(normalized.lastRestoredExportedAt)
+                })
+                : '';
+
+            lines.push(t('backup_meta_last_restore', {
+                date: formatDateTime(normalized.lastRestoreAt),
+                file: normalized.lastRestoreFileName || '-',
+                problems: normalized.lastRestoreProblemCount || 0,
+                keys: normalized.lastRestoreKeyCount || 0,
+                exported
+            }));
+        }
+
+        els.backupMeta.textContent = lines.length > 0 ? lines.join('\n') : t('backup_meta_empty');
+    }
+
+    function downloadJsonFile(fileName, text) {
+        const blob = new Blob([text], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Use chrome.downloads with saveAs dialog if available
+        if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+            chrome.downloads.download({
+                url: url,
+                filename: fileName,
+                saveAs: true
+            }, () => {
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+            return;
+        }
+
+        // Fallback: <a> tag download (goes to default Downloads folder)
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+            anchor.remove();
+        }, 0);
+    }
+
+    async function saveBackupMeta(patch) {
+        const result = await chrome.storage.local.get({ [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT });
+        const nextMeta = {
+            ...normalizeBackupMeta(result[BACKUP_METADATA_KEY]),
+            ...(isPlainObject(patch) ? patch : {})
+        };
+
+        await chrome.storage.local.set({ [BACKUP_METADATA_KEY]: nextMeta });
+        renderBackupMeta(nextMeta);
+        return nextMeta;
+    }
+
     const DRILL_QUEUE_DEFAULT_TARGET = 12;
 
     function formatDrillFallback(fallbackCode) {
@@ -1587,13 +1804,17 @@
     }
 
     async function loadSettings() {
-        const settings = await chrome.storage.local.get(DEFAULTS);
+        const settings = await chrome.storage.local.get({
+            ...DEFAULTS,
+            [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT
+        });
 
         currentLanguage = normalizeLanguage(settings.uiLanguage);
         if (els.langSelect) {
             els.langSelect.value = currentLanguage;
         }
         applyTranslations();
+        renderBackupMeta(settings[BACKUP_METADATA_KEY]);
         await applyAiAnalysisSetting(settings.aiAnalysisEnabled !== false, { notify: true });
 
         const mode = settings.aiProvider === 'cloud' ? 'cloud' : 'local';
@@ -1694,6 +1915,164 @@
         showStatus(statusEl, t('status_streak_repair_saved', { date: dateValue }), 'ok', { sticky: true });
     }
 
+    /**
+     * Read all rows from an IndexedDB/Dexie store.
+     * Returns [] if Dexie or the store is unavailable.
+     */
+    async function readIDBStore(dbName, storesDef, tableName) {
+        try {
+            const DexieClass = (typeof Dexie !== 'undefined' && Dexie) ||
+                (typeof window !== 'undefined' && window.Dexie) ||
+                (typeof self !== 'undefined' && self.Dexie);
+            if (!DexieClass) return [];
+            const db = new DexieClass(dbName);
+            db.version(1).stores(storesDef);
+            await db.open();
+            return await db[tableName].toArray();
+        } catch (e) {
+            console.warn(`[Backup] Could not read ${dbName}.${tableName}:`, e);
+            return [];
+        }
+    }
+
+    /**
+     * Clear and bulk-write rows into an IndexedDB/Dexie store.
+     */
+    async function writeIDBStore(dbName, storesDef, tableName, rows) {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        try {
+            const DexieClass = (typeof Dexie !== 'undefined' && Dexie) ||
+                (typeof window !== 'undefined' && window.Dexie) ||
+                (typeof self !== 'undefined' && self.Dexie);
+            if (!DexieClass) return;
+            const db = new DexieClass(dbName);
+            db.version(1).stores(storesDef);
+            await db.open();
+            await db[tableName].clear();
+            await db[tableName].bulkAdd(rows);
+        } catch (e) {
+            console.warn(`[Backup] Could not write ${dbName}.${tableName}:`, e);
+        }
+    }
+
+    // IndexedDB schema definitions (must match the real stores)
+    const IDB_SCHEMAS = {
+        DrillsDB: { drills: 'id, type, skillId, status, createdAt, difficulty' },
+        InsightsDB: { insights: 'id, *skillIds, createdAt, lastSeenAt, weight, frequency' },
+        NeuralRetentionDB: {
+            submissionLog: '++id, sessionId, problemSlug, timestamp, result, submissionId',
+            attemptCounter: '[sessionId+problemSlug], count'
+        }
+    };
+
+    async function exportBackupSnapshot() {
+        showStatus(els.backupStatus, t('status_backup_exporting'), 'loading');
+
+        const storageData = await chrome.storage.local.get(null);
+
+        // Strip sensitive data — never export API keys
+        const SENSITIVE_KEYS = ['keys', 'geminiApiKey'];
+        for (const key of SENSITIVE_KEYS) {
+            delete storageData[key];
+        }
+
+        // Read IndexedDB stores
+        const drills = await readIDBStore('DrillsDB', IDB_SCHEMAS.DrillsDB, 'drills');
+        const insights = await readIDBStore('InsightsDB', IDB_SCHEMAS.InsightsDB, 'insights');
+        const submissionLog = await readIDBStore(
+            'NeuralRetentionDB', IDB_SCHEMAS.NeuralRetentionDB, 'submissionLog'
+        );
+
+        const indexedDBData = { drills, insights, submissionLog };
+        const payload = buildBackupPayload(storageData, indexedDBData);
+        const fileName = buildBackupFileName(payload.exportedAt);
+        const jsonText = JSON.stringify(payload, null, 2);
+
+        downloadJsonFile(fileName, jsonText);
+        await saveBackupMeta({
+            lastBackupAt: payload.exportedAt,
+            lastBackupFileName: fileName,
+            lastBackupProblemCount: payload.counts.problemCount,
+            lastBackupKeyCount: payload.counts.totalKeys
+        });
+
+        showStatus(els.backupStatus, t('status_backup_exported', {
+            file: fileName,
+            problems: payload.counts.problemCount,
+            keys: payload.counts.totalKeys
+        }), 'ok', { sticky: true });
+    }
+
+    async function restoreBackupFromFile(file) {
+        if (!file) return;
+
+        showStatus(els.backupStatus, t('status_backup_restoring'), 'loading');
+
+        let parsed;
+        try {
+            parsed = JSON.parse(await file.text());
+        } catch (e) {
+            throw new Error(t('status_backup_parse_failed'));
+        }
+
+        const { storageData, indexedDBData, exportedAt } = extractBackupData(parsed);
+        const summary = summarizeStorageSnapshot(storageData);
+        const shouldRestore = window.confirm(t('confirm_backup_restore'));
+
+        if (!shouldRestore) {
+            showStatus(els.backupStatus, t('status_backup_restore_cancelled'), '', { sticky: false });
+            return;
+        }
+
+        // 1. Restore chrome.storage.local
+        await chrome.storage.local.clear();
+
+        if (Object.keys(storageData).length > 0) {
+            await chrome.storage.local.set(storageData);
+        }
+
+        // 2. Restore IndexedDB stores (only if backup includes them — v2+)
+        if (indexedDBData) {
+            const drills = Array.isArray(indexedDBData.drills) ? indexedDBData.drills : [];
+            const insights = Array.isArray(indexedDBData.insights) ? indexedDBData.insights : [];
+            const submissionLog = Array.isArray(indexedDBData.submissionLog) ? indexedDBData.submissionLog : [];
+
+            if (drills.length > 0) {
+                await writeIDBStore('DrillsDB', IDB_SCHEMAS.DrillsDB, 'drills', drills);
+            }
+            if (insights.length > 0) {
+                await writeIDBStore('InsightsDB', IDB_SCHEMAS.InsightsDB, 'insights', insights);
+            }
+            if (submissionLog.length > 0) {
+                await writeIDBStore(
+                    'NeuralRetentionDB', IDB_SCHEMAS.NeuralRetentionDB, 'submissionLog', submissionLog
+                );
+            }
+        }
+
+        await saveBackupMeta({
+            ...normalizeBackupMeta(storageData[BACKUP_METADATA_KEY]),
+            lastRestoreAt: new Date().toISOString(),
+            lastRestoreFileName: file.name,
+            lastRestoreProblemCount: summary.problemCount,
+            lastRestoreKeyCount: summary.totalKeys,
+            lastRestoredExportedAt: exportedAt || ''
+        });
+
+        await loadSettings();
+        showStatus(els.backupStatus, t('status_backup_restored', {
+            file: file.name,
+            problems: summary.problemCount,
+            keys: summary.totalKeys
+        }), 'ok', { sticky: true });
+    }
+
+    function promptBackupRestore() {
+        if (!els.backupFileInput) return;
+        els.backupFileInput.value = '';
+        els.backupFileInput.click();
+    }
+
     function normalizeEndpoint(input) {
         let url = (input || '').trim();
 
@@ -1748,9 +2127,41 @@
         els.testBtn = getEl('test-local');
         els.testStatus = getEl('test-status');
         els.langSelect = getEl('lang-select');
+        els.backupExportBtn = getEl('backup-export-btn');
+        els.backupRestoreBtn = getEl('backup-restore-btn');
+        els.backupStatus = getEl('backup-status');
+        els.backupMeta = getEl('backup-meta');
+        els.backupFileInput = getEl('backup-file-input');
 
         els.saveBtn.addEventListener('click', saveSettings);
         els.testBtn.addEventListener('click', testLocalConnection);
+        els.backupExportBtn?.addEventListener('click', async () => {
+            try {
+                els.backupExportBtn.disabled = true;
+                await exportBackupSnapshot();
+            } catch (e) {
+                showStatus(els.backupStatus, t('status_error_prefix') + e.message, 'error', { sticky: true });
+            } finally {
+                els.backupExportBtn.disabled = false;
+            }
+        });
+        els.backupRestoreBtn?.addEventListener('click', promptBackupRestore);
+        els.backupFileInput?.addEventListener('change', async (event) => {
+            const file = event.target?.files?.[0];
+            if (!file) return;
+
+            try {
+                els.backupRestoreBtn.disabled = true;
+                await restoreBackupFromFile(file);
+            } catch (e) {
+                showStatus(els.backupStatus, t('status_error_prefix') + e.message, 'error', { sticky: true });
+            } finally {
+                els.backupRestoreBtn.disabled = false;
+                if (els.backupFileInput) {
+                    els.backupFileInput.value = '';
+                }
+            }
+        });
 
         els.modeLocal.addEventListener('change', async () => await setModeUI('local'));
         els.modeCloud.addEventListener('change', async () => await setModeUI('cloud'));
@@ -1774,6 +2185,8 @@
                 currentLanguage = normalizeLanguage(els.langSelect.value);
                 els.langSelect.value = currentLanguage;
                 applyTranslations();
+                const backupState = await chrome.storage.local.get({ [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT });
+                renderBackupMeta(backupState[BACKUP_METADATA_KEY]);
 
                 const mode = els.modeLocal.checked ? 'local' : 'cloud';
                 const selectedModelId = els.modelSelect.value;

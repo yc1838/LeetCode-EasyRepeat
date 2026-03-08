@@ -137,7 +137,13 @@
             greeting_many_skills: '{count} skills need practice. Ready for some drills?',
             greeting_drills_ready_one: '{count} drill ready',
             greeting_drills_ready_many: '{count} drills ready',
-            greeting_dismiss: 'Dismiss'
+            greeting_dismiss: 'Dismiss',
+            filter_all_difficulty: 'Difficulty',
+            filter_all_topics: 'All Topics',
+            filter_all_time: 'All Time',
+            filter_last_7d: 'Last 7 Days',
+            filter_last_30d: 'Last 30 Days',
+            filter_last_90d: 'Last 90 Days'
         },
         zh: {
             common_language_toggle_title: '切换到 English',
@@ -263,7 +269,13 @@
             greeting_many_skills: '有 {count} 个技能需要练习，准备来几道 drill 吗？',
             greeting_drills_ready_one: '已有 {count} 道练习待做',
             greeting_drills_ready_many: '已有 {count} 道练习待做',
-            greeting_dismiss: '关闭'
+            greeting_dismiss: '关闭',
+            filter_all_difficulty: '难度',
+            filter_all_topics: '全部题型',
+            filter_all_time: '全部时间',
+            filter_last_7d: '最近7天',
+            filter_last_30d: '最近30天',
+            filter_last_90d: '最近90天'
         }
     };
 
