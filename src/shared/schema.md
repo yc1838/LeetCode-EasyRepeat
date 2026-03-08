@@ -163,6 +163,21 @@ Display language for the extension UI.
 **Default:** `'en'`
 **Values:** `'en'` | `'zh'` | `'hi-IN'` | `'ja-JP'` | `'pt-BR'` | `'de-DE'` | `'ko-KR'` | `'fr-FR'` | `'pl-PL'` | `'es-ES'` | `'tr-TR'`
 
+### `popupFilters`
+
+User's last selected filters in the Popup Queue view.
+
+**Type:** `Object | null`
+**Default:** `null`
+
+```ts
+interface PopupFilters {
+  difficulty: "all" | "Easy" | "Medium" | "Hard";
+  topic: string;              // "all" or specific topic string
+  timeRange: string;          // "all" | "7" | "30" | "90"
+}
+```
+
 ### `seenDragTooltip`
 
 Whether the user has dismissed the drag-to-reposition tooltip.

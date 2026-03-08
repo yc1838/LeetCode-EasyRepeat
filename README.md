@@ -135,8 +135,10 @@ For Cloud LLM:
 ### 🎨 Cyberpunk UI with Dual Themes
 - **Sakura Theme** (Default): Lesbian flag-inspired color palette with neon peach, pink, and orange glows
 - **Matrix Theme**: Classic green terminal aesthetic with electric cyan accents
-- **Dynamic Theme Switching**: Toggle themes with one click; preference is saved across sessions
-- **Themed Toast Notifications**: In-page success toasts match your selected theme
+- **Dynamic Theme Switching**: Toggle themes with one click (`Sakura`, `Matrix`, `Neural`, `Typography`); preference is saved across sessions
+- **Themed Modals & Toast Notifications**: In-page success toasts and the FSRS Rating Modal seamlessly match your selected theme
+- **Internationalization (i18n)**: UI available in English (`en`) and Chinese 中文 (`zh`)
+
 
 <div align="center">
   <img src="assets/matrix_theme.png" alt="Matrix Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
@@ -151,8 +153,9 @@ For Cloud LLM:
 
 ## 🆕 Recent Updates
 
-### Major Changes Since v1.0.0
-
+### Major Changes Since v1.0.1
+- **Problem Title Caching**: Intelligent caching of problem localized titles (`localizedProblemTitles`) to speed up rendering without constant GraphQL fetching.
+- **Popup Filtering**: Added support for filtering problems in the popup queue by difficulty, topic, and time range.
 - **Wrong Answer SRS Tracking**: Failed submissions are now saved to the problem list with FSRS rating=1 (Again), scheduling an early review — matching standard flashcard behavior (like Anki's "Again" button)
 - **Multi-Provider AI Support**: Added support for Google Gemini, OpenAI, Anthropic Claude, and local models (Ollama, LM Studio) through a unified LLMGateway
 - **Internationalization**: Full i18n support with 11 languages available in the options page
