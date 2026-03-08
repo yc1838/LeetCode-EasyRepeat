@@ -140,9 +140,12 @@ function applyLanguage(language) {
     }
 
     const button = document.getElementById('lang-toggle');
+    const label = document.getElementById('lang-toggle-label');
     if (button && i18n) {
-        button.textContent = i18n.getToggleLabel(currentLanguage);
-        button.title = t('common_language_toggle_title');
+        if (label) {
+            label.textContent = i18n.getToggleLabel(currentLanguage);
+        }
+        button.title = t('common_ui_language');
     }
 
     applyTheme(currentTheme);
@@ -362,7 +365,10 @@ function populateTopicDropdown(allProblems) {
     for (const topic of topics) {
         const option = document.createElement('option');
         option.value = topic;
-        option.textContent = topic;
+        const i18n = getI18n();
+        option.textContent = (i18n && typeof i18n.translateTopic === 'function') 
+            ? i18n.translateTopic(topic, currentLanguage) 
+            : topic;
         topicSelect.appendChild(option);
     }
 

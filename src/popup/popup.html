@@ -20,7 +20,6 @@
         <header class="status-bar">
             <div id="brand-title" data-i18n="popup_brand">LeetCode EasyRepeat OS</div>
             <div class="status-controls">
-                <button id="lang-toggle" class="lang-toggle" type="button" title="Switch to 中文">E</button>
                 <div class="status-ready"><span id="status-ready-label" data-i18n="popup_sys_ready">[SYS_READY]</span> <span id="clock">00:00:00</span></div>
             </div>
         </header>
@@ -51,6 +50,13 @@
                 </svg>
             </div>
             <!-- Options / Setup -->
+            <div class="nav-icon lang-toggle-sidebar" id="lang-toggle" title="UI Language" data-i18n-title="common_ui_language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                    <text x="13" y="13" font-size="9" font-family="var(--font-data)" font-weight="bold" text-anchor="middle" fill="currentColor" stroke="none" id="lang-toggle-label">E</text>
+                </svg>
+            </div>
             <div class="nav-icon nav-icon-setup" id="btn-setup" title="Open Setup" data-i18n-title="popup_nav_open_setup_title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -88,9 +94,9 @@
                 <div class="filter-bar" id="filter-bar">
                     <select id="filter-difficulty" class="filter-select" title="Filter by difficulty">
                         <option value="all" data-i18n="filter_all_difficulty">Difficulty</option>
-                        <option value="Easy">Easy</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Hard">Hard</option>
+                        <option value="Easy" data-i18n="difficulty_easy">Easy</option>
+                        <option value="Medium" data-i18n="difficulty_medium">Medium</option>
+                        <option value="Hard" data-i18n="difficulty_hard">Hard</option>
                     </select>
                     <select id="filter-topic" class="filter-select" title="Filter by topic">
                         <option value="all" data-i18n="filter_all_topics">All Topics</option>

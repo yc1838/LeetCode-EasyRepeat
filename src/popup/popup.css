@@ -160,24 +160,20 @@ body::before {
     gap: 8px;
 }
 
-.lang-toggle {
-    min-width: 22px;
+/* Sidebar Language Toggle Customization */
+.lang-toggle-sidebar svg {
+    width: 20px;
     height: 20px;
-    padding: 0 6px;
-    border: 1px solid var(--border-dim);
-    background: transparent;
-    color: var(--terminal);
-    font-family: var(--font-data);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    opacity: 0.85;
 }
 
-.lang-toggle:hover {
-    border-color: var(--terminal);
-    box-shadow: 0 0 8px var(--border-glow);
+.lang-toggle-sidebar:hover svg {
+    opacity: 1;
+}
+
+.lang-toggle-sidebar text {
+    font-family: var(--font-main); /* Match title font */
+    font-size: 8px; /* Slightly smaller to fit book cover better */
 }
 
 .status-ready {

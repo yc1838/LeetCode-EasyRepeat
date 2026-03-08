@@ -14,6 +14,7 @@
 
     const DICTIONARY = {
         en: {
+            common_ui_language: 'UI Language',
             common_language_toggle_title: 'Switch to 中文',
             common_save: 'Save',
             common_cancel: 'Cancel',
@@ -146,6 +147,7 @@
             filter_last_90d: 'Last 90 Days'
         },
         zh: {
+            common_ui_language: 'UI 语言',
             common_language_toggle_title: '切换到 English',
             common_save: '保存',
             common_cancel: '取消',
@@ -279,6 +281,78 @@
         }
     };
 
+    const TOPIC_I18N = {
+        'en': {},
+        'zh': {
+            'Array': '数组',
+            'String': '字符串',
+            'Hash Table': '哈希表',
+            'Dynamic Programming': '动态规划',
+            'Math': '数学',
+            'Sorting': '排序',
+            'Greedy': '贪心',
+            'Depth-First Search': '深度优先搜索',
+            'Database': '数据库',
+            'Binary Search': '二分查找',
+            'Matrix': '矩阵',
+            'Tree': '树',
+            'Breadth-First Search': '广度优先搜索',
+            'Bit Manipulation': '位运算',
+            'Two Pointers': '双指针',
+            'Prefix Sum': '前缀和',
+            'Heap (Priority Queue)': '堆（优先队列）',
+            'Binary Tree': '二叉树',
+            'Simulation': '模拟',
+            'Stack': '栈',
+            'Graph': '图',
+            'Counting': '计数',
+            'Sliding Window': '滑动窗口',
+            'Design': '设计',
+            'Backtracking': '回溯',
+            'Enumeration': '枚举',
+            'Union Find': '并查集',
+            'Linked List': '链表',
+            'Number Theory': '数论',
+            'Monotonic Stack': '单调栈',
+            'Trie': '字典树',
+            'Segment Tree': '线段树',
+            'Bitmask': '状态压缩',
+            'Queue': '队列',
+            'Divide and Conquer': '分治',
+            'Geometry': '几何',
+            'Memoization': '记忆化搜索',
+            'Binary Indexed Tree': '树状数组',
+            'Topological Sort': '拓扑排序',
+            'Combinatorics': '组合数学',
+            'String Matching': '字符串匹配',
+            'Shortest Path': '最短路',
+            'Rolling Hash': '滚动哈希',
+            'Interactive': '交互',
+            'Data Stream': '数据流',
+            'Brainteaser': '脑筋急转弯',
+            'Randomized': '随机化',
+            'Monotonic Queue': '单调队列',
+            'Merge Sort': '归并排序',
+            'Iterator': '迭代器',
+            'Concurrency': '多线程',
+            'Doubly-Linked List': '双向链表',
+            'Probability and Statistics': '概率与统计',
+            'Quickselect': '快速选择',
+            'Bucket Sort': '桶排序',
+            'Suffix Array': '后缀数组',
+            'Minimum Spanning Tree': '最小生成树',
+            'Counting Sort': '计数排序',
+            'Shell': 'Shell',
+            'Line Sweep': '扫描线',
+            'Reservoir Sampling': '水塘抽样',
+            'Strongly Connected Component': '强连通分量',
+            'Eulerian Circuit': '欧拉回路',
+            'Radix Sort': '基数排序',
+            'Rejection Sampling': '拒绝采样',
+            'Biconnected Component': '双连通分量'
+        }
+    };
+
     const languageListeners = new Set();
     let storageListenerAttached = false;
 
@@ -336,6 +410,13 @@
         if (normalized === 'medium') return t('difficulty_medium', {}, languageCode);
         if (normalized === 'hard') return t('difficulty_hard', {}, languageCode);
         return t('difficulty_unknown', {}, languageCode);
+    }
+
+    function translateTopic(topic, languageCode) {
+        if (!topic) return '';
+        const language = normalizeLanguage(languageCode);
+        const dict = TOPIC_I18N[language] || TOPIC_I18N.en;
+        return dict[topic] || topic;
     }
 
     function storageGet(defaults) {
@@ -495,6 +576,7 @@
         applyTranslations: applyTranslations,
         formatDate: formatDate,
         formatDifficulty: formatDifficulty,
+        translateTopic: translateTopic,
         onLanguageChange: onLanguageChange,
         t: t,
         interpolate: interpolate
