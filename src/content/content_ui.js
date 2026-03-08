@@ -36,6 +36,26 @@
     }
 
     /**
+     * Resolve content theme for modals.
+     * We currently support matrix and sakura in content overlays.
+     */
+    function resolveModalTheme(callback) {
+        const fallback = 'matrix';
+        if (!(typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local)) {
+            callback(fallback);
+            return;
+        }
+
+        chrome.storage.local.get({ theme: 'sakura' }, (result) => {
+            if (chrome.runtime?.lastError) {
+                callback(fallback);
+                return;
+            }
+            callback(result.theme === 'sakura' ? 'sakura' : 'matrix');
+        });
+    }
+
+    /**
      * Show a custom Toast notification on the page.
      */
     async function showCompletionToast(title, nextDate) {
@@ -75,11 +95,16 @@
                 backdrop-filter: blur(10px) !important; padding: 16px 20px !important;
                 font-family: 'JetBrains Mono', monospace !important; min-width: 280px !important;
                 max-width: 350px !important; position: relative !important; overflow: hidden !important;
+                border-radius: 4px !important;
             }
             .lc-srs-toast-content::before {
                 content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
-                background-size: 100% 2px; pointer-events: none; opacity: 0.3;
+                background:
+                    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%),
+                    linear-gradient(90deg, ${theme.borderGlow}, ${theme.electricBorderDash});
+                background-size: 100% 2px, 3px 100%;
+                pointer-events: none;
+                opacity: 0.22;
             }
             .lc-srs-toast-content::after {
                 content: ""; position: absolute; top: 0; left: 0; width: 6px; height: 6px;
@@ -111,7 +136,7 @@
             <div class="lc-srs-toast-content">
                 <div class="lc-srs-toast-header">
                     <span class="lc-srs-toast-icon">✓</span>
-                    <span class="lc-srs-toast-title">Vector Captured</span>
+                    <span class="lc-srs-toast-title">Submission Captured</span>
                 </div>
                 <div class="lc-srs-toast-problem">${title}</div>
                 <div class="lc-srs-toast-meta">
@@ -136,77 +161,80 @@
      */
     function showRatingModal(title) {
         return new Promise((resolve) => {
-            const backdrop = document.createElement('div');
-            backdrop.className = 'lc-rating-backdrop';
+            resolveModalTheme((modalTheme) => {
+                const backdrop = document.createElement('div');
+                backdrop.className = 'lc-rating-backdrop';
 
-            const modal = document.createElement('div');
-            modal.className = 'lc-rating-modal';
+                const modal = document.createElement('div');
+                modal.className = `lc-rating-modal theme-${modalTheme}`;
 
-            // Header Container
-            const header = document.createElement('div');
-            header.className = 'lc-rating-header';
+                // Header Container
+                const header = document.createElement('div');
+                header.className = 'lc-rating-header';
 
-            const heading = document.createElement('h3');
-            heading.innerText = "Difficulty Check"; // Toast like title
-            header.appendChild(heading);
+                const heading = document.createElement('h3');
+                heading.innerText = "Difficulty Check"; // Toast like title
+                header.appendChild(heading);
 
-            const sub = document.createElement('div');
-            sub.className = 'lc-rating-subtitle';
-            sub.innerText = title;
+                const sub = document.createElement('div');
+                sub.className = 'lc-rating-subtitle';
+                sub.innerText = title;
 
-            const hint = document.createElement('div');
-            hint.className = 'lc-rating-hint';
-            hint.innerText = 'Rate your recall difficulty. This helps FSRS algo to adjust the next review time.';
+                const hint = document.createElement('div');
+                hint.className = 'lc-rating-hint';
+                hint.innerText = 'Rate your recall difficulty. This helps FSRS algo to adjust the next review time.';
 
-            const btnContainer = document.createElement('div');
-            btnContainer.className = 'lc-rating-btn-container';
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'lc-rating-btn-container';
+                btnContainer.classList.add('lc-rating-btn-container-ramp');
 
-            const ratings = [
-                { label: "Again", value: 1, desc: "Could not recall" },
-                { label: "Hard", value: 2, desc: "Struggled" },
-                { label: "Good", value: 3, desc: "Recalled" },
-                { label: "Easy", value: 4, desc: "Trivial" }
-            ];
+                const ratings = [
+                    { label: "Again", value: 1, desc: "Could not recall" },
+                    { label: "Hard", value: 2, desc: "Struggled" },
+                    { label: "Good", value: 3, desc: "Recalled" },
+                    { label: "Easy", value: 4, desc: "Trivial" }
+                ];
 
-            ratings.forEach(r => {
-                const btn = document.createElement('button');
-                btn.className = `lc-rating-btn rating-btn-${r.label.toLowerCase()}`;
+                ratings.forEach(r => {
+                    const btn = document.createElement('button');
+                    btn.className = `lc-rating-btn rating-btn-${r.label.toLowerCase()}`;
 
-                // Construct button content
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'lc-rating-btn-label';
-                labelDiv.innerText = r.label;
+                    // Construct button content
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'lc-rating-btn-label';
+                    labelDiv.innerText = r.label;
 
-                const descDiv = document.createElement('div');
-                descDiv.className = 'lc-rating-btn-desc';
-                descDiv.innerText = r.desc;
+                    const descDiv = document.createElement('div');
+                    descDiv.className = 'lc-rating-btn-desc';
+                    descDiv.innerText = r.desc;
 
-                btn.appendChild(labelDiv);
-                btn.appendChild(descDiv);
+                    btn.appendChild(labelDiv);
+                    btn.appendChild(descDiv);
 
-                btn.addEventListener('click', () => {
-                    backdrop.remove();
-                    resolve(r.value);
+                    btn.addEventListener('click', () => {
+                        backdrop.remove();
+                        resolve(r.value);
+                    });
+                    btnContainer.appendChild(btn);
                 });
-                btnContainer.appendChild(btn);
+
+                modal.appendChild(header);
+                modal.appendChild(sub);
+                modal.appendChild(hint);
+                modal.appendChild(btnContainer);
+                backdrop.appendChild(modal);
+                document.body.appendChild(backdrop);
+
+                // Allow closing by clicking backdrop (optional safety, returning null/undefined)
+                /*
+                backdrop.onclick = (e) => {
+                    if (e.target === backdrop) {
+                        backdrop.remove();
+                        // resolve(null); // Or just close
+                    }
+                };
+                */
             });
-
-            modal.appendChild(header);
-            modal.appendChild(sub);
-            modal.appendChild(hint);
-            modal.appendChild(btnContainer);
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
-
-            // Allow closing by clicking backdrop (optional safety, returning null/undefined)
-            /*
-            backdrop.onclick = (e) => {
-                if (e.target === backdrop) {
-                    backdrop.remove();
-                    // resolve(null); // Or just close
-                }
-            };
-            */
         });
     }
 
@@ -336,98 +364,100 @@
     function showAnalysisModal(errorType) {
         console.log(`[LeetCode EasyRepeat] [DEBUG] showAnalysisModal triggered for: ${errorType}`);
         return new Promise((resolve) => {
-            const backdrop = document.createElement('div');
-            backdrop.className = 'lc-rating-backdrop'; // Reuse rating backdrop style
+            resolveModalTheme((modalTheme) => {
+                const backdrop = document.createElement('div');
+                backdrop.className = 'lc-rating-backdrop'; // Reuse rating backdrop style
 
-            const modal = document.createElement('div');
-            modal.className = 'lc-rating-modal'; // Reuse rating modal style
-            modal.style.minWidth = '400px';
+                const modal = document.createElement('div');
+                modal.className = `lc-rating-modal theme-${modalTheme}`; // Reuse rating modal style
+                modal.style.minWidth = '400px';
 
-            // Header
-            const header = document.createElement('div');
-            header.className = 'lc-rating-header';
-            const heading = document.createElement('h3');
-            heading.innerText = "Mistake Detected";
-            heading.style.color = '#ef4444'; // Red for error
-            header.appendChild(heading);
+                // Header
+                const header = document.createElement('div');
+                header.className = 'lc-rating-header';
+                const heading = document.createElement('h3');
+                heading.innerText = "Mistake Detected";
+                heading.style.color = '#ef4444'; // Red for error
+                header.appendChild(heading);
 
-            // Subtitle
-            const sub = document.createElement('div');
-            sub.className = 'lc-rating-subtitle';
-            sub.innerText = `Type: ${errorType}`;
-            sub.style.marginBottom = '20px';
+                // Subtitle
+                const sub = document.createElement('div');
+                sub.className = 'lc-rating-subtitle';
+                sub.innerText = `Type: ${errorType}`;
+                sub.style.marginBottom = '20px';
 
-            // Checkbox Container
-            const checkContainer = document.createElement('div');
-            checkContainer.style.marginBottom = '20px';
-            checkContainer.style.display = 'flex';
-            checkContainer.style.alignItems = 'center';
-            checkContainer.style.justifyContent = 'center';
-            checkContainer.style.gap = '8px';
+                // Checkbox Container
+                const checkContainer = document.createElement('div');
+                checkContainer.style.marginBottom = '20px';
+                checkContainer.style.display = 'flex';
+                checkContainer.style.alignItems = 'center';
+                checkContainer.style.justifyContent = 'center';
+                checkContainer.style.gap = '8px';
 
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = 'lc-always-analyze';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = 'lc-always-analyze';
 
-            // Check storage for preference
-            if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
-                chrome.storage.local.get(['alwaysAnalyze'], (res) => {
-                    if (chrome.runtime?.lastError) return;
-                    if (res && res.alwaysAnalyze) checkbox.checked = true;
-                });
-            }
-
-            const label = document.createElement('label');
-            label.innerText = "Always analyze mistakes";
-            label.htmlFor = 'lc-always-analyze';
-            label.style.fontFamily = 'var(--font-mono)';
-            label.style.fontSize = '12px';
-            label.style.color = 'rgba(255,255,255,0.7)';
-
-            checkContainer.appendChild(checkbox);
-            checkContainer.appendChild(label);
-
-
-            // Buttons
-            const btnContainer = document.createElement('div');
-            btnContainer.className = 'lc-rating-btn-container';
-            btnContainer.style.justifyContent = 'center';
-
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'lc-rating-btn';
-            cancelBtn.style.textAlign = 'center';
-            cancelBtn.style.width = '120px';
-            cancelBtn.innerHTML = '<div class="lc-rating-btn-label">Cancel</div>';
-            cancelBtn.onclick = () => {
-                backdrop.remove();
-                resolve(false);
-            };
-
-            const analyzeBtn = document.createElement('button');
-            analyzeBtn.className = 'lc-rating-btn';
-            analyzeBtn.style.borderColor = '#22d3ee';
-            analyzeBtn.style.background = 'rgba(34, 211, 238, 0.1)';
-            analyzeBtn.style.textAlign = 'center';
-            analyzeBtn.style.width = '120px';
-            analyzeBtn.innerHTML = '<div class="lc-rating-btn-label" style="color:#22d3ee">Analyze</div>';
-            analyzeBtn.onclick = () => {
-                // Save preference logic
-                if (checkbox.checked && typeof chrome !== 'undefined' && chrome.runtime?.id) {
-                    chrome.storage.local.set({ alwaysAnalyze: true });
+                // Check storage for preference
+                if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
+                    chrome.storage.local.get(['alwaysAnalyze'], (res) => {
+                        if (chrome.runtime?.lastError) return;
+                        if (res && res.alwaysAnalyze) checkbox.checked = true;
+                    });
                 }
-                backdrop.remove();
-                resolve(true);
-            };
 
-            btnContainer.appendChild(cancelBtn);
-            btnContainer.appendChild(analyzeBtn);
+                const label = document.createElement('label');
+                label.innerText = "Always analyze mistakes";
+                label.htmlFor = 'lc-always-analyze';
+                label.style.fontFamily = 'var(--font-mono)';
+                label.style.fontSize = '12px';
+                label.style.color = 'rgba(255,255,255,0.7)';
 
-            modal.appendChild(header);
-            modal.appendChild(sub);
-            modal.appendChild(checkContainer);
-            modal.appendChild(btnContainer);
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
+                checkContainer.appendChild(checkbox);
+                checkContainer.appendChild(label);
+
+
+                // Buttons
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'lc-rating-btn-container';
+                btnContainer.style.justifyContent = 'center';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'lc-rating-btn';
+                cancelBtn.style.textAlign = 'center';
+                cancelBtn.style.width = '120px';
+                cancelBtn.innerHTML = '<div class="lc-rating-btn-label">Cancel</div>';
+                cancelBtn.onclick = () => {
+                    backdrop.remove();
+                    resolve(false);
+                };
+
+                const analyzeBtn = document.createElement('button');
+                analyzeBtn.className = 'lc-rating-btn';
+                analyzeBtn.style.borderColor = '#22d3ee';
+                analyzeBtn.style.background = 'rgba(34, 211, 238, 0.1)';
+                analyzeBtn.style.textAlign = 'center';
+                analyzeBtn.style.width = '120px';
+                analyzeBtn.innerHTML = '<div class="lc-rating-btn-label" style="color:#22d3ee">Analyze</div>';
+                analyzeBtn.onclick = () => {
+                    // Save preference logic
+                    if (checkbox.checked && typeof chrome !== 'undefined' && chrome.runtime?.id) {
+                        chrome.storage.local.set({ alwaysAnalyze: true });
+                    }
+                    backdrop.remove();
+                    resolve(true);
+                };
+
+                btnContainer.appendChild(cancelBtn);
+                btnContainer.appendChild(analyzeBtn);
+
+                modal.appendChild(header);
+                modal.appendChild(sub);
+                modal.appendChild(checkContainer);
+                modal.appendChild(btnContainer);
+                backdrop.appendChild(modal);
+                document.body.appendChild(backdrop);
+            });
         });
     }
 

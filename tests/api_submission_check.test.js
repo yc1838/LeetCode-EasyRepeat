@@ -71,7 +71,8 @@ global.calculateNextReview = jest.fn().mockReturnValue({
 const {
     pollSubmissionResult,
     checkSubmissionStatus,
-    checkLatestSubmissionViaApi
+    checkLatestSubmissionViaApi,
+    clearQuestionInfoCache
 } = require('../src/content/leetcode_api.js');
 
 const { saveSubmission } = require('../src/shared/storage.js');
@@ -79,13 +80,14 @@ const { saveSubmission } = require('../src/shared/storage.js');
 describe('API Submission Check Logic', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        clearQuestionInfoCache();
 
         const { TOAST_THEMES } = require('../src/shared/config.js');
         global.TOAST_THEMES = TOAST_THEMES;
 
-        const { showCompletionToast, showRatingModal } = require('../src/content/content_ui.js');
-        global.showCompletionToast = showCompletionToast;
-        global.showRatingModal = showRatingModal;
+        // Mock UI functions — this test focuses on API flow, not modal rendering
+        global.showCompletionToast = jest.fn();
+        global.showRatingModal = jest.fn().mockResolvedValue(3);
 
         const { extractProblemDetails, getCurrentProblemSlug } = require('../src/content/leetcode_dom.js');
         global.extractProblemDetails = extractProblemDetails;
@@ -93,6 +95,12 @@ describe('API Submission Check Logic', () => {
 
         // Make saveSubmission global for leetcode_api.js
         global.saveSubmission = jest.fn().mockResolvedValue({ success: true });
+
+        // Set document.cookie for fetchQuestionDetails GraphQL calls
+        Object.defineProperty(document, 'cookie', {
+            writable: true,
+            value: 'csrftoken=test-token',
+        });
 
         // Reset document body
         jest.useFakeTimers();
@@ -126,6 +134,20 @@ describe('API Submission Check Logic', () => {
             .mockResolvedValueOnce({ // 2nd poll
                 ok: true,
                 json: async () => ({ state: "SUCCESS", status_msg: "Accepted", status_code: 10 })
+            })
+            // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        question: {
+                            difficulty: "Medium",
+                            title: "Two Sum",
+                            questionFrontendId: "1",
+                            topicTags: []
+                        }
+                    }
+                })
             });
 
         // We execute the poll function. It doesn't return anything but logs/saves.
@@ -146,6 +168,7 @@ describe('Manual API Scan Logic (checkLatestSubmissionViaApi)', () => {
 
     beforeEach(() => {
         fetch.mockReset();
+        clearQuestionInfoCache();
         mockSaveSubmission = jest.fn().mockResolvedValue({ success: true });
         global.saveSubmission = mockSaveSubmission;
 
@@ -167,6 +190,20 @@ describe('Manual API Scan Logic (checkLatestSubmissionViaApi)', () => {
                 submissions_dump: [
                     { id: "999", status_display: "Accepted", timestamp: 1234567890 }
                 ]
+            })
+        });
+        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    question: {
+                        difficulty: "Medium",
+                        title: "Two Sum",
+                        questionFrontendId: "1",
+                        topicTags: []
+                    }
+                }
             })
         });
 
@@ -221,6 +258,20 @@ describe('Manual API Scan Logic (checkLatestSubmissionViaApi)', () => {
                 ]
             })
         });
+        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    question: {
+                        difficulty: "Medium",
+                        title: "Two Sum",
+                        questionFrontendId: "1",
+                        topicTags: []
+                    }
+                }
+            })
+        });
 
         const result = await checkLatestSubmissionViaApi("two-sum");
         expect(result).toEqual({ success: true });
@@ -259,6 +310,7 @@ describe('AI Analysis Hook (Wrong Answer path)', () => {
     beforeEach(() => {
         fetch.mockReset();
         jest.clearAllMocks();
+        clearQuestionInfoCache();
 
         global.window.LLMSidecar = {
             analyzeMistake: jest.fn().mockResolvedValue('AI analysis')
@@ -290,11 +342,26 @@ describe('AI Analysis Hook (Wrong Answer path)', () => {
             return Promise.resolve({});
         });
 
+        // Mock submission check response
         fetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({
                 state: 'SUCCESS',
                 status_msg: 'Wrong Answer'
+            })
+        });
+        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    question: {
+                        difficulty: "Medium",
+                        title: "Two Sum",
+                        questionFrontendId: "1",
+                        topicTags: []
+                    }
+                }
             })
         });
 
@@ -306,11 +373,26 @@ describe('AI Analysis Hook (Wrong Answer path)', () => {
     });
 
     test('runs analysis and saves notes when AI mode is enabled', async () => {
+        // Mock submission check response
         fetch.mockResolvedValueOnce({
             ok: true,
             json: async () => ({
                 state: 'SUCCESS',
                 status_msg: 'Wrong Answer'
+            })
+        });
+        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    question: {
+                        difficulty: "Medium",
+                        title: "Two Sum",
+                        questionFrontendId: "1",
+                        topicTags: []
+                    }
+                }
             })
         });
 

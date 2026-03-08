@@ -20,6 +20,10 @@
     const API_BASE = '/api/submissions';
     const SUBMISSION_CHECK_BASE = '/submissions/detail';
 
+    // In-memory cache for question info (avoids redundant GraphQL calls within a session)
+    const _questionInfoCache = new Map(); // slug -> { data, ts }
+    const CACHE_TTL_MS = 5 * 60 * 1000;  // 5 minutes
+
     const getDep = (name) => {
         if (typeof global !== 'undefined' && global[name]) return global[name];
         if (typeof window !== 'undefined' && window[name]) return window[name];
@@ -80,6 +84,44 @@
     }
 
     /**
+     * Shared, standardized function to get problem info from the LeetCode GraphQL API.
+     * Single source of truth for title (with questionId), difficulty, and topics.
+     * Used by both correct and wrong submission paths.
+     *
+     * @param {string} slug - The problem slug (e.g. "two-sum")
+     * @returns {Promise<Object>} Standardized problem info
+     */
+    async function getQuestionInfo(slug) {
+        // Check in-memory cache first
+        const cached = _questionInfoCache.get(slug);
+        if (cached && (Date.now() - cached.ts) < CACHE_TTL_MS) {
+            console.log(`[LeetCode EasyRepeat] Cache hit for ${slug}`);
+            return cached.data;
+        }
+
+        const apiData = await fetchQuestionDetails(slug);
+        if (apiData && apiData.questionId && apiData.title) {
+            const result = {
+                title: `${apiData.questionId}. ${apiData.title}`,
+                difficulty: apiData.difficulty,
+                topics: apiData.topics || [],
+                questionId: apiData.questionId,
+                source: 'api'
+            };
+            _questionInfoCache.set(slug, { data: result, ts: Date.now() });
+            return result;
+        }
+        // Fallback: construct from slug if API fails (don't cache failures)
+        return {
+            title: slug.replace(/-/g, ' '),
+            difficulty: 'Medium',
+            topics: [],
+            questionId: null,
+            source: 'fallback'
+        };
+    }
+
+    /**
      * Check the latest submission via API for the manual "Scan Now" feature.
      * 
      * @param {string} slug - The problem slug (e.g. "two-sum")
@@ -101,29 +143,22 @@
 
             // 2. Check if it is Accepted
             if (latestInfo.status_display === "Accepted") {
-                const extractProblemDetails = getDep('extractProblemDetails');
                 const showRatingModal = getDep('showRatingModal');
                 const saveSubmission = getDep('saveSubmission');
 
-                if (!extractProblemDetails || !showRatingModal || !saveSubmission) {
+                if (!showRatingModal || !saveSubmission) {
                     console.error("[LeetCode EasyRepeat] Missing dependencies for manual scan.");
                     return { success: false, error: "Internal Error: Missing dependencies" };
                 }
 
-                const details = extractProblemDetails();
-
-                // Enhance details with reliable API difficulty
-                // Enhance details with reliable API data
-                const apiData = await fetchQuestionDetails(slug);
-                if (apiData) {
-                    details.difficulty = apiData.difficulty;
-                    // details.slug is already correct (input arg)
-                    // Construct standard title "1. Two Sum"
-                    if (apiData.title && apiData.questionId) {
-                        details.title = `${apiData.questionId}. ${apiData.title}`;
-                    }
-                    details.topics = apiData.topics || [];
-                }
+                // Use shared API-first function for problem info
+                const info = await getQuestionInfo(slug);
+                const details = {
+                    title: info.title,
+                    slug: slug,
+                    difficulty: info.difficulty,
+                    topics: info.topics
+                };
 
                 // Prompt for rating manually too? Yes.
                 const rating = await showRatingModal(details.title);
@@ -217,17 +252,13 @@
                 const data = await res.json();
                 console.log(`[LeetCode EasyRepeat] Poll check state: ${data.state}, msg: ${data.status_msg || 'none'}`);
                 if (data.state === "SUCCESS") {
-                    // Fetch question details ONCE and share across all hooks
-                    const apiData = await fetchQuestionDetails(slug);
-                    const finalDifficulty = apiData?.difficulty || difficulty;
-                    const finalTitle = apiData?.title && apiData?.questionId
-                        ? `${apiData.questionId}. ${apiData.title}`
-                        : title;
-                    const finalTopics = apiData?.topics || [];
+                    // Use shared API-first function for problem info (single source of truth)
+                    const info = await getQuestionInfo(slug);
+                    const finalTitle = info.source === 'api' ? info.title : title;
+                    const finalDifficulty = info.source === 'api' ? info.difficulty : difficulty;
+                    const finalTopics = info.topics;
 
-                    console.log(`[LeetCode EasyRepeat] Submission ${submissionId} processed. Status: ${data.status_msg || 'Done'}`);
-
-                    // --- Shadow Logger removed (Neural Retention Agent features removed) ---
+                    console.log(`[LeetCode EasyRepeat] Submission ${submissionId} processed. Status: ${data.status_msg || 'Done'}, Title: ${finalTitle}`);
 
                     // DONE! Check if Accepted
                     if (data.status_code === 10 || data.status_msg === "Accepted") {
@@ -296,10 +327,8 @@
                                         code = "// Code could not be scraped. Please check permissions.";
                                     }
 
-                                    // 4. Retrieve Question Info
-                                    const apiData = await fetchQuestionDetails(slug);
-                                    let finalTitle = title;
-                                    if (apiData && apiData.title) finalTitle = apiData.title;
+                                    // 4. Question info already available via shared getQuestionInfo() above
+                                    // finalTitle, finalDifficulty, finalTopics are in scope from parent
 
                                     // 5. Run Analysis with Progress & Cancellation
                                     const showAnalysisProgress = getDep('showAnalysisProgress');
@@ -409,18 +438,14 @@
                     const clickTime = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
                     const getCurrentProblemSlug = getDep('getCurrentProblemSlug');
-                    const extractProblemDetails = getDep('extractProblemDetails');
 
                     if (getCurrentProblemSlug) {
                         const slug = getCurrentProblemSlug();
                         if (slug) {
-                            if (extractProblemDetails) {
-                                const details = extractProblemDetails();
-                                pollSubmissionResult(slug, clickTime, details.title, details.difficulty)
-                                    .catch(err => console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling failed:", err));
-                            } else {
-                                console.warn("[LeetCode EasyRepeat] extractProblemDetails not found.");
-                            }
+                            // Title & difficulty are just fallbacks here — getQuestionInfo()
+                            // in checkSubmissionStatus() will fetch the real values from API
+                            pollSubmissionResult(slug, clickTime, slug.replace(/-/g, ' '), 'Medium')
+                                .catch(err => console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling failed:", err));
                         } else {
                             console.warn("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Could not determine slug on click.");
                         }
@@ -439,6 +464,9 @@
         pollSubmissionResult,
         checkSubmissionStatus,
         monitorSubmissionClicks,
-        fetchQuestionDetails
+        fetchQuestionDetails,
+        getQuestionInfo,
+        /** Clear the in-memory question info cache (useful for testing). */
+        clearQuestionInfoCache: () => _questionInfoCache.clear()
     };
 }));

@@ -339,24 +339,60 @@
 }
 
 .lc-rating-modal {
+    --rating-panel-border: #22c55e;
+    --rating-panel-shadow: rgba(34, 197, 94, 0.2);
+    --rating-panel-inner: rgba(34, 197, 94, 0.05);
+    --rating-title-color: #22c55e;
+    --rating-divider: rgba(34, 197, 94, 0.3);
+    --rating-hint-color: rgba(255, 255, 255, 0.65);
+    --rating-scanline-1: rgba(0, 255, 65, 0.1);
+    --rating-scanline-2: rgba(45, 226, 230, 0.08);
     /* Match usage of .lc-srs-toast-content from content_ui.js logic but in CSS */
     background: rgba(10, 10, 10, 0.95);
-    border: 2px solid #22c55e;
-    /* Default to Green (Terminal) to match Toast default */
-    /* border-left: 6px solid #22c55e; Removed for symmetry */
-    /* Thicker left accent like Toast */
-    box-shadow: 0 0 30px rgba(34, 197, 94, 0.2), inset 0 0 20px rgba(34, 197, 94, 0.05);
+    border: 2px solid var(--rating-panel-border);
+    box-shadow: 0 0 30px var(--rating-panel-shadow), inset 0 0 20px var(--rating-panel-inner);
 
     padding: 24px 32px;
+    border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
     color: #fff;
     min-width: 300px;
     max-width: 450px;
     position: relative;
+    overflow: hidden;
 
     transform: translateY(20px);
     opacity: 0;
     animation: popInToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.lc-rating-modal.theme-sakura {
+    --rating-panel-border: #ff9a56;
+    --rating-panel-shadow: rgba(255, 154, 86, 0.28);
+    --rating-panel-inner: rgba(209, 98, 164, 0.12);
+    --rating-title-color: #ff9a56;
+    --rating-divider: rgba(255, 154, 86, 0.38);
+    --rating-hint-color: rgba(255, 211, 194, 0.78);
+    --rating-scanline-1: rgba(255, 154, 86, 0.12);
+    --rating-scanline-2: rgba(209, 98, 164, 0.1);
+}
+
+.lc-rating-modal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.58;
+    background:
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.34) 50%),
+        linear-gradient(90deg, var(--rating-scanline-1), var(--rating-scanline-2));
+    background-size: 100% 3px, 4px 100%;
+}
+
+.lc-rating-modal > * {
+    position: relative;
+    z-index: 2;
 }
 
 /* Header/Title */
@@ -365,8 +401,7 @@
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
-    color: #22c55e;
-    /* Green terminal text */
+    color: var(--rating-title-color);
     letter-spacing: 1px;
     display: flex;
     align-items: center;
@@ -383,7 +418,7 @@
     margin: 0 0 20px 0;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.8);
-    border-bottom: 1px dashed rgba(34, 197, 94, 0.3);
+    border-bottom: 1px dashed var(--rating-divider);
     padding-bottom: 12px;
     white-space: nowrap;
     overflow: hidden;
@@ -393,7 +428,7 @@
 .lc-rating-hint {
     margin: -8px 0 16px 0;
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--rating-hint-color);
     line-height: 1.4;
 }
 
@@ -404,14 +439,18 @@
     justify-content: center;
 }
 
+.lc-rating-btn-container-ramp {
+    gap: 0;
+}
+
 .lc-rating-btn {
     --rating-rgb-from: 255, 255, 255;
     --rating-rgb-to: 255, 255, 255;
     --rating-color: rgba(255, 255, 255, 0.7);
-    --rating-base-alpha-from: 0.24;
-    --rating-base-alpha-to: 0.14;
-    --rating-hover-alpha-from: 0.38;
-    --rating-hover-alpha-to: 0.24;
+    --rating-base-alpha-from: 0.22;
+    --rating-base-alpha-to: 0.22;
+    --rating-hover-alpha-from: 0.36;
+    --rating-hover-alpha-to: 0.36;
     --rating-border-alpha: 0.55;
     flex: 1;
     border: 1px solid rgba(var(--rating-rgb-from), var(--rating-border-alpha));
@@ -446,12 +485,26 @@
     background: linear-gradient(90deg,
             rgba(var(--rating-rgb-from), var(--rating-hover-alpha-from)) 0%,
             rgba(var(--rating-rgb-to), var(--rating-hover-alpha-to)) 100%);
-    border-color: rgba(var(--rating-rgb-from), 0.95);
+    border-color: rgba(var(--rating-rgb-from), 0.85);
     box-shadow:
         0 6px 14px rgba(0, 0, 0, 0.35),
         0 0 10px rgba(var(--rating-rgb-from), 0.45),
         0 0 18px rgba(var(--rating-rgb-to), 0.35);
     text-shadow: 0 0 8px rgba(var(--rating-rgb-from), 0.55);
+}
+
+.lc-rating-btn-container-ramp .lc-rating-btn {
+    border-radius: 0;
+}
+
+.lc-rating-btn-container-ramp .lc-rating-btn:first-child {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+.lc-rating-btn-container-ramp .lc-rating-btn:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
 }
 
 .lc-rating-btn:hover .lc-rating-btn-desc {
@@ -482,6 +535,31 @@
     --rating-rgb-from: 62, 125, 82;
     --rating-rgb-to: 38, 84, 56;
     --rating-color: #75b98d;
+}
+
+/* Sakura counterpart for rating ramp */
+.lc-rating-modal.theme-sakura .rating-btn-again {
+    --rating-rgb-from: 255, 188, 150;
+    --rating-rgb-to: 255, 154, 125;
+    --rating-color: #ffd9c4;
+}
+
+.lc-rating-modal.theme-sakura .rating-btn-hard {
+    --rating-rgb-from: 255, 154, 125;
+    --rating-rgb-to: 247, 111, 155;
+    --rating-color: #ffc1b5;
+}
+
+.lc-rating-modal.theme-sakura .rating-btn-good {
+    --rating-rgb-from: 247, 111, 155;
+    --rating-rgb-to: 227, 77, 167;
+    --rating-color: #ff9dd1;
+}
+
+.lc-rating-modal.theme-sakura .rating-btn-easy {
+    --rating-rgb-from: 227, 77, 167;
+    --rating-rgb-to: 174, 48, 144;
+    --rating-color: #f58cd0;
 }
 
 @keyframes popInToast {
