@@ -96,7 +96,7 @@ describe('EasyRepeatI18n', () => {
 
         // Verify specific values
         expect(en.filter_all_difficulty).toBe('Difficulty');
-        expect(zh.filter_all_difficulty).toBe('难度');
+        expect(zh.filter_all_difficulty).toBe('全部难度');
         
         expect(en.filter_all_time).toBe('All Time');
         expect(zh.filter_all_time).toBe('全部时间');

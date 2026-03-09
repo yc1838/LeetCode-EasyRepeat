@@ -144,7 +144,13 @@
             filter_all_time: 'All Time',
             filter_last_7d: 'Last 7 Days',
             filter_last_30d: 'Last 30 Days',
-            filter_last_90d: 'Last 90 Days'
+            filter_last_90d: 'Last 90 Days',
+            filter_difficulty_title: 'Filter by difficulty',
+            filter_time_title: 'Filter by time range',
+            llm_searching_kb: '🧠 Searching Knowledge Base...',
+            llm_found_solution: '✨ Found existing solution!',
+            llm_verifying_safe_observer: '🛡️ Verifying with Safe Observer...',
+            llm_consulting_model: '🤖 Consulting AI Model...'
         },
         zh: {
             common_ui_language: 'UI 语言',
@@ -272,12 +278,18 @@
             greeting_drills_ready_one: '已有 {count} 道练习待做',
             greeting_drills_ready_many: '已有 {count} 道练习待做',
             greeting_dismiss: '关闭',
-            filter_all_difficulty: '难度',
+            filter_all_difficulty: '全部难度',
             filter_all_topics: '全部题型',
             filter_all_time: '全部时间',
             filter_last_7d: '最近7天',
             filter_last_30d: '最近30天',
-            filter_last_90d: '最近90天'
+            filter_last_90d: '最近90天',
+            filter_difficulty_title: '按难度筛选',
+            filter_time_title: '按时间范围筛选',
+            llm_searching_kb: '🧠 正在搜索知识库...',
+            llm_found_solution: '✨ 找到现有解决方案！',
+            llm_verifying_safe_observer: '🛡️ 正在使用安全检查器验证...',
+            llm_consulting_model: '🤖 正在咨询 AI 模型...'
         }
     };
 

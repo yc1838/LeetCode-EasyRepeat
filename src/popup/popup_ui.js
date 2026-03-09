@@ -100,7 +100,11 @@ export function renderVectors(problemList, containerId, isInteractive, options =
             <div class="vector-title">${displayTitle}</div>
             ${(problem.topics && problem.topics.length > 0) ? `
                 <div class="topic-row" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                    ${problem.topics.slice(0, 3).map(topic => `<span class="stat-tag topic-tag">${formatTagLabel(topic, language)}</span>`).join('')}
+                    ${problem.topics.slice(0, 3).map(topic => {
+                        const i18n = getI18n();
+                        const translated = (i18n && typeof i18n.translateTopic === 'function') ? i18n.translateTopic(topic, language) : topic;
+                        return `<span class="stat-tag topic-tag">${formatTagLabel(translated, language)}</span>`;
+                    }).join('')}
                 </div>
             ` : ''}
             <div class="vector-stats" style="flex-wrap: wrap;">

@@ -78,6 +78,15 @@
         isLoading: false
     };
 
+    async function t(key, defaultVal) {
+        if (typeof window !== 'undefined' && window.EasyRepeatI18n) {
+            const i18n = window.EasyRepeatI18n;
+            const lang = typeof i18n.getLanguage === 'function' ? await i18n.getLanguage() : 'en';
+            return i18n.t(key, {}, lang) || defaultVal;
+        }
+        return defaultVal;
+    }
+
     function inferProviderFromModelId(modelId) {
         if (!modelId || typeof modelId !== 'string') return null;
         const id = modelId.trim().toLowerCase();
@@ -456,7 +465,7 @@
         // Call Site: llm_sidecar.js:400 (Approx)
         if (window.VectorDB) {
             try {
-                if (onProgress) onProgress("🧠 Searching Knowledge Base...");
+                if (onProgress) onProgress(await t('llm_searching_kb', "🧠 Searching Knowledge Base..."));
                 // 1. Embed
                 // Only embed if we have an API key for the provider
                 if (hasAnyKey()) {
@@ -474,7 +483,7 @@
                             // High Confidence -> Return Cached Advice IMMEDIATELY
                             // Call Site: llm_sidecar.js:420 (Approx logic gate)
                             console.log(`%c[AI Service] 🟢 LOCAL HIT (RAG) | Similarity: ${(topMatch.score * 100).toFixed(1)}%`, "color: #4ade80; font-weight: bold;");
-                            if (onProgress) onProgress("✨ Found existing solution!");
+                            if (onProgress) onProgress(await t('llm_found_solution', "✨ Found existing solution!"));
                             return `💡 **Recurring Mistake Detected**\n\nIt seems you've made a very similar mistake before (${(topMatch.score * 100).toFixed(0)}% match).\n\n**Previous Advice:**\n${topMatch.advice}`;
                         }
 
@@ -494,7 +503,7 @@
         let verificationResult = "";
         if (meta.test_input) {
             try {
-                if (onProgress) onProgress("🛡️ Verifying with Safe Observer...");
+                if (onProgress) onProgress(await t('llm_verifying_safe_observer', "🛡️ Verifying with Safe Observer..."));
                 // Determine API endpoint (default to localhost for now, user configurable later)
                 const verifyUrl = state.localEndpoint.replace('11434', '8000').replace('/api/chat', '') + '/autofix';
                 const SAFE_OBSERVER_URL = verifyUrl;
@@ -626,7 +635,7 @@
         const modeLabel = state.aiProvider === 'local' ? '🏠 LOCAL REQUEST' : '☁️ CLOUD REQUEST';
         console.log(`%c[AI Service] ${modeLabel} | Model: ${activeModel?.name || state.selectedModelId} (${activeProvider})`, "color: #38bdf8; font-weight: bold;");
 
-        if (onProgress) onProgress("🤖 Consulting AI Model...");
+        if (onProgress) onProgress(await t('llm_consulting_model', "🤖 Consulting AI Model..."));
         let advice = await callLLM(prompt, systemPrompt, signal);
 
         // 1. Parse JSON Response
