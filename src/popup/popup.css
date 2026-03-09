@@ -76,13 +76,11 @@ body {
     color: var(--terminal);
     font-family: var(--font-main);
     width: 400px;
-    /* Adjusted to fit extension window better than 800 */
-    height: auto;
+    height: max-content;
+    min-height: 400px;
     max-height: 600px;
     overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    margin: 0;
 }
 
 /* SCANLINE OVERLAY - with lesbian flag gradient */
@@ -116,8 +114,8 @@ body::before {
 
 .extension-container {
     width: 100%;
-    min-height: 100vh;
-    height: auto;
+    min-height: 400px;
+    max-height: 600px;
     background: var(--bg-main);
     backdrop-filter: var(--backdrop-filter);
     border: 2px solid var(--terminal);
@@ -133,8 +131,9 @@ body::before {
     position: relative;
     display: grid;
     grid-template-columns: 50px 1fr;
-    grid-template-rows: 35px auto;
+    grid-template-rows: 35px minmax(0, 1fr);
     overflow: hidden;
+    height: 100%; /* ensure it expands with body up to max-height */
 }
 
 /* TOP NAVIGATION / STATUS */
@@ -256,13 +255,12 @@ body::before {
     height: 18px;
 }
 
-/* MAIN CONTENT AREA */
 .viewport {
     padding: 15px;
     display: flex;
     flex-direction: column;
     gap: 15px;
-    max-height: 570px;
+    max-height: 565px; /* 600px max popup height minus 35px header */
     overflow-y: auto;
 }
 
