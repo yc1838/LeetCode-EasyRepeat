@@ -10,7 +10,7 @@
  * 
  * WHEN DOES IT RUN?
  * This script runs automatically on every LeetCode problem page, as defined in
- * manifest.json under "content_scripts" -> "matches": ["https://leetcode.com/problems/*"]
+ * manifest.json under "content_scripts" -> "matches": ["https://leetcode.com/problems/*", "https://leetcode.cn/problems/*"]
  * 
  * RESPONSIBILITIES:
  * 1. Detecting when a user submits a solution
@@ -18,6 +18,19 @@
  * 3. Saving the result to browser storage for SRS tracking
  */
 console.log("[LeetCode EasyRepeat] Extension content script loaded (v2 - Hybrid Detection).");
+
+const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
+
+function cacheLeetCodeBase() {
+    if (typeof window === 'undefined') return;
+    if (!chrome?.storage?.local?.set) return;
+    const hostname = window.location && window.location.hostname;
+    if (!hostname || !LEETCODE_HOSTS.has(hostname)) return;
+    const base = `${window.location.protocol}//${hostname}`;
+    chrome.storage.local.set({ lastLeetCodeBase: base });
+}
+
+cacheLeetCodeBase();
 
 /**
  * ============================================================================
@@ -156,15 +169,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * Then when we need it during submission handling, we use the cached value.
  */
 
-// DOM logic moved to leetcode_dom.js
-// Initialize tracking
-// (startDifficultyTracking removed as it is now redundant with API Difficulty Fetching)
-
-
 // --- Robust Detection Logic ---
-
-// Helper function to read the webpage and find the problem details (Title, Difficulty, ID)
-// extractProblemDetails moved to leetcode_dom.js
 
 /**
  * Show a modal asking the user to rate the problem difficulty.
@@ -200,8 +205,7 @@ if (!isTestEnv) {
             const deps = {
                 getCurrentProblemSlug: (typeof getCurrentProblemSlug !== 'undefined') ? getCurrentProblemSlug : null,
                 getNotes: (typeof getNotes !== 'undefined') ? getNotes : null,
-                saveNotes: (typeof saveNotes !== 'undefined') ? saveNotes : null,
-                extractProblemDetails: (typeof extractProblemDetails !== 'undefined') ? extractProblemDetails : null
+                saveNotes: (typeof saveNotes !== 'undefined') ? saveNotes : null
             };
             insertNotesButton(deps);
         }

@@ -47,6 +47,18 @@ describe('EasyRepeatI18n', () => {
         expect(EasyRepeatI18n.normalizeLanguage('fr-FR')).toBe('en');
     });
 
+    it('normalizes difficulty across locales', () => {
+        expect(EasyRepeatI18n.normalizeDifficulty('简单')).toBe('Easy');
+        expect(EasyRepeatI18n.normalizeDifficulty('中等')).toBe('Medium');
+        expect(EasyRepeatI18n.normalizeDifficulty('困难')).toBe('Hard');
+        expect(EasyRepeatI18n.normalizeDifficulty('MEDIUM')).toBe('Medium');
+    });
+
+    it('formats difficulty using normalized inputs', () => {
+        expect(EasyRepeatI18n.formatDifficulty('简单', 'en')).toBe('Easy');
+        expect(EasyRepeatI18n.formatDifficulty('Hard', 'zh')).toBe('困难');
+    });
+
     it('applies translations to text, placeholders, and titles', () => {
         document.body.innerHTML = `
             <div id="text" data-i18n="popup_welcome">fallback</div>

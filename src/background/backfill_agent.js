@@ -15,13 +15,31 @@
 
     // --- Constants ---
     const RATE_LIMIT_MS = 2000; // 2 seconds between requests
-    const LEETCODE_GRAPHQL_URL = 'https://leetcode.com/graphql';
+    const DEFAULT_LEETCODE_GRAPHQL_URL = 'https://leetcode.com/graphql';
+    const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
 
     // --- State ---
     let queue = [];
     let paused = false;
     let lastRequestTime = 0;
     let completedCount = 0;
+
+    async function resolveGraphqlUrl() {
+        if (typeof chrome !== 'undefined' && chrome.storage?.local?.get) {
+            try {
+                const result = await chrome.storage.local.get({ lastLeetCodeBase: null });
+                if (result.lastLeetCodeBase) {
+                    const parsed = new URL(result.lastLeetCodeBase);
+                    if (LEETCODE_HOSTS.has(parsed.hostname)) {
+                        return `${parsed.protocol}//${parsed.hostname}/graphql`;
+                    }
+                }
+            } catch (e) {
+                console.warn('[BackfillAgent] Failed to resolve stored base URL:', e);
+            }
+        }
+        return DEFAULT_LEETCODE_GRAPHQL_URL;
+    }
 
     /**
      * Add a problem to the backfill queue.
@@ -81,7 +99,8 @@
         lastRequestTime = Date.now();
 
         try {
-            const response = await fetch(LEETCODE_GRAPHQL_URL, {
+            const graphqlUrl = await resolveGraphqlUrl();
+            const response = await fetch(graphqlUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

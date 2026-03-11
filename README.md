@@ -262,7 +262,7 @@ leetcode-srs-extension/
 ├── vite.config.js         # Vite build configuration
 ├── src/
 │   ├── background.js      # Main service worker entry
-│   ├── content/           # Content scripts (runs on leetcode.com)
+│   ├── content/           # Content scripts (runs on leetcode.com / leetcode.cn)
 │   │   ├── content.js     # Orchestrator
 │   │   ├── content_ui.js  # Toasts, rating modal, notes widget
 │   │   ├── leetcode_api.js # GraphQL + submission polling
@@ -408,7 +408,7 @@ graph TD
     User -- Solve/Submit --> LCPage
 
     subgraph Extension["Chrome Extension V3"]
-        subgraph Content["Content Scripts (leetcode.com)"]
+        subgraph Content["Content Scripts (leetcode.com / leetcode.cn)"]
             Orchestrator[content.js<br/>orchestrator]
             DOM[leetcode_dom.js<br/>DOM parsing + difficulty cache]
             API[leetcode_api.js<br/>GraphQL + submission polling]

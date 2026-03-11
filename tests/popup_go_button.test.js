@@ -117,6 +117,29 @@ describe('Popup GO Button', () => {
         });
     });
 
+    test('should respect custom base URL for GO button', () => {
+        const problems = [
+            {
+                slug: 'valid-anagram',
+                title: 'Valid Anagram',
+                difficulty: 'Easy',
+                interval: 1,
+                nextReviewDate: new Date().toISOString()
+            }
+        ];
+
+        popup.renderVectors(problems, 'vector-list', true, { problemUrlBase: 'https://leetcode.cn' });
+
+        const goBtn = document.querySelector('.go-btn');
+        expect(goBtn).not.toBeNull();
+
+        goBtn.click();
+
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+            url: 'https://leetcode.cn/problems/valid-anagram/'
+        });
+    });
+
     test('should prevent event propagation (checking card expansion)', () => {
         const problems = [{ slug: 'test', title: 'Test', difficulty: 'Easy', interval: 1, nextReviewDate: '' }];
         popup.renderVectors(problems, 'vector-list', true);

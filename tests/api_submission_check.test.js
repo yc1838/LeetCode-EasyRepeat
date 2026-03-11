@@ -89,9 +89,7 @@ describe('API Submission Check Logic', () => {
         global.showCompletionToast = jest.fn();
         global.showRatingModal = jest.fn().mockResolvedValue(3);
 
-        const { extractProblemDetails, getCurrentProblemSlug } = require('../src/content/leetcode_dom.js');
-        global.extractProblemDetails = extractProblemDetails;
-        global.getCurrentProblemSlug = getCurrentProblemSlug;
+        global.getCurrentProblemSlug = jest.fn().mockReturnValue('two-sum');
 
         // Make saveSubmission global for leetcode_api.js
         global.saveSubmission = jest.fn().mockResolvedValue({ success: true });

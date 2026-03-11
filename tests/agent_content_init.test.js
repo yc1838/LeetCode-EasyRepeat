@@ -57,6 +57,11 @@ describe('Agent Content Initializer', () => {
             expect(result).toBe(true);
         });
 
+        it('should return true on LeetCode CN problem page', () => {
+            const result = AgentContentInit.shouldInitialize('https://leetcode.cn/problems/two-sum/');
+            expect(result).toBe(true);
+        });
+
         it('should return false on non-problem pages', () => {
             const result = AgentContentInit.shouldInitialize('https://leetcode.com/explore/');
             expect(result).toBe(false);

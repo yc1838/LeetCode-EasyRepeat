@@ -30,6 +30,34 @@
         return undefined;
     };
 
+    const getI18n = () => {
+        if (typeof EasyRepeatI18n !== 'undefined') return EasyRepeatI18n;
+        if (typeof window !== 'undefined' && window.EasyRepeatI18n) return window.EasyRepeatI18n;
+        return null;
+    };
+
+    const normalizeDifficulty = (value) => {
+        const i18n = getI18n();
+        if (i18n && typeof i18n.normalizeDifficulty === 'function') {
+            return i18n.normalizeDifficulty(value) || '';
+        }
+        // Fallback if i18n not loaded yet
+        const raw = String(value || '').trim().toLowerCase();
+        if (raw === 'easy') return 'Easy';
+        if (raw === 'medium') return 'Medium';
+        if (raw === 'hard') return 'Hard';
+        return '';
+    };
+
+    /**
+     * Extract the problem "slug" from the current URL.
+     */
+    function getCurrentProblemSlug() {
+        if (typeof window === 'undefined' || !window.location) return null;
+        const match = window.location.pathname.match(/\/problems\/([^\/]+)/);
+        return match ? match[1] : null;
+    }
+
     /**
      * Fetch question details (difficulty) directly from LeetCode GraphQL API.
      * This is the source of truth, bypassing DOM issues.
@@ -68,9 +96,10 @@
             const data = await response.json();
             if (data.data && data.data.question) {
                 const q = data.data.question;
+                const normalizedDifficulty = normalizeDifficulty(q.difficulty) || q.difficulty;
                 console.log(`[LeetCode EasyRepeat] Fetched details from API: ${q.title} (${q.difficulty})`);
                 return {
-                    difficulty: q.difficulty,
+                    difficulty: normalizedDifficulty,
                     title: q.title,
                     questionId: q.questionFrontendId,
                     topics: q.topicTags ? q.topicTags.map(t => t.name) : []
@@ -445,20 +474,14 @@
                     console.log('[LeetCode EasyRepeat] [DEBUG] Submit button clicked detected via locator.');
                     const clickTime = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 
-                    const getCurrentProblemSlug = getDep('getCurrentProblemSlug');
-
-                    if (getCurrentProblemSlug) {
-                        const slug = getCurrentProblemSlug();
-                        if (slug) {
-                            // Title & difficulty are just fallbacks here — getQuestionInfo()
-                            // in checkSubmissionStatus() will fetch the real values from API
-                            pollSubmissionResult(slug, clickTime, slug.replace(/-/g, ' '), 'Medium')
-                                .catch(err => console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling failed:", err));
-                        } else {
-                            console.warn("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Could not determine slug on click.");
-                        }
+                    const slug = getCurrentProblemSlug();
+                    if (slug) {
+                        // Title & difficulty are just fallbacks here — getQuestionInfo()
+                        // in checkSubmissionStatus() will fetch the real values from API
+                        pollSubmissionResult(slug, clickTime, slug.replace(/-/g, ' '), 'Medium')
+                            .catch(err => console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling failed:", err));
                     } else {
-                        console.warn("[LeetCode EasyRepeat] getCurrentProblemSlug not found.");
+                        console.warn("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Could not determine slug on click.");
                     }
                 }
             } catch (err) {
@@ -468,6 +491,7 @@
     }
 
     return {
+        getCurrentProblemSlug,
         checkLatestSubmissionViaApi,
         pollSubmissionResult,
         checkSubmissionStatus,

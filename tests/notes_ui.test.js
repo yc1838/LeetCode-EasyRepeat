@@ -25,7 +25,6 @@ describe('Notes UI', () => {
                 getCurrentProblemSlug: jest.fn(),
                 getNotes: jest.fn(),
                 saveNotes: jest.fn(),
-                extractProblemDetails: jest.fn()
             };
         });
 
@@ -84,7 +83,6 @@ describe('Notes UI', () => {
                 getCurrentProblemSlug: jest.fn(),
                 getNotes: jest.fn(),
                 saveNotes: jest.fn(),
-                extractProblemDetails: jest.fn()
             };
 
             currentTheme = 'matrix';

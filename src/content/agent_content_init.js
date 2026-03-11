@@ -24,7 +24,7 @@
      * Check if we should initialize on this page.
      */
     function shouldInitialize(url) {
-        const problemPagePattern = /leetcode\.com\/problems\/.+/;
+        const problemPagePattern = /leetcode\.(com|cn)\/problems\/.+/;
         return problemPagePattern.test(url);
     }
 

@@ -72,6 +72,8 @@ export function renderVectors(problemList, containerId, isInteractive, options =
 
     const language = options.language || 'en';
     const titleCache = options.titleCache || {};
+    const problemUrlBase = options.problemUrlBase || 'https://leetcode.com';
+    const problemUrlBaseSafe = problemUrlBase.replace(/\/$/, '');
 
     if (problemList.length === 0) {
         container.innerHTML = `<div style="padding:20px; text-align:center; color:#555; font-size:0.7rem;">${t('popup_empty_buffer', {}, language)}</div>`;
@@ -148,7 +150,7 @@ export function renderVectors(problemList, containerId, isInteractive, options =
             goBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (typeof chrome !== 'undefined' && chrome.tabs) {
-                    chrome.tabs.create({ url: `https://leetcode.com/problems/${problem.slug}/` });
+                    chrome.tabs.create({ url: `${problemUrlBaseSafe}/problems/${problem.slug}/` });
                 }
             };
         }

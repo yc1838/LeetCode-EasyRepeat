@@ -321,7 +321,7 @@
      * Inject the Notes interface (Floating widget).
      */
     function insertNotesButton(dependencies) {
-        const { getCurrentProblemSlug, getNotes, saveNotes, extractProblemDetails } = dependencies || {};
+        const { getCurrentProblemSlug, getNotes, saveNotes } = dependencies || {};
 
         // Safety Checks
         if (typeof getCurrentProblemSlug !== 'function' || typeof createNotesWidget !== 'function') {
@@ -355,8 +355,7 @@
         // Define callbacks for the widget
         const onSave = async (content) => {
             if (saveNotes) {
-                const details = extractProblemDetails ? extractProblemDetails() : {};
-                await saveNotes(slug, content, details);
+                await saveNotes(slug, content);
             }
         };
 

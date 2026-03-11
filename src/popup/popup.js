@@ -20,6 +20,62 @@ let localizedTitleHydrationInFlight = false;
 let themePersistInFlight = false;
 let queuedThemeForPersist = null;
 let currentFilters = { difficulty: 'all', topic: 'all', timeRange: 'all' };
+let currentLeetCodeBase = 'https://leetcode.com';
+
+const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
+
+function deriveLeetCodeBase(url) {
+    if (!url) return null;
+    try {
+        const parsed = new URL(url);
+        if (!LEETCODE_HOSTS.has(parsed.hostname)) return null;
+        return `${parsed.protocol}//${parsed.hostname}`;
+    } catch (e) {
+        return null;
+    }
+}
+
+function isLeetCodeProblemUrl(url) {
+    if (!url) return false;
+    try {
+        const parsed = new URL(url);
+        if (!LEETCODE_HOSTS.has(parsed.hostname)) return false;
+        return /^\/problems\/[^/]+/.test(parsed.pathname);
+    } catch (e) {
+        return false;
+    }
+}
+
+async function resolveLeetCodeBaseUrl() {
+    const fallbackBase = currentLeetCodeBase || 'https://leetcode.com';
+
+    if (chrome?.tabs?.query) {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const base = deriveLeetCodeBase(tab && tab.url);
+            if (base) {
+                currentLeetCodeBase = base;
+                if (chrome?.storage?.local?.set) {
+                    await chrome.storage.local.set({ lastLeetCodeBase: base });
+                }
+                return base;
+            }
+        } catch (e) {
+            console.warn('[Popup] Could not resolve active tab base URL:', e);
+        }
+    }
+
+    if (chrome?.storage?.local?.get) {
+        try {
+            const result = await chrome.storage.local.get({ lastLeetCodeBase: fallbackBase });
+            return result.lastLeetCodeBase || fallbackBase;
+        } catch (e) {
+            console.warn('[Popup] Could not read stored base URL:', e);
+        }
+    }
+
+    return fallbackBase;
+}
 
 function getI18n() {
     return window.EasyRepeatI18n || null;
@@ -220,6 +276,8 @@ async function updateDashboard() {
     currentAllProblems = problems;
     currentTitleCache = result.localizedProblemTitles || {};
 
+    currentLeetCodeBase = await resolveLeetCodeBaseUrl();
+
     const streakValueEl = document.getElementById('streak-value');
     if (streakValueEl) {
         const streakCount = await calculateStreakFn();
@@ -256,7 +314,8 @@ function rerenderCurrentView() {
 
     renderVectors(problems, 'vector-list', currentView === 'dashboard', {
         language: currentLanguage,
-        titleCache: currentTitleCache
+        titleCache: currentTitleCache,
+        problemUrlBase: currentLeetCodeBase
     });
     updateQueueTitle();
     syncSidebarState();
@@ -414,7 +473,12 @@ async function hydrateLocalizedTitles(problems) {
 async function syncCurrentProblemDifficulty() {
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
+        if (!tab || !tab.url || !isLeetCodeProblemUrl(tab.url)) return;
+
+        const derivedBase = deriveLeetCodeBase(tab.url);
+        if (derivedBase) {
+            currentLeetCodeBase = derivedBase;
+        }
 
         const match = tab.url.match(/\/problems\/([^\/]+)/);
         if (!match) return;

@@ -416,11 +416,29 @@
         }).format(date);
     }
 
+    const DIFFICULTY_ALIASES = {
+        easy: 'Easy',
+        medium: 'Medium',
+        hard: 'Hard',
+        '简单': 'Easy',
+        '中等': 'Medium',
+        '困难': 'Hard'
+    };
+
+    function normalizeDifficulty(difficulty) {
+        const raw = String(difficulty || '').trim();
+        if (!raw) return '';
+        const lowered = raw.toLowerCase();
+        if (DIFFICULTY_ALIASES[lowered]) return DIFFICULTY_ALIASES[lowered];
+        if (DIFFICULTY_ALIASES[raw]) return DIFFICULTY_ALIASES[raw];
+        return '';
+    }
+
     function formatDifficulty(difficulty, languageCode) {
-        const normalized = String(difficulty || '').trim().toLowerCase();
-        if (normalized === 'easy') return t('difficulty_easy', {}, languageCode);
-        if (normalized === 'medium') return t('difficulty_medium', {}, languageCode);
-        if (normalized === 'hard') return t('difficulty_hard', {}, languageCode);
+        const normalized = normalizeDifficulty(difficulty);
+        if (normalized === 'Easy') return t('difficulty_easy', {}, languageCode);
+        if (normalized === 'Medium') return t('difficulty_medium', {}, languageCode);
+        if (normalized === 'Hard') return t('difficulty_hard', {}, languageCode);
         return t('difficulty_unknown', {}, languageCode);
     }
 
@@ -588,6 +606,7 @@
         applyTranslations: applyTranslations,
         formatDate: formatDate,
         formatDifficulty: formatDifficulty,
+        normalizeDifficulty: normalizeDifficulty,
         translateTopic: translateTopic,
         onLanguageChange: onLanguageChange,
         t: t,

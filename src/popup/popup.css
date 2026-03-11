@@ -71,16 +71,20 @@
     /* Global rounded corners */
 }
 
+html {
+    width: 400px;
+}
+
 body {
     background-color: var(--void);
     color: var(--terminal);
     font-family: var(--font-main);
     width: 400px;
-    height: max-content;
     min-height: 400px;
     max-height: 600px;
-    overflow: hidden;
     margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 /* SCANLINE OVERLAY - with lesbian flag gradient */
@@ -115,7 +119,7 @@ body::before {
 .extension-container {
     width: 100%;
     min-height: 400px;
-    max-height: 600px;
+    height: max-content;
     background: var(--bg-main);
     backdrop-filter: var(--backdrop-filter);
     border: 2px solid var(--terminal);
@@ -131,9 +135,8 @@ body::before {
     position: relative;
     display: grid;
     grid-template-columns: 50px 1fr;
-    grid-template-rows: 35px minmax(0, 1fr);
+    grid-template-rows: 35px auto;
     overflow: hidden;
-    height: 100%; /* ensure it expands with body up to max-height */
 }
 
 /* TOP NAVIGATION / STATUS */
@@ -260,7 +263,8 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    max-height: 565px; /* 600px max popup height minus 35px header */
+    height: auto;
+    max-height: 560px;
     overflow-y: auto;
 }
 
