@@ -1,13 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import inspect
 import os
 import anyio
+import time
+import uuid
 from langchain_core.prompts import PromptTemplate
 from langsmith import traceable
 
 import json
 import requests
+import hashlib
 
 from server import verify_solution_logic
 from config import get_settings
@@ -15,6 +20,82 @@ from providers import PROVIDERS, get_llm
 
 app = FastAPI()
 settings = get_settings()
+
+# In-memory job registry for async autofix progress
+AUTOFIX_JOB_TTL_SECONDS = 60 * 10
+_AUTOFIX_JOBS: dict[str, dict] = {}
+_AUTOFIX_JOBS_LOCK = asyncio.Lock()
+
+# Prompt Versions for LangSmith Evaluation
+PROMPT_VERSIONS = {
+    "fix_generation": "v1.1_structured_pydantic",
+    "test_generation": "v1.0_edge_case_json"
+}
+
+async def _prune_autofix_jobs():
+    now = time.time()
+    async with _AUTOFIX_JOBS_LOCK:
+        expired = [job_id for job_id, job in _AUTOFIX_JOBS.items()
+                   if now - job.get("updated_at", now) > AUTOFIX_JOB_TTL_SECONDS]
+        for job_id in expired:
+            _AUTOFIX_JOBS.pop(job_id, None)
+
+def get_prompt_hash(name: str, template: str) -> str:
+    """Generates a unique version fingerprint based on the prompt content."""
+    h = hashlib.md5(template.strip().encode()).hexdigest()[:6]
+    return f"{name}_{h}"
+
+async def _create_autofix_job(max_attempts: int) -> str:
+    job_id = uuid.uuid4().hex
+    now = time.time()
+    async with _AUTOFIX_JOBS_LOCK:
+        _AUTOFIX_JOBS[job_id] = {
+            "job_id": job_id,
+            "state": "queued",
+            "step": None,
+            "attempt": None,
+            "max_attempts": max_attempts,
+            "message": None,
+            "result": None,
+            "error": None,
+            "events": [],
+            "created_at": now,
+            "updated_at": now
+        }
+    return job_id
+
+async def _record_autofix_event(job_id: str, event: dict):
+    now = time.time()
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            return
+        entry = {
+            "ts": now,
+            "step": event.get("step"),
+            "status": event.get("status"),
+            "attempt": event.get("attempt"),
+            "max_attempts": event.get("max_attempts"),
+            "message": event.get("message")
+        }
+        job["events"].append(entry)
+        job["step"] = entry.get("step")
+        job["attempt"] = entry.get("attempt")
+        job["message"] = entry.get("message")
+        job["updated_at"] = now
+
+async def _set_autofix_job_state(job_id: str, state: str, result: dict | None = None, error: str | None = None):
+    now = time.time()
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            return
+        job["state"] = state
+        job["updated_at"] = now
+        if result is not None:
+            job["result"] = result
+        if error is not None:
+            job["error"] = error
 
 # Enable CORS for Chrome Extension (and localhost)
 app.add_middleware(
@@ -211,13 +292,14 @@ async def verify_endpoint(req: VerificationRequest):
 
 
 class AgentFixer:
-    def __init__(self, llm):
+    def __init__(self, llm, metadata: dict = None):
         """Accept a pre-built BaseChatModel — provider-agnostic.
         
         The caller (autofix_endpoint) is responsible for constructing the LLM
         via get_llm(provider, model, api_key, base_url).
         """
         self.llm = llm
+        self.metadata = metadata or {}
 
     def is_simple_fix(self, code: str) -> bool:
         # Heuristic: If code is < 10 lines, it's simple enough to show
@@ -246,6 +328,12 @@ class AgentFixer:
         Task: Write a CORRECT, WORKING Python solution that fixes this error.
         Return it complying with the requested JSON schema.
         """
+
+        # Auto-versioning: metadata changes whenever template changes
+        call_metadata = {
+            **self.metadata,
+            "prompt_version": get_prompt_hash("fix", template)
+        }
         
         prompt = PromptTemplate.from_template(template)
         
@@ -257,7 +345,7 @@ class AgentFixer:
                 "code": code,
                 "error": error,
                 "test_input": test_input
-            })
+            }, config={"metadata": call_metadata})
             
             if res and res.fixed_code:
                 return res.fixed_code.strip()
@@ -288,6 +376,12 @@ class AgentFixer:
         2. Example: ["(([1,2], 3))", "(([], 0))"] or whatever the function signature expects.
         3. Do NOT use markdown.
         """
+
+        # Auto-versioning: metadata changes whenever template changes
+        call_metadata = {
+            **self.metadata,
+            "prompt_version": get_prompt_hash("test_gen", template)
+        }
         prompt = PromptTemplate.from_template(template)
         
         try:
@@ -297,7 +391,7 @@ class AgentFixer:
             result = await chain.ainvoke({
                 "code": code,
                 "error": error
-            })
+            }, config={"metadata": call_metadata})
             if result and result.test_cases:
                 return result.test_cases[:3]
         except Exception as e:
@@ -328,13 +422,35 @@ class AgentFixer:
         return True, logs
 
     @traceable(name="Auto_Fix_Agent_Loop", run_type="chain")
-    async def attempt_fix(self, code: str, error: str, initial_inputs: list[str], max_retries: int = 3):
+    async def attempt_fix(self, code: str, error: str, initial_inputs: list[str], max_retries: int = 3, progress_cb=None):
+        # Bind metadata for logs
+        # Any nested traceable calls can pick up this metadata if using LangChain's RunContext
+        # but here we pass it explicitly to ainvoke calls.
+        async def emit(step: str, status: str, message: str | None = None, attempt: int | None = None):
+            if not progress_cb:
+                return
+            payload = {
+                "step": step,
+                "status": status,
+                "message": message,
+                "attempt": attempt,
+                "max_attempts": max_retries
+            }
+            try:
+                result = progress_cb(payload)
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as e:
+                print(f"Progress callback failed: {e}")
+
         current_code = code
         current_error = error
         
         # 0. Generate Test Suite
         print("Generating Test Suite...")
+        await emit("generate_tests", "active", "Generating edge-case tests")
         generated_tests = await self.generate_tests(code, error)
+        await emit("generate_tests", "done", f"Generated {len(generated_tests)} tests")
         # Combine with user's failing inputs
         all_tests = initial_inputs + generated_tests
         print(f"Test Suite: {len(all_tests)} tests")
@@ -346,6 +462,7 @@ class AgentFixer:
             
             # 1. Generate Fix
             print("Generating fix...")
+            await emit(f"generate_fix_attempt_{attempt + 1}", "active", "Generating fix", attempt + 1)
             retry_context = ""
             if attempt > 0:
                 retry_context = f"PREVIOUS ATTEMPT FAILED.\nCode tried:\n{current_code}\n\nError/Failures:\n{current_error}\n\nFix these specific failures."
@@ -355,11 +472,20 @@ class AgentFixer:
             candidate = await self.generate_fix(current_code if attempt > 0 else code, current_error if attempt == 0 else retry_context, first_input)
             
             if not candidate:
+                await emit(f"generate_fix_attempt_{attempt + 1}", "error", "Failed to generate fix", attempt + 1)
                 return {"verified": False, "error": "Failed to generate fix"}
+            await emit(f"generate_fix_attempt_{attempt + 1}", "done", "Fix generated", attempt + 1)
 
             # 2. Verify against ALL tests (runs in separate synced thread to prevent event loop blocking)
             print("Verifying fix against suite...")
+            await emit(f"execute_sandbox_attempt_{attempt + 1}", "active", "Executing in sandbox", attempt + 1)
             success, logs = await anyio.to_thread.run_sync(self.verify_fix, candidate, all_tests)
+            if success:
+                await emit(f"execute_sandbox_attempt_{attempt + 1}", "done", "Sandbox passed", attempt + 1)
+                await emit("verified_success", "done", "Safe Observer verified", attempt + 1)
+            else:
+                await emit(f"execute_sandbox_attempt_{attempt + 1}", "error", "Sandbox failed", attempt + 1)
+                await emit("verified_failed", "error", "Safe Observer failed", attempt + 1)
             
             history.append({
                 "attempt": attempt + 1,
@@ -431,6 +557,71 @@ async def autofix_endpoint(req: VerificationRequest):
     agent = AgentFixer(llm)
     result = await agent.attempt_fix(req.code, error_context, inputs, max_retries=settings.max_retries)
     return result
+
+async def _run_autofix_job(job_id: str, req: VerificationRequest):
+    provider = req.provider or "ollama"
+    info = PROVIDERS.get(provider)
+    if not info:
+        await _set_autofix_job_state(job_id, "failed", error=f"Unsupported provider: {provider}")
+        return
+
+    model = req.model or info.default_model
+    try:
+        llm = get_llm(provider, model, api_key=req.api_key, base_url=req.base_url)
+    except ValueError as e:
+        await _set_autofix_job_state(job_id, "failed", error=str(e))
+        return
+
+    await _set_autofix_job_state(job_id, "running")
+
+    async def progress_cb(event: dict):
+        await _record_autofix_event(job_id, event)
+
+    try:
+        # Prepare Metadata for LangSmith
+        metadata = {
+            "job_id": job_id,
+            "provider": provider,
+            "model": model,
+            "max_retries": settings.max_retries,
+            "interface": "chrome_extension_async"
+        }
+
+        inputs = _parse_inputs(req.test_input)
+        initial_logs = await anyio.to_thread.run_sync(verify_solution_logic, req.code, inputs)
+        error_context = initial_logs
+        agent = AgentFixer(llm, metadata=metadata)
+        result = await agent.attempt_fix(req.code, error_context, inputs, max_retries=settings.max_retries, progress_cb=progress_cb)
+        final_state = "succeeded" if result.get("verified") else "failed"
+        await _set_autofix_job_state(job_id, final_state, result=result)
+    except Exception as e:
+        await _set_autofix_job_state(job_id, "failed", error=str(e))
+
+@app.post("/autofix/async")
+async def autofix_async_endpoint(req: VerificationRequest):
+    await _prune_autofix_jobs()
+    job_id = await _create_autofix_job(settings.max_retries)
+    asyncio.create_task(_run_autofix_job(job_id, req))
+    return {"job_id": job_id}
+
+@app.get("/autofix/status/{job_id}")
+async def autofix_status_endpoint(job_id: str):
+    await _prune_autofix_jobs()
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {
+            "job_id": job["job_id"],
+            "state": job["state"],
+            "step": job.get("step"),
+            "attempt": job.get("attempt"),
+            "max_attempts": job.get("max_attempts"),
+            "message": job.get("message"),
+            "events": job.get("events", []),
+            "result": job.get("result"),
+            "error": job.get("error")
+        }
 
 if __name__ == "__main__":
     import uvicorn

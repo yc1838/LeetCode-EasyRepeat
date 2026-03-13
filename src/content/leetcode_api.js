@@ -189,9 +189,22 @@
                     topics: info.topics
                 };
 
-                // Prompt for rating manually too? Yes.
-                const rating = await showRatingModal(details.title, { slug });
+                // Read fail count from active session to cap the rating
+                let maxRating = 4;
+                try {
+                    const sessResult = await chrome.storage.local.get({ activeSession: null });
+                    const sess = sessResult.activeSession;
+                    if (sess && sess.slug === slug) {
+                        if (sess.failCount >= 3) maxRating = 2;
+                        else if (sess.failCount >= 1) maxRating = 3;
+                    }
+                } catch (e) { /* ignore */ }
+
+                const rating = await showRatingModal(details.title, { slug, maxRating });
                 const result = await saveSubmission(details.title, details.slug, details.difficulty, 'manual_api_scan', rating, details.topics);
+
+                // Clear the active session
+                try { await chrome.storage.local.remove('activeSession'); } catch (e) { /* ignore */ }
                 return result || { success: true };
             }
 
@@ -297,24 +310,32 @@
                         const saveSubmission = getDep('saveSubmission');
 
                         if (showRatingModal && saveSubmission) {
-                            // Use already-fetched apiData (no duplicate call!)
-                            const rating = await showRatingModal(finalTitle, { slug });
+                            // Read fail count from active session to cap the rating
+                            let maxRating = 4;
+                            try {
+                                const sessResult = await chrome.storage.local.get({ activeSession: null });
+                                const sess = sessResult.activeSession;
+                                if (sess && sess.slug === slug) {
+                                    if (sess.failCount >= 3) maxRating = 2;
+                                    else if (sess.failCount >= 1) maxRating = 3;
+                                }
+                            } catch (e) { /* ignore */ }
+
+                            const rating = await showRatingModal(finalTitle, { slug, maxRating });
                             await saveSubmission(finalTitle, slug, finalDifficulty, 'api_poll', rating, finalTopics);
+
+                            // Clear the active session
+                            try { await chrome.storage.local.remove('activeSession'); } catch (e) { /* ignore */ }
                             return true;
                         } else {
                             console.warn("[LeetCode EasyRepeat] Dependencies missing. Cannot save.");
                             return false;
                         }
                     } else {
-                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg || 'Error'}). Saving as failed attempt...`);
+                        console.log(`[LeetCode EasyRepeat] Submission ${submissionId} finished but NOT Accepted (${data.status_msg || 'Error'}). Tracking in active session...`);
 
-                        // Save failed attempt to problem list with rating=1 (Again)
-                        // so SRS schedules an early review
-                        const saveSubmission = getDep('saveSubmission');
-                        if (saveSubmission) {
-                            await saveSubmission(finalTitle, slug, finalDifficulty, 'api_poll_fail', 1, finalTopics);
-                            console.log(`[LeetCode EasyRepeat] Failed attempt saved for ${finalTitle}`);
-                        }
+                        // Track the fail in the active session instead of saving immediately
+                        await updateActiveSession(slug, finalTitle, finalDifficulty, finalTopics);
 
                         console.log("[LeetCode EasyRepeat] [DEBUG] Checking window.LLMSidecar:", typeof window.LLMSidecar !== 'undefined');
                         if (typeof window.LLMSidecar !== 'undefined') {
@@ -377,6 +398,13 @@
                                             console.log("[LeetCode EasyRepeat] User cancelled analysis.");
                                             controller.abort();
                                         });
+                                        if (progressUI.updateStep) {
+                                            progressUI.updateStep({ key: 'captured_failed_submission', status: 'done' });
+                                            progressUI.updateStep({ key: 'analyzing_error_pattern', status: 'active' });
+                                        } else if (progressUI.update) {
+                                            progressUI.update({ key: 'captured_failed_submission', status: 'done' });
+                                            progressUI.update({ key: 'analyzing_error_pattern', status: 'active' });
+                                        }
                                     }
 
                                     try {
@@ -419,7 +447,11 @@
                                         }
 
                                         if (progressUI) {
-                                            progressUI.update("Analysis Complete", 100);
+                                            if (progressUI.updateStep) {
+                                                progressUI.updateStep({ key: 'analysis_complete', status: 'done' });
+                                            } else {
+                                                progressUI.update("Analysis Complete", 100);
+                                            }
                                             setTimeout(() => progressUI.close(), 1000);
                                         }
 
@@ -430,7 +462,11 @@
                                         } else {
                                             console.error("[LeetCode EasyRepeat] Analysis failed:", e);
                                             if (progressUI) {
-                                                progressUI.update("Error: " + e.message, 0);
+                                                if (progressUI.updateStep) {
+                                                    progressUI.updateStep({ key: 'analysis_failed', status: 'error', message: e.message });
+                                                } else {
+                                                    progressUI.update("Error: " + e.message, 0);
+                                                }
                                                 setTimeout(() => progressUI.close(), 3000);
                                             }
                                         }
@@ -490,6 +526,37 @@
         });
     }
 
+    /**
+     * Track a failed submission in the active session (stored in chrome.storage.local).
+     * If a session exists for a different slug, auto-save the old one as Again first.
+     */
+    async function updateActiveSession(slug, title, difficulty, topics) {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.id) return;
+
+        const result = await chrome.storage.local.get({ activeSession: null });
+        const existing = result.activeSession;
+
+        // If there's an existing session for a different problem, auto-save it as Again
+        if (existing && existing.slug && existing.slug !== slug) {
+            const saveSubmission = getDep('saveSubmission');
+            if (saveSubmission) {
+                await saveSubmission(existing.title, existing.slug, existing.difficulty,
+                    'session_displaced', 1, existing.topics || []);
+                console.log(`[LeetCode EasyRepeat] Auto-saved displaced session for ${existing.slug} as Again`);
+            }
+        }
+
+        const session = (existing && existing.slug === slug) ? existing : {
+            slug, title, difficulty, topics: topics || [],
+            failCount: 0, accepted: false
+        };
+
+        session.failCount += 1;
+        session.lastActivity = new Date().toISOString();
+        await chrome.storage.local.set({ activeSession: session });
+        console.log(`[LeetCode EasyRepeat] Active session updated: ${slug}, failCount=${session.failCount}`);
+    }
+
     return {
         getCurrentProblemSlug,
         checkLatestSubmissionViaApi,
@@ -498,6 +565,7 @@
         monitorSubmissionClicks,
         fetchQuestionDetails,
         getQuestionInfo,
+        updateActiveSession,
         /** Clear the in-memory question info cache (useful for testing). */
         clearQuestionInfoCache: () => _questionInfoCache.clear()
     };

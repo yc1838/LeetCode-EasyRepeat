@@ -95,6 +95,37 @@
         });
     }
 
+    function ensureToastStack() {
+        const existingStack = document.querySelector('.lc-toast-stack');
+        if (existingStack) return existingStack;
+
+        if (!document.getElementById('lc-toast-stack-style')) {
+            const style = document.createElement('style');
+            style.id = 'lc-toast-stack-style';
+            style.textContent = `
+                .lc-toast-stack {
+                    position: fixed !important;
+                    bottom: 30px !important;
+                    right: 30px !important;
+                    z-index: 999999 !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: flex-end !important;
+                    gap: 12px !important;
+                    pointer-events: none !important;
+                    max-width: 360px !important;
+                }
+                .lc-toast-stack > * { pointer-events: auto !important; }
+            `;
+            document.head.appendChild(style);
+        }
+
+        const stack = document.createElement('div');
+        stack.className = 'lc-toast-stack';
+        document.body.appendChild(stack);
+        return stack;
+    }
+
     async function resolveDisplayTitle(title, options = {}) {
         const problemTitles = getProblemTitles();
         const language = options.language || await getCurrentLanguage();
@@ -112,12 +143,7 @@
      * Show a custom Toast notification on the page.
      */
     async function showCompletionToast(title, nextDate, options = {}) {
-        const existing = document.querySelector('.lc-srs-toast');
-        if (existing) existing.remove();
-
-        const existingStyles = document.querySelector('#lc-srs-toast-styles');
-        if (existingStyles) existingStyles.remove();
-
+        const stack = ensureToastStack();
         let themeName = 'sakura';
         try {
             if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
@@ -135,15 +161,19 @@
             language
         });
 
-        const style = document.createElement('style');
-        style.id = 'lc-srs-toast-styles';
+        let style = document.getElementById('lc-srs-toast-styles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'lc-srs-toast-styles';
+            document.head.appendChild(style);
+        }
         style.textContent = `
             @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
             .lc-srs-toast, .lc-srs-toast * { all: revert !important; box-sizing: border-box !important; }
             .lc-srs-toast {
-                position: fixed !important; bottom: 30px !important; right: 30px !important;
-                z-index: 999999 !important; opacity: 0 !important; transform: translateY(20px) !important;
-                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important; pointer-events: none !important;
+                position: relative !important; opacity: 0 !important; transform: translateY(12px) !important;
+                transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important; pointer-events: none !important;
+                width: 100% !important;
             }
             .lc-srs-toast.show { opacity: 1 !important; transform: translateY(0) !important; }
             .lc-srs-toast-content {
@@ -185,7 +215,6 @@
             }
             .lc-srs-toast-date { font-weight: 700; color: ${theme.electric} !important; }
         `;
-        document.head.appendChild(style);
 
         const dateStr = formatDate(nextDate, language);
         const toast = document.createElement('div');
@@ -203,7 +232,7 @@
                 </div>
             </div>
         `;
-        document.body.appendChild(toast);
+        stack.appendChild(toast);
 
         setTimeout(() => {
             toast.classList.add('show');
@@ -226,6 +255,8 @@
 
         return new Promise((resolve) => {
             resolveModalTheme((modalTheme) => {
+                const maxRating = options.maxRating || 4;
+
                 const backdrop = document.createElement('div');
                 backdrop.className = 'lc-rating-backdrop';
 
@@ -263,6 +294,15 @@
                     const btn = document.createElement('button');
                     btn.className = `lc-rating-btn rating-btn-${r.tone}`;
 
+                    // Disable ratings above the cap (based on prior fail count)
+                    if (r.value > maxRating) {
+                        btn.disabled = true;
+                        btn.classList.add('lc-rating-btn-disabled');
+                        btn.style.opacity = '0.35';
+                        btn.style.pointerEvents = 'none';
+                        btn.style.cursor = 'not-allowed';
+                    }
+
                     // Construct button content
                     const labelDiv = document.createElement('div');
                     labelDiv.className = 'lc-rating-btn-label';
@@ -275,10 +315,12 @@
                     btn.appendChild(labelDiv);
                     btn.appendChild(descDiv);
 
-                    btn.addEventListener('click', () => {
-                        backdrop.remove();
-                        resolve(r.value);
-                    });
+                    if (!btn.disabled) {
+                        btn.addEventListener('click', () => {
+                            backdrop.remove();
+                            resolve(r.value);
+                        });
+                    }
                     btnContainer.appendChild(btn);
                 });
 
@@ -879,17 +921,16 @@
             style.id = 'lc-analysis-progress-style';
             style.textContent = `
                 .lc-analysis-progress {
-                    position: fixed; bottom: 30px; right: 30px;
-                    z-index: 999999;
+                    position: relative;
                     background: rgba(10, 10, 10, 0.95);
                     border: 1px solid #333;
                     border-radius: 8px;
                     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
                     padding: 16px;
-                    width: 300px;
+                    width: 320px;
                     font-family: 'JetBrains Mono', monospace;
                     display: flex; flex-direction: column; gap: 12px;
-                    transform: translateY(100px); opacity: 0;
+                    transform: translateY(12px); opacity: 0;
                     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .lc-analysis-progress.show { transform: translateY(0); opacity: 1; }
@@ -904,25 +945,23 @@
                     animation: lc-spin 1s linear infinite;
                 }
                 @keyframes lc-spin { to { transform: rotate(360deg); } }
-                
-                .lc-progress-track {
-                    height: 4px; background: #333; border-radius: 2px; overflow: hidden;
-                    position: relative;
+
+                .lc-analysis-steps {
+                    display: flex; flex-direction: column; gap: 6px;
+                    font-size: 12px; color: #d1d5db;
                 }
-                .lc-progress-bar {
-                    height: 100%; background: #22d3ee; width: 0%;
-                    transition: width 0.3s linear;
-                    position: absolute; left: 0; top: 0;
+                .lc-analysis-step {
+                    display: flex; align-items: center; gap: 8px;
                 }
-                /* Indeterminate animation */
-                .lc-progress-bar.indeterminate {
-                    width: 30%;
-                    animation: lc-indeterminate 1.5s infinite ease-in-out;
+                .lc-analysis-step.pending { opacity: 0.45; }
+                .lc-analysis-step.active { color: #e5e7eb; }
+                .lc-analysis-step.done { color: #86efac; }
+                .lc-analysis-step.error { color: #fca5a5; }
+                .lc-step-icon {
+                    width: 16px; display: inline-flex; align-items: center; justify-content: center;
+                    font-size: 12px;
                 }
-                @keyframes lc-indeterminate {
-                    0% { left: -30%; }
-                    100% { left: 100%; }
-                }
+                .lc-step-message { opacity: 0.7; font-size: 11px; }
 
                 .lc-analysis-cancel-btn {
                     background: transparent; border: 1px solid #ef4444;
@@ -938,18 +977,17 @@
         const container = document.createElement('div');
         container.className = 'lc-analysis-progress';
         let liveLanguage = 'en';
+        const steps = new Map();
 
         const renderProgressUI = (language) => {
             container.innerHTML = `
                 <div class="lc-analysis-header">
                     <div class="lc-analysis-status">
                         <div class="lc-spinner"></div>
-                        <span>${translate('content_analyzing_request', {}, language)}</span>
+                        <span class="lc-analysis-status-text">${translate('content_analyzing_request', {}, language)}</span>
                     </div>
                 </div>
-                <div class="lc-progress-track">
-                    <div class="lc-progress-bar indeterminate"></div>
-                </div>
+                <div class="lc-analysis-steps"></div>
                 <button class="lc-analysis-cancel-btn">${translate('content_cancel_analysis', {}, language)}</button>
             `;
 
@@ -963,27 +1001,155 @@
         };
 
         renderProgressUI('en');
-        document.body.appendChild(container); // Fix: Append to body immediately
+        ensureToastStack().appendChild(container);
         getCurrentLanguage().then((language) => {
             liveLanguage = language;
             renderProgressUI(language);
+            renderSteps();
         }).catch(() => { });
 
         // Animate in
         requestAnimationFrame(() => container.classList.add('show'));
+
+        function getStepLabel(stepKey, options = {}) {
+            const attempt = options.attempt || options.index || 1;
+            const total = options.total || options.maxAttempts || attempt;
+            if (stepKey.startsWith('generate_fix_attempt_')) {
+                return translate('content_step_generate_fix_attempt', { attempt, total }, liveLanguage);
+            }
+            if (stepKey.startsWith('execute_sandbox_attempt_')) {
+                return translate('content_step_execute_sandbox_attempt', { attempt, total }, liveLanguage);
+            }
+            const labels = {
+                captured_failed_submission: 'content_step_captured_failed',
+                analyzing_error_pattern: 'content_step_analyzing_error',
+                llm_searching_kb: 'content_step_searching_kb',
+                llm_found_solution: 'content_step_found_solution',
+                llm_verifying_safe_observer: 'content_step_safe_observer',
+                generate_tests: 'content_step_generate_tests',
+                verified_success: 'content_step_verified_success',
+                verified_failed: 'content_step_verified_failed',
+                llm_consulting_model: 'content_step_consulting_model',
+                analysis_complete: 'content_step_analysis_complete',
+                analysis_failed: 'content_step_analysis_failed'
+            };
+            const key = labels[stepKey];
+            return key ? translate(key, {}, liveLanguage) : stepKey;
+        }
+
+        function getStepOrder(stepKey, attempt) {
+            if (stepKey.startsWith('generate_fix_attempt_')) {
+                return 60 + (attempt || 0) * 2;
+            }
+            if (stepKey.startsWith('execute_sandbox_attempt_')) {
+                return 61 + (attempt || 0) * 2;
+            }
+            const order = {
+                captured_failed_submission: 10,
+                analyzing_error_pattern: 20,
+                llm_searching_kb: 30,
+                llm_found_solution: 32,
+                llm_verifying_safe_observer: 40,
+                generate_tests: 50,
+                verified_success: 80,
+                verified_failed: 80,
+                llm_consulting_model: 90,
+                analysis_complete: 100,
+                analysis_failed: 100
+            };
+            return order[stepKey] || 75;
+        }
+
+        function normalizeStatus(status) {
+            if (!status) return 'pending';
+            const normalized = String(status).toLowerCase();
+            if (['active', 'running', 'in_progress'].includes(normalized)) return 'active';
+            if (['done', 'complete', 'completed', 'success'].includes(normalized)) return 'done';
+            if (['error', 'failed', 'failure'].includes(normalized)) return 'error';
+            return 'pending';
+        }
+
+        function renderSteps() {
+            const stepsEl = container.querySelector('.lc-analysis-steps');
+            if (!stepsEl) return;
+            const ordered = Array.from(steps.values()).sort((a, b) => a.order - b.order);
+            stepsEl.innerHTML = '';
+            ordered.forEach((step) => {
+                const row = document.createElement('div');
+                row.className = `lc-analysis-step ${step.status}`;
+                const icon = document.createElement('span');
+                icon.className = 'lc-step-icon';
+                if (step.status === 'done') icon.textContent = '✓';
+                else if (step.status === 'error') icon.textContent = '×';
+                else if (step.status === 'active') icon.textContent = '>';
+                else icon.textContent = '•';
+                const text = document.createElement('span');
+                text.textContent = getStepLabel(step.key, { attempt: step.attempt, total: step.total });
+                row.appendChild(icon);
+                row.appendChild(text);
+                if (step.message) {
+                    const msg = document.createElement('span');
+                    msg.className = 'lc-step-message';
+                    msg.textContent = ` ${step.message}`;
+                    row.appendChild(msg);
+                }
+                stepsEl.appendChild(row);
+            });
+            const statusText = container.querySelector('.lc-analysis-status-text');
+            const activeStep = ordered.find(step => step.status === 'active');
+            if (statusText && activeStep) {
+                statusText.textContent = getStepLabel(activeStep.key, { attempt: activeStep.attempt, total: activeStep.total });
+            }
+        }
 
         function close() {
             container.classList.remove('show');
             setTimeout(() => container.remove(), 300);
         }
 
+        function updateStep(payload) {
+            if (!payload) return;
+            const stepKey = payload.key || payload.step;
+            if (!stepKey) return;
+            const attemptMatch = stepKey.match(/_(\d+)$/);
+            const attempt = payload.attempt || (attemptMatch ? Number(attemptMatch[1]) : undefined);
+            const total = payload.total || payload.max_attempts || payload.maxAttempts;
+            const status = normalizeStatus(payload.status);
+            
+            steps.set(stepKey, {
+                key: stepKey,
+                status,
+                order: getStepOrder(stepKey, attempt),
+                message: payload.message,
+                attempt,
+                total
+            });
+            const statusText = container.querySelector('.lc-analysis-status-text');
+            if (statusText && status === 'active') {
+                statusText.textContent = getStepLabel(stepKey, { attempt, total });
+            }
+            if (stepKey === 'analysis_complete' && statusText) {
+                statusText.textContent = translate('content_analysis_complete', {}, liveLanguage);
+            }
+            if (stepKey === 'analysis_failed' && statusText) {
+                statusText.textContent = translate('common_error', {}, liveLanguage);
+            }
+            renderSteps();
+        }
+
         function update(text, percent) {
+            if (text && typeof text === 'object') {
+                updateStep(text);
+                return;
+            }
             const statusText = container.querySelector('.lc-analysis-status span');
             if (statusText) {
                 if (text === 'Analysis Complete') {
                     statusText.innerText = translate('content_analysis_complete', {}, liveLanguage);
+                    updateStep({ key: 'analysis_complete', status: 'done' });
                 } else if (typeof text === 'string' && text.startsWith('Error: ')) {
                     statusText.innerText = `${translate('common_error', {}, liveLanguage)}: ${text.slice(7)}`;
+                    updateStep({ key: 'analysis_failed', status: 'error', message: text.slice(7) });
                 } else {
                     statusText.innerText = text;
                 }
@@ -995,7 +1161,7 @@
             // bar.style.width = percent + '%';
         }
 
-        return { close, update };
+        return { close, update, updateStep };
     }
 
     return {

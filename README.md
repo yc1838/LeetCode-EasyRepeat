@@ -166,7 +166,7 @@ For Cloud LLM:
 - **Secure Key Handling**: Migrated API key storage to a more isolated pattern consistent with modern extension security best practices.
 - **Problem Title Caching**: Intelligent caching of problem localized titles (`localizedProblemTitles`) to speed up rendering without constant GraphQL fetching.
 - **Popup Filtering**: Added support for filtering problems in the popup queue by difficulty, topic, and time range.
-- **Wrong Answer SRS Tracking**: Failed submissions are now saved to the problem list with FSRS rating=1 (Again), scheduling an early review — matching standard flashcard behavior.
+- **Smart Fail-Rating Strategy**: Failed submissions no longer blindly assign rating=1 (Again). Instead, the extension tracks a per-session fail count and caps the rating modal when the user eventually gets Accepted (0 fails → full choice, 1–2 fails → max Good, 3+ fails → max Hard). Abandoned problems (tab closed or 4-hour timeout) auto-save as Again. 
 - **Internationalization**: Full i18n support with 11 languages available in the options page and a refined dictionary-style language toggle.
 - **Enhanced UI & UX**:
   - Animated pulsing heatmap cells for active practice days.
@@ -235,6 +235,14 @@ Click the extension icon to see:
 - **Hard** → Review sooner (lower stability increase)
 - **Good** → Standard progression (optimal retention)
 - **Easy** → Push review far into the future (higher stability)
+
+**How ratings are assigned:**
+- **Accepted on first try** → You choose any rating (Again/Hard/Good/Easy)
+- **Accepted after 1–2 failed submissions** → Rating capped at Good (3)
+- **Accepted after 3+ failed submissions** → Rating capped at Hard (2)
+- **Abandoned** (tab closed or 4h inactivity with unresolved fails) → Auto-saved as Again (1)
+
+Run/test results are not tracked — only Submit outcomes matter.
 
 
 
@@ -685,6 +693,14 @@ npm run build
   - 题目名称、链接和官方难度。
   - 当前记忆间隔和已经复习的次数。
   - Again(重来) / Hard(困难) / Good(良好) / Easy(简单) 评价按钮。
+
+**评分机制：**
+- **一次提交就通过** → 自由选择任意评分 (Again/Hard/Good/Easy)
+- **失败 1–2 次后通过** → 最高只能选 Good (3)
+- **失败 3 次以上后通过** → 最高只能选 Hard (2)
+- **放弃了**（关闭标签页或 4 小时无活动且有失败记录）→ 自动记为 Again (1)
+
+Run/测试的结果不会被追踪，只有 Submit 的结果才会被记录。
 
 ### 🎨 赛博朋克风 UI (双主题系统)
 - **樱花主题 (Sakura / 默认)**: 灵感来自 Lesbian 旗帜配色，粉色、紫红与橙色的霓虹发光质感。

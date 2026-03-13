@@ -455,6 +455,116 @@
         return true;
     }
 
+    function proxyFetchRaw(url, options) {
+        return new Promise((resolve, reject) => {
+            try {
+                if (typeof chrome === 'undefined' || !chrome.runtime?.id) {
+                    return reject(new Error("Extension Disconnected. Please REFRESH the page."));
+                }
+                chrome.runtime.sendMessage({ action: 'proxyFetch', url, options }, (res) => {
+                    if (chrome.runtime.lastError) {
+                        return reject(new Error(chrome.runtime.lastError.message));
+                    }
+                    if (!res) return reject(new Error('No response from background proxy'));
+                    resolve(res);
+                });
+            } catch (e) {
+                reject(new Error("Extension Context Invalidated. Please REFRESH the page."));
+            }
+        });
+    }
+
+    async function proxyFetchJson(url, options) {
+        const res = await proxyFetchRaw(url, options);
+        if (!res.success) throw new Error(res.error || "Proxy fetch failed");
+        let json = null;
+        if (res.data && res.data.trim()) {
+            try {
+                json = JSON.parse(res.data);
+            } catch (e) {
+                throw new Error("Invalid JSON response");
+            }
+        }
+        if (!res.ok) {
+            throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
+        }
+        return json;
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function runSafeObserverSync(payload, endpoint) {
+        const proxyRes = await proxyFetchRaw(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (proxyRes.success && proxyRes.ok) {
+            return JSON.parse(proxyRes.data);
+        }
+        return null;
+    }
+
+    async function runSafeObserverAsync(payload, baseUrl, onProgress, signal) {
+        const startUrl = `${baseUrl}/autofix/async`;
+        const statusBase = `${baseUrl}/autofix/status`;
+        const startRes = await proxyFetchJson(startUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!startRes?.job_id) {
+            throw new Error("Safe Observer async job failed to start.");
+        }
+
+        let lastEventCount = 0;
+        while (true) {
+            if (signal?.aborted) {
+                const abortErr = new Error("AbortError");
+                abortErr.name = "AbortError";
+                throw abortErr;
+            }
+
+            const status = await proxyFetchJson(`${statusBase}/${startRes.job_id}`, { method: 'GET' });
+            const events = status?.events || [];
+            if (events.length > lastEventCount) {
+                const newEvents = events.slice(lastEventCount);
+                lastEventCount = events.length;
+                if (onProgress) {
+                    newEvents.forEach((event) => {
+                        onProgress({
+                            key: event.step,
+                            status: event.status,
+                            attempt: event.attempt,
+                            total: event.max_attempts,
+                            message: event.message
+                        });
+                    });
+                }
+            } else if (status?.step && onProgress) {
+                onProgress({
+                    key: status.step,
+                    status: status.state === 'failed' ? 'error' : 'active',
+                    attempt: status.attempt,
+                    total: status.max_attempts,
+                    message: status.message
+                });
+            }
+
+            if (status?.state === 'succeeded' || status?.state === 'failed') {
+                if (status.result) return status.result;
+                if (status.error) throw new Error(status.error);
+                return null;
+            }
+
+            await sleep(700);
+        }
+    }
+
     async function analyzeMistake(code, errorDetails, meta = {}, signal = null, onProgress = null) {
         console.log(`[LLMSidecar] analyzeMistake started for ${meta.title || 'Unknown'}. Provider: ${state.aiProvider}, Model: ${state.selectedModelId}`);
         const title = meta.title || 'Unknown Problem';
@@ -463,13 +573,14 @@
 
         let contextMsg = "";
         let isRecurrence = false;
+        if (onProgress) onProgress({ key: 'analyzing_error_pattern', status: 'done' });
 
         // --- RAG: Retrieval Step (First) ---
         // Check Knowledge Base first to avoid expensive re-verification of known issues.
         // Call Site: llm_sidecar.js:400 (Approx)
         if (window.VectorDB) {
             try {
-                if (onProgress) onProgress(await t('llm_searching_kb', "🧠 Searching Knowledge Base..."));
+                if (onProgress) onProgress({ key: 'llm_searching_kb', status: 'active' });
                 // 1. Embed
                 // Only embed if we have an API key for the provider
                 if (hasAnyKey()) {
@@ -487,7 +598,9 @@
                             // High Confidence -> Return Cached Advice IMMEDIATELY
                             // Call Site: llm_sidecar.js:420 (Approx logic gate)
                             console.log(`%c[AI Service] 🟢 LOCAL HIT (RAG) | Similarity: ${(topMatch.score * 100).toFixed(1)}%`, "color: #4ade80; font-weight: bold;");
-                            if (onProgress) onProgress(await t('llm_found_solution', "✨ Found existing solution!"));
+                            if (onProgress) onProgress({ key: 'llm_searching_kb', status: 'done' });
+                            if (onProgress) onProgress({ key: 'llm_found_solution', status: 'done' });
+                            if (onProgress) onProgress({ key: 'analysis_complete', status: 'done' });
                             return `💡 **Recurring Mistake Detected**\n\nIt seems you've made a very similar mistake before (${(topMatch.score * 100).toFixed(0)}% match).\n\n**Previous Advice:**\n${topMatch.advice}`;
                         }
 
@@ -496,6 +609,7 @@
                         isRecurrence = true;
                     }
                 }
+                if (onProgress) onProgress({ key: 'llm_searching_kb', status: 'done' });
             } catch (e) {
                 console.warn("[LLMSidecar] RAG step failed (continuing with standard analysis):", e);
             }
@@ -507,10 +621,10 @@
         let verificationResult = "";
         if (meta.test_input) {
             try {
-                if (onProgress) onProgress(await t('llm_verifying_safe_observer', "🛡️ Verifying with Safe Observer..."));
+                if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'active' });
                 // Determine API endpoint (default to localhost for now, user configurable later)
-                const verifyUrl = state.localEndpoint.replace('11434', '8000').replace('/api/chat', '') + '/autofix';
-                const SAFE_OBSERVER_URL = verifyUrl;
+                const baseUrl = state.localEndpoint.replace('11434', '8000').replace('/api/chat', '');
+                const SAFE_OBSERVER_URL = `${baseUrl}/autofix`;
 
                 // Determine provider and API key for the backend
                 const autofixProvider = state.aiProvider === 'cloud'
@@ -520,35 +634,32 @@
                     ? (state.keys[state.cloudProvider] || '')
                     : null;
 
-                console.log(`[LLMSidecar] 🛡️ Requesting Auto-Fix at ${SAFE_OBSERVER_URL}...`);
-                const proxyRes = await new Promise((resolve, reject) => {
-                    chrome.runtime.sendMessage({
-                        action: 'proxyFetch',
-                        url: SAFE_OBSERVER_URL,
-                        options: {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                code,
-                                test_input: meta.test_input,
-                                provider: autofixProvider,
-                                model: state.selectedModelId,
-                                api_key: autofixApiKey,
-                                base_url: state.localEndpoint
-                            })
-                        }
-                    }, (res) => {
-                        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-                        if (!res) return reject(new Error('No response from background proxy'));
-                        resolve(res);
-                    });
-                });
+                const payload = {
+                    code,
+                    test_input: meta.test_input,
+                    provider: autofixProvider,
+                    model: state.selectedModelId,
+                    api_key: autofixApiKey,
+                    base_url: state.localEndpoint
+                };
 
-                if (proxyRes.success && proxyRes.ok) {
-                    const data = JSON.parse(proxyRes.data);
+                console.log(`[LLMSidecar] 🛡️ Requesting Auto-Fix at ${SAFE_OBSERVER_URL}...`);
+                let data = null;
+                try {
+                    data = await runSafeObserverAsync(payload, baseUrl, onProgress, signal);
+                } catch (e) {
+                    console.warn("[LLMSidecar] Safe Observer async failed, falling back to sync:", e);
+                }
+
+                if (!data) {
+                    data = await runSafeObserverSync(payload, SAFE_OBSERVER_URL);
+                }
+
+                if (data) {
 
                     if (data.verified) {
                         console.log("%c[LLMSidecar] ✅ AUTO-FIX SUCCESS", "color: #00ff00; font-weight: bold;");
+                        if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'done' });
 
                         // Append the verified fix to the advice context
                         let fixDisplay = "";
@@ -568,15 +679,18 @@
                     } else {
                         console.warn("[LLMSidecar] ⚠️ Auto-Fix attempted but failed verification.");
                         console.log("[LLMSidecar] 🔍 DEBUG: Verification Data:", data);
+                        if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'error' });
                         verificationResult = `\n\n--- 🛡️ SAFE OBSERVER LOGS ---\nAuto-Fix Attempted: FAILED\nExecution Logs:\n${data.logs}\n--------------------------------------`;
                     }
                 } else {
-                    console.warn(`[LLMSidecar] ⚠️ Safe Observer returned ${proxyRes.status || 'error'}`);
+                    console.warn("[LLMSidecar] ⚠️ Safe Observer returned no data.");
                     console.log("%c[LLMSidecar] ⚠️ SAFE OBSERVER FAILED", "color: orange; font-weight: bold;");
+                    if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'error' });
                 }
             } catch (e) {
                 console.warn("[LLMSidecar] Safe Observer connection failed:", e);
                 console.log("%c[LLMSidecar] ❌ SAFE OBSERVER UNREACHABLE", "color: red; font-weight: bold;");
+                if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'error', message: e.message });
             }
         }
 
@@ -664,8 +778,9 @@
         const modeLabel = state.aiProvider === 'local' ? '🏠 LOCAL REQUEST' : '☁️ CLOUD REQUEST';
         console.log(`%c[AI Service] ${modeLabel} | Model: ${activeModel?.name || state.selectedModelId} (${activeProvider})`, "color: #38bdf8; font-weight: bold;");
 
-        if (onProgress) onProgress(await t('llm_consulting_model', "🤖 Consulting AI Model..."));
+        if (onProgress) onProgress({ key: 'llm_consulting_model', status: 'active' });
         let advice = await callLLM(prompt, systemPrompt, signal);
+        if (onProgress) onProgress({ key: 'llm_consulting_model', status: 'done' });
 
         // 1. Parse JSON Response
         let parsed = null;
@@ -726,6 +841,7 @@
             }
         }
 
+        if (onProgress) onProgress({ key: 'analysis_complete', status: 'done' });
         return displayAdvice;
     }
 
