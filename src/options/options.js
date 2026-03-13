@@ -26,12 +26,97 @@
 
     const DEFAULTS = {
         aiProvider: 'local',
+        cloudProvider: '',
         keys: { google: '', openai: '', anthropic: '' },
         localEndpoint: 'http://127.0.0.1:11434',
         selectedModelId: 'gemma3:latest',
         aiAnalysisEnabled: true,
         uiLanguage: 'en'
     };
+
+    // Per-provider config for progressive disclosure UI
+    const CLOUD_PROVIDER_CONFIG = {
+        google:    { placeholder: 'AIzaSy...', label: 'Google Gemini API Key', helpUrl: 'https://aistudio.google.com/apikey' },
+        openai:    { placeholder: 'sk-...',    label: 'OpenAI API Key',        helpUrl: 'https://platform.openai.com/api-keys' },
+        anthropic: { placeholder: 'sk-ant-...', label: 'Anthropic API Key',    helpUrl: 'https://console.anthropic.com/settings/keys' },
+    };
+
+    /**
+     * Route fetch through background service worker to avoid CSP/CORS issues.
+     */
+    function proxyFetch(url, options) {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({ action: 'proxyFetch', url, options }, (res) => {
+                if (chrome.runtime.lastError) {
+                    return reject(new Error(chrome.runtime.lastError.message));
+                }
+                if (!res || !res.success) {
+                    return reject(new Error(res?.error || 'Proxy fetch failed'));
+                }
+                try {
+                    resolve(JSON.parse(res.data));
+                } catch (e) {
+                    reject(new Error('Failed to parse response JSON'));
+                }
+            });
+        });
+    }
+
+    /**
+     * Fetch models from Ollama directly (via background proxy to avoid CORS).
+     */
+    async function fetchOllamaModels(baseUrl) {
+        const data = await proxyFetch(`${baseUrl}/api/tags`, { method: 'GET' });
+        if (data.models && Array.isArray(data.models)) {
+            return data.models.map(m => m.name || m.model);
+        }
+        return [];
+    }
+
+    /**
+     * Validate a cloud API key by calling the provider's models API directly.
+     * Returns array of model names on success, throws on failure.
+     */
+    async function validateCloudKey(provider, apiKey) {
+        switch (provider) {
+            case 'google': {
+                const data = await proxyFetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+                    { method: 'GET' }
+                );
+                if (data.error) throw new Error(data.error.message || 'Invalid API key');
+                return (data.models || [])
+                    .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+                    .filter(m => !['image', 'tts', 'robotics', 'banana'].some(tag => m.name.toLowerCase().includes(tag)))
+                    .map(m => m.name.replace('models/', ''));
+            }
+            case 'openai': {
+                const data = await proxyFetch('https://api.openai.com/v1/models', {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (data.error) throw new Error(data.error.message || 'Invalid API key');
+                return (data.data || [])
+                    .filter(m => /^(gpt-|o1-|o3-)/.test(m.id))
+                    .map(m => m.id)
+                    .sort().reverse();
+            }
+            case 'anthropic': {
+                const data = await proxyFetch('https://api.anthropic.com/v1/models', {
+                    method: 'GET',
+                    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+                });
+                if (data.error) throw new Error(data.error.message || 'Invalid API key');
+                return (data.data || []).map(m => m.id);
+            }
+            default:
+                throw new Error(`Unknown provider: ${provider}`);
+        }
+    }
+
+    // Progressive disclosure state
+    let cloudProviderSelected = null;
+    let keyValidated = false;
 
     const BACKUP_SCHEMA_VERSION = 2;
     const BACKUP_METADATA_KEY = 'backupMeta';
@@ -83,6 +168,14 @@
             status_ai_gate_enabled: 'AI analysis is enabled. AI setup and neural modules are now available.',
             status_ai_gate_disabled: 'AI analysis is disabled. AI setup and neural modules are hidden.',
             status_settings_saved: 'Settings Saved!',
+            cloud_provider_heading: 'Choose Cloud Provider',
+            cloud_provider_google_subtitle: 'Free tier available',
+            cloud_provider_openai_subtitle: 'GPT-4o, GPT-4o Mini',
+            cloud_provider_anthropic_subtitle: 'Claude 3.5 Sonnet',
+            validate_key_button: 'Validate & Save Key',
+            status_validating_key: 'Validating...',
+            status_key_valid: 'Valid! Found {count} models.',
+            status_key_invalid: 'Invalid key or connection error.',
             status_testing: 'Testing {url}...',
             status_test_success: 'Success! Found {count} models.',
             status_http_error: 'Error: HTTP {status}',
@@ -188,12 +281,19 @@
             quick_setup_heading: '快速配置指南',
             quick_setup_step_1: '安装本地模型服务。',
             quick_setup_step_2: '启动服务并保持运行。',
-            quick_setup_step_3: '在上方填入 Endpoint 并点击“测试连接”。',
+            quick_setup_step_3: '在下方填入 Endpoint 并点击”测试连接”。',
             ollama_example_heading: 'Ollama（示例）',
             lm_studio_heading: 'LM Studio（OpenAI 兼容）',
             troubleshooting_heading: '故障排查',
             troubleshooting_item_1: '如果测试显示网络错误，通常是本地服务未启动。',
             troubleshooting_item_2: '如果看到 CORS 错误，请在本地服务中启用 CORS。',
+            safe_observer_heading: 'Safe Observer（可选）',
+            safe_observer_description: 'Safe Observer 是一个可选的后端服务，通过在沙箱中实际运行代码来验证 AI 建议的修复方案。提交失败时，它会自动生成修复、用边界用例测试，只展示验证通过的方案。',
+            safe_observer_requires: '需要：',
+            safe_observer_req_1: 'Python 3.10+',
+            safe_observer_req_2: '本地 MCP 服务运行在 8000 端口',
+            safe_observer_setup_heading: '启动方法',
+            safe_observer_note: '不启动 Safe Observer 也不影响正常的错误分析功能，只是不会有沙箱验证过的修复方案。这是一个进阶功能，适合追求高置信度解答的用户。',
             save_all_settings_button: '保存全部设置',
             neural_retention_heading: '🧠 神经记忆代理',
             neural_retention_hint: '手动触发总结和练习生成功能用于测试。',
@@ -218,6 +318,14 @@
             status_ai_gate_enabled: 'AI 分析已开启。AI 配置与神经模块现已可用。',
             status_ai_gate_disabled: 'AI 分析已关闭。AI 配置与神经模块已隐藏。',
             status_settings_saved: '设置已保存！',
+            cloud_provider_heading: '选择云端提供商',
+            cloud_provider_google_subtitle: '有免费额度',
+            cloud_provider_openai_subtitle: 'GPT-4o, GPT-4o Mini',
+            cloud_provider_anthropic_subtitle: 'Claude 3.5 Sonnet',
+            validate_key_button: '验证并保存 Key',
+            status_validating_key: '验证中...',
+            status_key_valid: '有效！发现 {count} 个模型。',
+            status_key_invalid: 'Key 无效或连接错误。',
             status_testing: '正在测试 {url}...',
             status_test_success: '连接成功！发现 {count} 个模型。',
             status_http_error: '错误：HTTP {status}',
@@ -313,12 +421,19 @@
         quick_setup_heading: 'Quick Setup Guide',
         quick_setup_step_1: 'Install a local model service.',
         quick_setup_step_2: 'Start the service and keep it running.',
-        quick_setup_step_3: 'Enter the endpoint above and click "Test Connection".',
+        quick_setup_step_3: 'Enter the endpoint below and click "Test Connection".',
         ollama_example_heading: 'Ollama (Example)',
         lm_studio_heading: 'LM Studio (OpenAI Compatible)',
         troubleshooting_heading: 'Troubleshooting',
         troubleshooting_item_1: 'If you see a network error, the local service is usually not running.',
         troubleshooting_item_2: 'If you see CORS errors, enable CORS on your local service.',
+        safe_observer_heading: 'Safe Observer (Optional)',
+        safe_observer_description: 'Safe Observer is an optional backend that verifies AI-suggested fixes by running your code in a sandbox. When a submission fails, it generates a fix, tests it against edge cases, and only shows verified solutions.',
+        safe_observer_requires: 'Requires:',
+        safe_observer_req_1: 'Python 3.10+',
+        safe_observer_req_2: 'The MCP server running locally on port 8000',
+        safe_observer_setup_heading: 'Setup',
+        safe_observer_note: 'Without Safe Observer, mistake analysis still works normally — you just won\'t get sandbox-verified fixes. This is a power-user feature for higher-confidence solutions.',
         save_all_settings_button: 'Save All Settings',
         neural_retention_heading: '🧠 Neural Retention Agent',
         neural_retention_hint: 'Manually run digest and drill generation for testing.',
@@ -1729,29 +1844,36 @@
         };
 
         if (mode === 'local') {
-            // Fetch dynamically if possible
+            // Fetch dynamically from Ollama directly
             try {
-                // Ensure the endpoint is saved before fetching if we are within the options page context
-                if (els.localEndpoint) {
-                    const endpoint = normalizeEndpoint(els.localEndpoint.value);
-                    await chrome.storage.local.set({ localEndpoint: endpoint });
-                }
-
-                const response = await chrome.runtime.sendMessage({ action: 'listModels' });
-                if (response && response.success && response.models && response.models.length > 0) {
-                    const dynamicModels = response.models.map(name => ({ id: name, name: name, provider: 'local' }));
+                const baseUrl = normalizeEndpoint(els.localEndpoint?.value || DEFAULTS.localEndpoint);
+                const models = await fetchOllamaModels(baseUrl);
+                if (models.length > 0) {
+                    const dynamicModels = models.map(name => ({ id: name, name: name, provider: 'local' }));
                     createGroup(t('model_group_local'), dynamicModels);
                 } else {
                     createGroup(t('model_group_local'), MODELS.local);
                 }
             } catch (e) {
-                console.warn('[Options] Failed to fetch dynamic models:', e);
+                console.warn('[Options] Failed to fetch dynamic local models:', e);
                 createGroup(t('model_group_local'), MODELS.local);
             }
         } else {
-            createGroup(t('model_group_google'), MODELS.gemini);
-            createGroup(t('model_group_openai'), MODELS.openai);
-            createGroup(t('model_group_anthropic'), MODELS.anthropic);
+            // Cloud mode: populate only the selected provider's models
+            const provider = cloudProviderSelected;
+            if (!provider) {
+                // No provider selected yet — show nothing, model dropdown hidden anyway
+                return;
+            }
+            const providerGroupMap = {
+                google: { label: t('model_group_google'), models: MODELS.gemini },
+                openai: { label: t('model_group_openai'), models: MODELS.openai },
+                anthropic: { label: t('model_group_anthropic'), models: MODELS.anthropic }
+            };
+            const group = providerGroupMap[provider];
+            if (group) {
+                createGroup(group.label, group.models);
+            }
         }
 
         const values = Array.from(select.options).map(option => option.value);
@@ -1762,6 +1884,45 @@
         }
     }
 
+    /**
+     * Populate model dropdown with a list of model IDs from the backend.
+     */
+    function populateModelSelectFromList(modelIds, provider) {
+        const select = els.modelSelect;
+        if (!select) return;
+        select.innerHTML = '';
+
+        const providerLabels = {
+            google: t('model_group_google'),
+            openai: t('model_group_openai'),
+            anthropic: t('model_group_anthropic'),
+            ollama: t('model_group_local')
+        };
+
+        const group = document.createElement('optgroup');
+        group.label = providerLabels[provider] || provider;
+        modelIds.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            group.appendChild(option);
+        });
+        select.appendChild(group);
+
+        if (select.options.length > 0) {
+            select.value = select.options[0].value;
+        }
+    }
+
+    /**
+     * Show/hide the model dropdown field.
+     */
+    function setModelSelectVisible(visible) {
+        if (els.modelSelectField) {
+            els.modelSelectField.style.display = visible ? 'block' : 'none';
+        }
+    }
+
     async function setModeUI(mode, preferredModelId = '') {
         if (els.sectionLocal) {
             els.sectionLocal.style.display = mode === 'local' ? 'block' : 'none';
@@ -1769,7 +1930,90 @@
         if (els.sectionCloud) {
             els.sectionCloud.style.display = mode === 'cloud' ? 'block' : 'none';
         }
-        await populateModelSelect(mode, preferredModelId);
+
+        // Both modes: model dropdown is hidden until connection tested / key validated
+        if (mode === 'local') {
+            // Local: hide until Test Connection succeeds
+            setModelSelectVisible(false);
+        } else {
+            // Cloud: hide until key is validated
+            if (!keyValidated) {
+                setModelSelectVisible(false);
+            } else {
+                setModelSelectVisible(true);
+                await populateModelSelect(mode, preferredModelId);
+            }
+        }
+    }
+
+    /**
+     * Handle cloud provider radio selection → show key input, hide model dropdown.
+     */
+    function onCloudProviderChange(providerValue) {
+        cloudProviderSelected = providerValue;
+        keyValidated = false;
+
+        // Show key input section
+        if (els.cloudKeySection) els.cloudKeySection.style.display = 'block';
+
+        // Hide model dropdown until key is validated
+        setModelSelectVisible(false);
+
+        // Update placeholder, label, and help link per provider
+        const config = CLOUD_PROVIDER_CONFIG[providerValue];
+        if (config) {
+            if (els.cloudKeyInput) els.cloudKeyInput.placeholder = config.placeholder;
+            if (els.cloudKeyLabel) els.cloudKeyLabel.textContent = config.label;
+            if (els.cloudKeyHelp) els.cloudKeyHelp.href = config.helpUrl;
+        }
+
+        // Pre-fill key from storage if it exists
+        chrome.storage.local.get({ keys: DEFAULTS.keys }, (result) => {
+            const savedKey = result.keys?.[providerValue] || '';
+            if (els.cloudKeyInput) els.cloudKeyInput.value = savedKey;
+        });
+
+        // Clear status
+        if (els.keyStatus) {
+            els.keyStatus.textContent = '';
+            els.keyStatus.className = 'status-text';
+        }
+    }
+
+    /**
+     * Validate key by calling POST /models → if dynamic, save key and show models.
+     */
+    async function onValidateKey() {
+        const apiKey = els.cloudKeyInput?.value?.trim();
+        if (!apiKey) {
+            showStatus(els.keyStatus, t('status_key_invalid'), 'error');
+            return;
+        }
+        if (!cloudProviderSelected) return;
+
+        showStatus(els.keyStatus, t('status_validating_key'), 'loading');
+
+        try {
+            const models = await validateCloudKey(cloudProviderSelected, apiKey);
+
+            if (models.length > 0) {
+                keyValidated = true;
+
+                // Save key immediately
+                const stored = await chrome.storage.local.get({ keys: DEFAULTS.keys });
+                const keys = { ...stored.keys, [cloudProviderSelected]: apiKey };
+                await chrome.storage.local.set({ keys, cloudProvider: cloudProviderSelected });
+
+                // Show and populate model dropdown with dynamic models
+                populateModelSelectFromList(models, cloudProviderSelected);
+                setModelSelectVisible(true);
+                showStatus(els.keyStatus, t('status_key_valid', { count: models.length }), 'ok');
+            } else {
+                showStatus(els.keyStatus, t('status_key_invalid'), 'error');
+            }
+        } catch (e) {
+            showStatus(els.keyStatus, t('status_connection_failed', { message: e.message }), 'error');
+        }
     }
 
     function setAiFeatureVisibility(enabled) {
@@ -1777,6 +2021,7 @@
         if (els.aiConfigCard) els.aiConfigCard.style.display = display;
         if (els.neuralRetentionCard) els.neuralRetentionCard.style.display = display;
         if (els.agentSettingsCard) els.agentSettingsCard.style.display = display;
+        if (els.safeObserverCard) els.safeObserverCard.style.display = display;
     }
 
     async function applyAiAnalysisSetting(enabled, options = {}) {
@@ -1823,30 +2068,57 @@
         } else {
             els.modeCloud.checked = true;
         }
-        await setModeUI(mode, settings.selectedModelId || '');
-
-        if (settings.keys) {
-            els.keyGoogle.value = settings.keys.google || '';
-            els.keyOpenai.value = settings.keys.openai || '';
-            els.keyAnthropic.value = settings.keys.anthropic || '';
-        }
 
         els.localEndpoint.value = settings.localEndpoint || DEFAULTS.localEndpoint;
+
+        // Restore cloud provider progressive disclosure state
+        if (mode === 'cloud' && settings.cloudProvider) {
+            const cpRadio = document.getElementById(`cp-${settings.cloudProvider}`);
+            if (cpRadio) cpRadio.checked = true;
+            onCloudProviderChange(settings.cloudProvider);
+
+            // If key exists, pre-fill and mark as validated
+            const savedKey = settings.keys?.[settings.cloudProvider];
+            if (savedKey && els.cloudKeyInput) {
+                els.cloudKeyInput.value = savedKey;
+                keyValidated = true;
+            }
+        }
+
+        await setModeUI(mode, settings.selectedModelId || '');
+
+        // For returning local users: auto-try to populate models if endpoint is set
+        if (mode === 'local') {
+            try {
+                const baseUrl = normalizeEndpoint(settings.localEndpoint || DEFAULTS.localEndpoint);
+                const models = await fetchOllamaModels(baseUrl);
+                if (models.length > 0) {
+                    await populateModelSelect('local', settings.selectedModelId || '');
+                    setModelSelectVisible(true);
+                }
+            } catch (e) {
+                // Silently fail — user can click Test Connection
+            }
+        }
     }
 
     async function saveSettings() {
         const mode = els.modeLocal.checked ? 'local' : 'cloud';
 
+        // Build keys: preserve existing keys, update current cloud provider's key
+        const stored = await chrome.storage.local.get({ keys: DEFAULTS.keys });
+        const keys = { ...stored.keys };
+        if (mode === 'cloud' && cloudProviderSelected && els.cloudKeyInput) {
+            keys[cloudProviderSelected] = els.cloudKeyInput.value.trim();
+        }
+
         const payload = {
             aiProvider: mode,
-            keys: {
-                google: els.keyGoogle.value.trim(),
-                openai: els.keyOpenai.value.trim(),
-                anthropic: els.keyAnthropic.value.trim()
-            },
+            cloudProvider: cloudProviderSelected || '',
+            keys: keys,
             aiAnalysisEnabled: Boolean(els.aiAnalysisEnabled?.checked),
             localEndpoint: els.localEndpoint.value.trim(),
-            selectedModelId: els.modelSelect.value,
+            selectedModelId: els.modelSelect?.value || '',
             uiLanguage: currentLanguage
         };
 
@@ -2087,21 +2359,15 @@
 
     async function testLocalConnection() {
         const endpoint = normalizeEndpoint(els.localEndpoint.value);
-        const url = `${endpoint}/api/tags`;
-        showStatus(els.testStatus, t('status_testing', { url }), '');
+        showStatus(els.testStatus, t('status_testing', { url: endpoint }), '');
 
         try {
-            const res = await fetch(url);
-            if (res.ok) {
-                const data = await res.json();
-                const count = data.models ? data.models.length : 0;
-                showStatus(els.testStatus, t('status_test_success', { count }), 'ok');
+            const models = await fetchOllamaModels(endpoint);
+            showStatus(els.testStatus, t('status_test_success', { count: models.length }), 'ok');
 
-                // Auto-refresh model list after successful test
-                await populateModelSelect('local');
-            } else {
-                showStatus(els.testStatus, t('status_http_error', { status: res.status }), 'error');
-            }
+            // Auto-refresh model list and show dropdown after successful test
+            await populateModelSelect('local');
+            setModelSelectVisible(true);
         } catch (e) {
             showStatus(els.testStatus, t('status_connection_failed', { message: e.message }), 'error');
         }
@@ -2112,15 +2378,20 @@
         els.modeCloud = getEl('mode-cloud');
         els.sectionLocal = getEl('section-local');
         els.sectionCloud = getEl('section-cloud');
-        els.keyGoogle = getEl('key-google');
-        els.keyOpenai = getEl('key-openai');
-        els.keyAnthropic = getEl('key-anthropic');
+        els.cloudKeySection = getEl('cloud-key-section');
+        els.cloudKeyInput = getEl('cloud-key-input');
+        els.cloudKeyLabel = getEl('cloud-key-label');
+        els.cloudKeyHelp = getEl('cloud-key-help');
+        els.validateKeyBtn = getEl('validate-key');
+        els.keyStatus = getEl('key-status');
+        els.modelSelectField = getEl('model-select-field');
         els.localEndpoint = getEl('local-endpoint');
         els.modelSelect = getEl('model-select');
         els.aiAnalysisEnabled = getEl('ai-analysis-enabled');
         els.aiAnalysisDisabled = getEl('ai-analysis-disabled');
         els.aiGateStatus = getEl('ai-gate-status');
         els.aiConfigCard = getEl('ai-config-card');
+        els.safeObserverCard = getEl('safe-observer-card');
 
         els.saveBtn = getEl('save-settings');
         els.saveStatus = getEl('save-status');
@@ -2135,6 +2406,17 @@
 
         els.saveBtn.addEventListener('click', saveSettings);
         els.testBtn.addEventListener('click', testLocalConnection);
+
+        // Cloud provider radio change → show API key input for that provider
+        document.querySelectorAll('input[name="cloud-provider"]').forEach(radio => {
+            radio.addEventListener('change', (e) => onCloudProviderChange(e.target.value));
+        });
+
+        // Validate key button
+        if (els.validateKeyBtn) {
+            els.validateKeyBtn.addEventListener('click', onValidateKey);
+        }
+
         els.backupExportBtn?.addEventListener('click', async () => {
             try {
                 els.backupExportBtn.disabled = true;

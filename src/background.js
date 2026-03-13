@@ -278,4 +278,112 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+// --- Fail Session Cleanup ---
+
+/**
+ * Auto-save an abandoned session as rating=1 (Again).
+ * Uses simplified FSRS values for rating=1 to avoid importing the full module.
+ * For rating=1 on a new card: stability = w[0] = 0.40255, interval = 1 day.
+ */
+async function autoSaveSessionAsAgain(session) {
+    const result = await chrome.storage.local.get({ problems: {} });
+    const problems = result.problems;
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const key = session.slug;
+
+    const current = problems[key] || {
+        title: session.title, slug: session.slug,
+        difficulty: session.difficulty, interval: 0,
+        repetition: 0, easeFactor: 2.5,
+        topics: session.topics || [], history: []
+    };
+
+    // FSRS w[0] = 0.40255 (initial stability for rating=1)
+    const W0 = 0.40255;
+    const nextInterval = 1;
+    const nextDate = new Date(now);
+    nextDate.setDate(nextDate.getDate() + nextInterval);
+
+    // Difficulty increases for Again: D + w[5] * (3 - 1) where w[5] = 0.5345
+    const currentDifficulty = current.fsrs_difficulty || 7.19605;
+    const newDifficulty = Math.min(10, Math.max(1, currentDifficulty + 0.5345 * 2));
+
+    problems[key] = {
+        ...current,
+        difficulty: session.difficulty || current.difficulty,
+        lastSolved: nowISO,
+        interval: nextInterval,
+        repetition: (current.repetition || 0) + 1,
+        easeFactor: current.easeFactor || 2.5,
+        nextReviewDate: nextDate.toISOString(),
+        fsrs_stability: W0,
+        fsrs_difficulty: newDifficulty,
+        fsrs_state: current.fsrs_state === 'Review' ? 'Relearning' : 'Review',
+        fsrs_last_review: nowISO,
+        topics: (session.topics && session.topics.length > 0) ? session.topics : (current.topics || []),
+        history: [...(current.history || []), {
+            date: nowISO, status: 'Wrong Answer',
+            rating: 1
+        }]
+    };
+
+    await chrome.storage.local.set({ problems });
+    console.log(`[Background] Auto-saved session for ${session.slug} as Again (rating=1)`);
+}
+
+// Tab close handler: settle abandoned sessions
+chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
+    try {
+        const result = await chrome.storage.local.get({ activeSession: null });
+        const session = result.activeSession;
+        if (!session || !session.slug) return;
+
+        // Check if any remaining LeetCode tabs still have this problem open
+        const tabs = await chrome.tabs.query({
+            url: [
+                `https://leetcode.com/problems/${session.slug}/*`,
+                `https://leetcode.cn/problems/${session.slug}/*`
+            ]
+        });
+
+        // If no tabs remain for this slug, auto-save as Again
+        if (tabs.length === 0) {
+            await autoSaveSessionAsAgain(session);
+            await chrome.storage.local.remove('activeSession');
+            console.log(`[Background] Settled abandoned session for ${session.slug} (tab closed)`);
+        }
+    } catch (e) {
+        console.error('[Background] Tab close session cleanup error:', e);
+    }
+});
+
+// Alarm-based timeout: settle stale sessions after 4 hours of inactivity
+const SESSION_TIMEOUT_ALARM = 'FAIL_SESSION_TIMEOUT';
+const SESSION_CHECK_INTERVAL_MIN = 30;
+const SESSION_INACTIVITY_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+chrome.alarms.create(SESSION_TIMEOUT_ALARM, {
+    periodInMinutes: SESSION_CHECK_INTERVAL_MIN
+});
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name !== SESSION_TIMEOUT_ALARM) return;
+
+    try {
+        const result = await chrome.storage.local.get({ activeSession: null });
+        const session = result.activeSession;
+        if (!session || !session.lastActivity) return;
+
+        const elapsed = Date.now() - new Date(session.lastActivity).getTime();
+        if (elapsed > SESSION_INACTIVITY_MS) {
+            await autoSaveSessionAsAgain(session);
+            await chrome.storage.local.remove('activeSession');
+            console.log(`[Background] Settled stale session for ${session.slug} (4h timeout)`);
+        }
+    } catch (e) {
+        console.error('[Background] Session timeout cleanup error:', e);
+    }
+});
+
 console.log("[Background] Service Worker Loaded.");
