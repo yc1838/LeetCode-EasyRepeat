@@ -15,6 +15,7 @@ It automatically tracks your submissions (both Accepted and Wrong Answer), sched
 
 ## 🚀 Quick Setup
 
+
 Before loading the extension or running tests, install dependencies:
 
 ```bash
@@ -55,25 +56,27 @@ Then:
 2. Click **Reload** on `LeetCode EasyRepeat`
 3. Refresh any already-open LeetCode problem tabs
 
-<div align="center">
   <img src="assets/reload.png" alt="Reload Extension" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
 </div>
+
 Notes:
+
 - `npm install` is only needed when dependencies changed (`package.json` or `package-lock.json`).
 - Running `npm run build` every time is recommended for consistency.
 
 ### 🤖 LLM Setup (Optional)
 If you wish to utilize AI features, you need to set up a LLM. Here is a quick guide. Open the extension settings which is a ⚙️ shape icon, on the left bottom of our main dashboard.
 
-<div >
+<div>
+
   <img src="assets/Setting.png" alt="Setting icon" width="40%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
 </div>
 
 For Local LLM:
-1. Install Ollama: https://ollama.com/
-2. Run `OLLAMA_ORIGINS="*" ollama serve` and
-`ollama pull gemma3:latestt` or other model of your choice to download and run the model
-1. The extension will automatically detect the model
+1.  Install Ollama: <https://ollama.com/>
+2.  Run `OLLAMA_ORIGINS="*" ollama serve` and
+3.  `ollama pull gemma3:latest` or other model of your choice to download and run the model
+4.  The extension will automatically detect the model
 
 For Cloud LLM:
 1. Enter your API key and select the model name
@@ -154,26 +157,26 @@ For Cloud LLM:
 ## 🆕 Recent Updates
 
 ### Major Changes Since v1.0.1
+- **Progressive Disclosure AI UI**: Implemented a modern, step-by-step setup flow for cloud providers in the options page, featuring real-time API key validation and dynamic model discovery.
+- **Unified Provider Architecture (Agnostic)**: Introduced `/providers` and `/models` endpoints with a provider-agnostic `get_llm` factory (Google, OpenAI, Anthropic, Ollama), routing all connectivity through the backend to resolve CORS issues.
+- **LangChain & Pydantic Integration**: Refactored backend configuration using Pydantic Settings and migrated LLM orchestration to LangChain for more robust, observable agentic workflows.
+- **Safe Observer Pass-Through**: Updated `llm_sidecar.js` to pass user-selected provider/model/key metadata to the `/autofix` endpoint, enabling per-request LLM selection.
+- **Batch Verification Support**: Optimized `/verify` and `/autofix` endpoints to handle array-based test cases via JSON-stringified inputs, improving the speed and reliability of competitive programming analyses.
+- **LangSmith & Observability**: Integrated tracing for backend AI operations to monitor execution paths and performance.
+- **Secure Key Handling**: Migrated API key storage to a more isolated pattern consistent with modern extension security best practices.
 - **Problem Title Caching**: Intelligent caching of problem localized titles (`localizedProblemTitles`) to speed up rendering without constant GraphQL fetching.
 - **Popup Filtering**: Added support for filtering problems in the popup queue by difficulty, topic, and time range.
-- **Wrong Answer SRS Tracking**: Failed submissions are now saved to the problem list with FSRS rating=1 (Again), scheduling an early review — matching standard flashcard behavior (like Anki's "Again" button)
-- **Multi-Provider AI Support**: Added support for Google Gemini, OpenAI, Anthropic Claude, and local models (Ollama, LM Studio) through a unified LLMGateway
-- **Internationalization**: Full i18n support with 11 languages available in the options page
-- **Enhanced UI**:
-  - Animated pulsing heatmap cells for active practice days
-  - Relocated setup button to navigation sidebar with icon styling
-  - Refined popup header and dashboard labels
-- **Skill-Specific Drill Templates**: Drill generator now uses per-skill templates and language-aware code generation for more targeted practice(not live to external audience yet)
-- **Drill Overview Page**: Dedicated overview page for browsing and managing all generated drills(not live to external audience yet)
-- **Provider-Specific LLM Clients**: Individual client modules for Gemini, OpenAI, Anthropic, and local models with provider-specific optimizations
-- **LLM Output Validation**: Hallucination checker and insight deduplication for more reliable AI-generated content
-- **Improved Tools**:
-  - Removed test/simulation mode (deprecated)
-  - Added dedicated streak repair tool in options page
-  - Enhanced drill generation with detailed status reporting and queue state visibility
-- **Build System**: Migrated to Vite for module bundling with per-page entry points and consolidated background scripts
-- **VectorDB Migration**: Moved from IndexedDB to Chrome Storage Local for better cross-context access
-- **Browser Testing**: Added comprehensive E2E tests with Puppeteer
+- **Wrong Answer SRS Tracking**: Failed submissions are now saved to the problem list with FSRS rating=1 (Again), scheduling an early review — matching standard flashcard behavior.
+- **Internationalization**: Full i18n support with 11 languages available in the options page and a refined dictionary-style language toggle.
+- **Enhanced UI & UX**:
+  - Animated pulsing heatmap cells for active practice days.
+  - Resolved "double scrollbar" layout issues and polished popup header/dashboard labels.
+  - Relocated setup button to navigation sidebar with icon styling.
+- **LLM Output Validation**: Added hallucination checkers and insight deduplication for more reliable AI-generated content (resolving previous "code sketch" ellipses issues).
+- **Skill-Specific Drill Templates**: Drill generator now uses per-skill templates and language-aware code generation for targeted practice.
+- **Drill Overview Page**: Dedicated overview page for browsing and managing all generated drills.
+- **Build System & Tooling**: Migrated to Vite for module bundling and added comprehensive E2E tests with Puppeteer.
+- **VectorDB Migration**: Moved from IndexedDB to Chrome Storage Local for better cross-context access.
 
 ---
 
@@ -425,11 +428,15 @@ graph TD
         subgraph Popup["Popup UI"]
             PopupJS[popup.js + popup_ui.js<br/>dashboard / stats / tools]
         end
+
+        subgraph Options["Options UI"]
+            OptionsUI[options.html + options.js<br/>provider/model settings]
+        end
     end
 
     subgraph Local["Local Persistence"]
-        CS[(chrome.storage.local<br/>problems, notes, settings, activityLog, vectors)]
-        LS[(localStorage<br/>LLM keys + UI state)]
+        CS[(chrome.storage.local<br/>problems, notes, settings, keys, activityLog, vectors)]
+        LS[(localStorage<br/>UI state)]
     end
 
     subgraph External["External Services"]
@@ -440,6 +447,7 @@ graph TD
 
     subgraph MCP["Local Backend (Safe Observer)"]
         FastAPI[api.py<br/>FastAPI Server]
+        ProviderRegistry[providers.py<br/>get_llm factory]
         Ollama[Ollama<br/>Llama 3]
         Sandbox[E2B Sandbox<br/>Execution]
     end
@@ -462,10 +470,15 @@ graph TD
     LLM <--> VDB
     VDB --> CS
     LLM --> LS
+    OptionsUI --> CS
+    OptionsUI -- /providers, /models --> FastAPI
     
     %% Safe Observer Loop
     LLM -- /autofix --> FastAPI
-    FastAPI -- Plan Fix --> Ollama
+    FastAPI -- Route Provider --> ProviderRegistry
+    ProviderRegistry -- Cloud --> AI
+    ProviderRegistry -- Local --> Ollama
+    AI -- Candidate Code --> FastAPI
     Ollama -- Candidate Code --> FastAPI
     FastAPI -- Verify --> Sandbox
     Sandbox -- Logs --> FastAPI

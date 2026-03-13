@@ -69,6 +69,7 @@
 
         // Loaded from global settings
         aiProvider: 'local',
+        cloudProvider: '',
         keys: { google: '', openai: '', anthropic: '' },
         localEndpoint: 'http://[IP_ADDRESS]',
         selectedModelId: 'gemma3:latest',
@@ -153,12 +154,14 @@
             if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
                 const globalSettings = await chrome.storage.local.get({
                     aiProvider: 'local',
+                    cloudProvider: '',
                     keys: { google: '', openai: '', anthropic: '' },
                     selectedModelId: 'gemma3:latest',
                     localEndpoint: 'http://localhost:11434'
                 });
 
                 state.aiProvider = globalSettings.aiProvider;
+                state.cloudProvider = globalSettings.cloudProvider;
                 state.keys = globalSettings.keys;
                 state.selectedModelId = globalSettings.selectedModelId;
                 state.localEndpoint = globalSettings.localEndpoint;
@@ -184,6 +187,7 @@
         chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'local') {
             if (changes.aiProvider) state.aiProvider = changes.aiProvider.newValue;
+            if (changes.cloudProvider) state.cloudProvider = changes.cloudProvider.newValue;
             if (changes.keys) state.keys = changes.keys.newValue;
             if (changes.selectedModelId) state.selectedModelId = changes.selectedModelId.newValue;
             if (changes.localEndpoint) state.localEndpoint = changes.localEndpoint.newValue;
@@ -508,15 +512,40 @@
                 const verifyUrl = state.localEndpoint.replace('11434', '8000').replace('/api/chat', '') + '/autofix';
                 const SAFE_OBSERVER_URL = verifyUrl;
 
+                // Determine provider and API key for the backend
+                const autofixProvider = state.aiProvider === 'cloud'
+                    ? state.cloudProvider
+                    : 'ollama';
+                const autofixApiKey = state.aiProvider === 'cloud'
+                    ? (state.keys[state.cloudProvider] || '')
+                    : null;
+
                 console.log(`[LLMSidecar] 🛡️ Requesting Auto-Fix at ${SAFE_OBSERVER_URL}...`);
-                const res = await fetch(SAFE_OBSERVER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, test_input: meta.test_input })
+                const proxyRes = await new Promise((resolve, reject) => {
+                    chrome.runtime.sendMessage({
+                        action: 'proxyFetch',
+                        url: SAFE_OBSERVER_URL,
+                        options: {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                code,
+                                test_input: meta.test_input,
+                                provider: autofixProvider,
+                                model: state.selectedModelId,
+                                api_key: autofixApiKey,
+                                base_url: state.localEndpoint
+                            })
+                        }
+                    }, (res) => {
+                        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+                        if (!res) return reject(new Error('No response from background proxy'));
+                        resolve(res);
+                    });
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
+                if (proxyRes.success && proxyRes.ok) {
+                    const data = JSON.parse(proxyRes.data);
 
                     if (data.verified) {
                         console.log("%c[LLMSidecar] ✅ AUTO-FIX SUCCESS", "color: #00ff00; font-weight: bold;");
@@ -542,7 +571,7 @@
                         verificationResult = `\n\n--- 🛡️ SAFE OBSERVER LOGS ---\nAuto-Fix Attempted: FAILED\nExecution Logs:\n${data.logs}\n--------------------------------------`;
                     }
                 } else {
-                    console.warn(`[LLMSidecar] ⚠️ Safe Observer returned ${res.status}`);
+                    console.warn(`[LLMSidecar] ⚠️ Safe Observer returned ${proxyRes.status || 'error'}`);
                     console.log("%c[LLMSidecar] ⚠️ SAFE OBSERVER FAILED", "color: orange; font-weight: bold;");
                 }
             } catch (e) {

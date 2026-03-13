@@ -87,16 +87,6 @@
 
         <section class="card ai-config-card" id="ai-config-card">
             <h2 data-i18n="ai_configuration_heading">AI Configuration</h2>
-            <div class="field">
-                <label for="model-select" data-i18n="active_model_label">Active Model (Choose First)</label>
-                <select id="model-select" class="full-width">
-                    <!-- Populated by JS -->
-                </select>
-                <p class="hint" data-i18n="active_model_hint">Model options switch automatically based on the selected
-                    mode (Local / Cloud).</p>
-            </div>
-
-            <hr class="section-divider">
 
             <h2 data-i18n="choose_intelligence_source_heading">Choose Intelligence Source</h2>
             <div class="row mode-row" style="gap: 20px;">
@@ -125,28 +115,50 @@
             </div>
 
             <div class="hidden-section setup-panel" id="section-cloud">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
-                    <h3 style="margin: 0;" data-i18n="cloud_access_keys_heading">Cloud Access Keys</h3>
-                    <a href="https://www.google.com/search?q=how+to+get+Google+gemini+api+key%2C+claude+api+key+and+openai+api+key+for+free"
-                        target="_blank" rel="noopener noreferrer" class="hint" style="font-size: 0.68rem;"
-                        data-i18n="cloud_key_help_link">
-                        Not sure how to get API keys? Click here.
-                    </a>
+                <!-- Step 1: Choose Cloud Provider -->
+                <h3 data-i18n="cloud_provider_heading">Choose Cloud Provider</h3>
+                <div class="row mode-row" id="cloud-provider-row" style="gap: 12px; margin-bottom: 16px;">
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="google" id="cp-google">
+                        <div class="card-content">
+                            <span class="title">Google Gemini</span>
+                            <span class="subtitle" data-i18n="cloud_provider_google_subtitle">Free tier available</span>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="openai" id="cp-openai">
+                        <div class="card-content">
+                            <span class="title">OpenAI</span>
+                            <span class="subtitle" data-i18n="cloud_provider_openai_subtitle">GPT-4o, GPT-4o Mini</span>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="anthropic" id="cp-anthropic">
+                        <div class="card-content">
+                            <span class="title">Anthropic</span>
+                            <span class="subtitle" data-i18n="cloud_provider_anthropic_subtitle">Claude 3.5 Sonnet</span>
+                        </div>
+                    </label>
                 </div>
-                <div class="grid">
+
+                <!-- Step 2: API Key Input (shown after provider selected) -->
+                <div id="cloud-key-section" style="display:none;">
                     <div class="field">
-                        <label for="key-google" data-i18n="google_key_label">Google Gemini API Key</label>
-                        <input id="key-google" type="password" placeholder="AIzaSy...">
+                        <label id="cloud-key-label">API Key</label>
+                        <input id="cloud-key-input" type="password" placeholder="">
+                        <a id="cloud-key-help" href="#" target="_blank" rel="noopener noreferrer"
+                           class="hint" style="font-size: 0.68rem;"
+                           data-i18n="cloud_key_help_link">
+                            Not sure how to get API keys? Click here.
+                        </a>
                     </div>
-                    <div class="field">
-                        <label for="key-openai" data-i18n="openai_key_label">OpenAI API Key</label>
-                        <input id="key-openai" type="password" placeholder="sk-...">
-                    </div>
-                    <div class="field">
-                        <label for="key-anthropic" data-i18n="anthropic_key_label">Anthropic API Key</label>
-                        <input id="key-anthropic" type="password" placeholder="sk-ant-...">
+                    <div class="actions" style="margin-top: 8px;">
+                        <button id="validate-key" class="btn" data-i18n="validate_key_button">Validate &amp; Save Key</button>
+                        <span id="key-status" class="status-text"></span>
                     </div>
                 </div>
+
+                <!-- Step 3: Model dropdown reuses existing #model-select, shown after key validated -->
                 <p class="hint" style="margin-top: 10px;" data-i18n="cloud_local_endpoint_note">Local Endpoint is not
                     used in Cloud mode.</p>
             </div>
@@ -167,6 +179,25 @@
                             high-quality notes.</li>
                     </ul>
                 </div>
+
+                <hr class="section-divider">
+
+                <h3 style="margin-bottom: 10px;" data-i18n="quick_setup_heading">Quick Setup Guide</h3>
+                <ol class="steps">
+                    <li data-i18n="quick_setup_step_1">Install a local model server.</li>
+                    <li data-i18n="quick_setup_step_2">Start the server and keep it running.</li>
+                    <li data-i18n="quick_setup_step_3">Enter the endpoint below and click Test Connection.</li>
+                </ol>
+                <div class="subhead" data-i18n="ollama_example_heading">Ollama (example)</div>
+                <pre><code>OLLAMA_ORIGINS="*" ollama serve
+ollama pull gemma3:latest
+</code></pre>
+                <div class="subhead" data-i18n="lm_studio_heading">LM Studio (OpenAI-compatible)</div>
+                <pre><code>Start the local server in LM Studio
+Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
+
+                <hr class="section-divider">
+
                 <div class="grid">
                     <div class="field">
                         <label for="local-endpoint" data-i18n="local_endpoint_label">Local Endpoint</label>
@@ -181,21 +212,6 @@
                     <span id="test-status" class="status-text"></span>
                 </div>
 
-                <hr class="section-divider">
-
-                <h3 style="margin-bottom: 10px;" data-i18n="quick_setup_heading">Quick Setup Guide</h3>
-                <ol class="steps">
-                    <li data-i18n="quick_setup_step_1">Install a local model server.</li>
-                    <li data-i18n="quick_setup_step_2">Start the server and keep it running.</li>
-                    <li data-i18n="quick_setup_step_3">Enter the endpoint above and click Test Connection.</li>
-                </ol>
-                <div class="subhead" data-i18n="ollama_example_heading">Ollama (example)</div>
-                <pre><code>OLLAMA_ORIGINS="*" ollama serve
-ollama pull gemma3:latest
-</code></pre>
-                <div class="subhead" data-i18n="lm_studio_heading">LM Studio (OpenAI-compatible)</div>
-                <pre><code>Start the local server in LM Studio
-Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
                 <div class="subhead" data-i18n="troubleshooting_heading">Troubleshooting</div>
                 <ul class="notes">
                     <li data-i18n="troubleshooting_item_1">If the test fails with a network error, the server is likely
@@ -205,11 +221,41 @@ Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
                 </ul>
             </div>
 
+            <!-- Model dropdown: hidden until Test Connection (local) or Validate Key (cloud) succeeds -->
+            <div class="field" id="model-select-field" style="display:none; margin-top: 16px;">
+                <hr class="section-divider">
+                <label for="model-select" data-i18n="active_model_label">Select Model</label>
+                <select id="model-select" class="full-width">
+                    <!-- Populated by JS after successful connection/validation -->
+                </select>
+                <p class="hint" data-i18n="active_model_hint">Models are loaded after a successful connection test or key validation.</p>
+            </div>
+
             <div class="actions">
                 <button id="save-settings" class="btn primary" data-i18n="save_all_settings_button">Save All
                     Settings</button>
                 <span id="save-status" class="status-text"></span>
             </div>
+        </section>
+
+        <section class="card ai-config-card" id="safe-observer-card" style="display:none;">
+            <h2 data-i18n="safe_observer_heading">Safe Observer (Optional)</h2>
+            <p class="hint" data-i18n="safe_observer_description">Safe Observer is an optional backend that verifies AI-suggested fixes by actually running your code in a sandbox. When a submission fails, it automatically generates a fix, tests it against edge cases, and only shows you verified solutions.</p>
+
+            <div class="local-warning">
+                <p><strong data-i18n="safe_observer_requires">Requires:</strong></p>
+                <ul>
+                    <li data-i18n="safe_observer_req_1">Python 3.10+</li>
+                    <li data-i18n="safe_observer_req_2">The MCP server running locally on port 8000</li>
+                </ul>
+            </div>
+
+            <h3 style="margin-bottom: 10px;" data-i18n="safe_observer_setup_heading">Setup</h3>
+            <pre><code>cd mcp-server
+pip install -r requirements.txt
+uvicorn api:app --reload --port 8000</code></pre>
+
+            <p class="hint" data-i18n="safe_observer_note">Without Safe Observer, mistake analysis still works normally — you just won't get sandbox-verified fixes. This is a power-user feature for those who want higher-confidence solutions.</p>
         </section>
 
         <section class="card" id="tools-card">
