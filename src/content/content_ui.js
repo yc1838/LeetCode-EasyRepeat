@@ -114,7 +114,9 @@
                     gap: 12px !important;
                     pointer-events: none !important;
                     max-width: 360px !important;
+                    cursor: grab !important;
                 }
+                .lc-toast-stack.lc-dragging { cursor: grabbing !important; }
                 .lc-toast-stack > * { pointer-events: auto !important; }
             `;
             document.head.appendChild(style);
@@ -123,6 +125,36 @@
         const stack = document.createElement('div');
         stack.className = 'lc-toast-stack';
         document.body.appendChild(stack);
+
+        // --- Draggable toast stack ---
+        let dragState = null;
+        stack.addEventListener('mousedown', (e) => {
+            // Don't intercept clicks on buttons/links inside toasts
+            if (e.target.closest('button, a, input, select')) return;
+            e.preventDefault();
+            const rect = stack.getBoundingClientRect();
+            dragState = { startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top };
+            stack.classList.add('lc-dragging');
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!dragState) return;
+            e.preventDefault();
+            const dx = e.clientX - dragState.startX;
+            const dy = e.clientY - dragState.startY;
+            const newLeft = dragState.origLeft + dx;
+            const newTop = dragState.origTop + dy;
+            // Switch from bottom/right to top/left positioning for free placement
+            stack.style.bottom = 'auto';
+            stack.style.right = 'auto';
+            stack.style.left = newLeft + 'px';
+            stack.style.top = newTop + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (!dragState) return;
+            dragState = null;
+            stack.classList.remove('lc-dragging');
+        });
+
         return stack;
     }
 
@@ -142,8 +174,11 @@
     /**
      * Show a custom Toast notification on the page.
      */
-    async function showCompletionToast(title, nextDate, options = {}) {
-        const stack = ensureToastStack();
+    /**
+     * Load user theme and inject shared toast CSS styles.
+     * Returns { theme, language } for use by any toast function.
+     */
+    async function ensureToastStyles() {
         let themeName = 'sakura';
         try {
             if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
@@ -155,11 +190,6 @@
         }
 
         const theme = getTheme(themeName);
-        const language = await getCurrentLanguage();
-        const displayTitle = await resolveDisplayTitle(title, {
-            slug: options.slug,
-            language
-        });
 
         let style = document.getElementById('lc-srs-toast-styles');
         if (!style) {
@@ -215,6 +245,18 @@
             }
             .lc-srs-toast-date { font-weight: 700; color: ${theme.electric} !important; }
         `;
+
+        return theme;
+    }
+
+    async function showCompletionToast(title, nextDate, options = {}) {
+        const stack = ensureToastStack();
+        await ensureToastStyles();
+        const language = await getCurrentLanguage();
+        const displayTitle = await resolveDisplayTitle(title, {
+            slug: options.slug,
+            language
+        });
 
         const dateStr = formatDate(nextDate, language);
         const toast = document.createElement('div');
@@ -1073,15 +1115,18 @@
             const stepsEl = container.querySelector('.lc-analysis-steps');
             if (!stepsEl) return;
             const ordered = Array.from(steps.values()).sort((a, b) => a.order - b.order);
+            // Find the currently active step — it's already shown in the header,
+            // so skip it in the step list to avoid displaying the same text twice.
+            const activeStep = ordered.find(step => step.status === 'active');
             stepsEl.innerHTML = '';
             ordered.forEach((step) => {
+                if (step === activeStep) return; // shown in header already
                 const row = document.createElement('div');
                 row.className = `lc-analysis-step ${step.status}`;
                 const icon = document.createElement('span');
                 icon.className = 'lc-step-icon';
                 if (step.status === 'done') icon.textContent = '✓';
                 else if (step.status === 'error') icon.textContent = '×';
-                else if (step.status === 'active') icon.textContent = '>';
                 else icon.textContent = '•';
                 const text = document.createElement('span');
                 text.textContent = getStepLabel(step.key, { attempt: step.attempt, total: step.total });
@@ -1096,7 +1141,6 @@
                 stepsEl.appendChild(row);
             });
             const statusText = container.querySelector('.lc-analysis-status-text');
-            const activeStep = ordered.find(step => step.status === 'active');
             if (statusText && activeStep) {
                 statusText.textContent = getStepLabel(activeStep.key, { attempt: activeStep.attempt, total: activeStep.total });
             }
@@ -1164,8 +1208,43 @@
         return { close, update, updateStep };
     }
 
+    /**
+     * Show a small toast indicating the submission was already recorded today.
+     */
+    async function showDuplicateSkipToast(title, options = {}) {
+        const stack = ensureToastStack();
+        await ensureToastStyles();
+        const language = await getCurrentLanguage();
+        const displayTitle = await resolveDisplayTitle(title, { slug: options.slug, language });
+
+        const toast = document.createElement('div');
+        toast.className = 'lc-srs-toast';
+        toast.innerHTML = `
+            <div class="lc-srs-toast-content">
+                <div class="lc-srs-toast-header">
+                    <span class="lc-srs-toast-icon">↻</span>
+                    <span class="lc-srs-toast-title">${translate('content_submission_captured', {}, language)}</span>
+                </div>
+                <div class="lc-srs-toast-problem">${displayTitle}</div>
+                <div class="lc-srs-toast-meta">
+                    <span>${translate('content_already_recorded_today', {}, language)}</span>
+                </div>
+            </div>
+        `;
+        stack.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }, 100);
+    }
+
     return {
         showCompletionToast,
+        showDuplicateSkipToast,
         showRatingModal,
         showAnalysisModal,
         showAnalysisProgress, // New Export

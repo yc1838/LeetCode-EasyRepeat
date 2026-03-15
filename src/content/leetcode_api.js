@@ -128,7 +128,13 @@
             return cached.data;
         }
 
-        const apiData = await fetchQuestionDetails(slug);
+        // Retry up to 2 times with short delays if API fails
+        let apiData = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            apiData = await fetchQuestionDetails(slug);
+            if (apiData && apiData.questionId && apiData.title) break;
+            if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
         if (apiData && apiData.questionId && apiData.title) {
             const result = {
                 title: `${apiData.questionId}. ${apiData.title}`,
@@ -188,6 +194,15 @@
                     difficulty: info.difficulty,
                     topics: info.topics
                 };
+
+                // Skip rating modal if already saved today
+                if (await isAlreadySavedToday(slug, details.difficulty)) {
+                    console.log(`[LeetCode EasyRepeat] Already saved today for ${slug}. Skipping rating modal.`);
+                    const showDuplicateSkipToast = getDep('showDuplicateSkipToast');
+                    if (showDuplicateSkipToast) showDuplicateSkipToast(details.title, { slug });
+                    try { await chrome.storage.local.remove('activeSession'); } catch (e) { /* ignore */ }
+                    return { success: true, duplicate: true };
+                }
 
                 // Read fail count from active session to cap the rating
                 let maxRating = 4;
@@ -310,6 +325,15 @@
                         const saveSubmission = getDep('saveSubmission');
 
                         if (showRatingModal && saveSubmission) {
+                            // Skip rating modal if this problem was already saved today
+                            if (await isAlreadySavedToday(slug, finalDifficulty)) {
+                                console.log(`[LeetCode EasyRepeat] Already saved today for ${slug}. Skipping rating modal.`);
+                                const showDuplicateSkipToast = getDep('showDuplicateSkipToast');
+                                if (showDuplicateSkipToast) showDuplicateSkipToast(finalTitle, { slug });
+                                try { await chrome.storage.local.remove('activeSession'); } catch (e) { /* ignore */ }
+                                return true;
+                            }
+
                             // Read fail count from active session to cap the rating
                             let maxRating = 4;
                             try {
@@ -527,6 +551,29 @@
     }
 
     /**
+     * Check if a problem was already saved to storage today (same local day + same difficulty).
+     * Used to skip the rating modal on duplicate AC submissions within the same day.
+     */
+    async function isAlreadySavedToday(slug, difficulty) {
+        try {
+            if (typeof chrome === 'undefined' || !chrome.runtime?.id) return false;
+            const result = await chrome.storage.local.get({ problems: {} });
+            const problem = result.problems[slug];
+            if (!problem || !problem.lastSolved) return false;
+
+            const now = new Date();
+            const lastSolved = new Date(problem.lastSolved);
+            const sameDay = now.getFullYear() === lastSolved.getFullYear() &&
+                now.getMonth() === lastSolved.getMonth() &&
+                now.getDate() === lastSolved.getDate();
+
+            return sameDay && problem.difficulty === difficulty;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
      * Track a failed submission in the active session (stored in chrome.storage.local).
      * If a session exists for a different slug, auto-save the old one as Again first.
      */
@@ -550,6 +597,11 @@
             slug, title, difficulty, topics: topics || [],
             failCount: 0, accepted: false
         };
+
+        // If existing session had empty topics but we now have them, update
+        if (topics && topics.length > 0 && (!session.topics || session.topics.length === 0)) {
+            session.topics = topics;
+        }
 
         session.failCount += 1;
         session.lastActivity = new Date().toISOString();
