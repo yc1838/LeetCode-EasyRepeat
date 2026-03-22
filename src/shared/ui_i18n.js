@@ -68,9 +68,11 @@
             popup_status_scheduled: 'Scheduled',
             popup_delete_confirm: 'Are you sure you want to delete "{slug}" from your SRS history? This cannot be undone.',
             content_submission_captured: 'Submission Captured',
+            content_already_recorded_today: 'Already recorded today — no duplicate entry.',
             content_next_review: 'NEXT_REVIEW:',
             content_difficulty_check: 'Difficulty Check',
             content_difficulty_hint: 'Rate your recall difficulty. This helps FSRS adjust the next review time.',
+            content_difficulty_recommendations: 'Enable difficulty recommendations', // Toggle label for enabling/disabling fail-count-based button restrictions
             content_mistake_detected: 'Mistake Detected',
             content_error_type: 'Type: {errorType}',
             content_always_analyze: 'Always analyze mistakes',
@@ -220,9 +222,11 @@
             popup_status_scheduled: '未来计划',
             popup_delete_confirm: '确定要从你的 SRS 历史里删除 “{slug}” 吗？此操作不可撤销。',
             content_submission_captured: '已记录提交',
+            content_already_recorded_today: '今天已记录过，不会重复计算。',
             content_next_review: '下次复习：',
             content_difficulty_check: '难度确认',
             content_difficulty_hint: '评价一下刚才的回忆难度，FSRS 会据此调整下一次复习时间。',
+            content_difficulty_recommendations: '启用难度推荐', // 启用/禁用基于失败次数的按钮限制的切换标签
             content_mistake_detected: '检测到错误',
             content_error_type: '类型：{errorType}',
             content_always_analyze: '以后始终自动分析错误',

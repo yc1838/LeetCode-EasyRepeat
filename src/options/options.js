@@ -73,11 +73,23 @@
         return [];
     }
 
-    /**
-     * Validate a cloud API key by calling the provider's models API directly.
-     * Returns array of model names on success, throws on failure.
-     */
-    async function validateCloudKey(provider, apiKey) {
+    function getBackendBaseUrl(localEndpoint) {
+        const endpoint = normalizeEndpoint(localEndpoint || DEFAULTS.localEndpoint);
+        try {
+            const url = new URL(endpoint);
+            url.search = '';
+            url.hash = '';
+            url.pathname = '/';
+            if (url.port !== '8000') {
+                url.port = '8000';
+            }
+            return url.toString().replace(/\/$/, '');
+        } catch (e) {
+            return 'http://localhost:8000';
+        }
+    }
+
+    async function validateCloudKeyDirect(provider, apiKey) {
         switch (provider) {
             case 'google': {
                 const data = await proxyFetch(
@@ -112,6 +124,43 @@
             default:
                 throw new Error(`Unknown provider: ${provider}`);
         }
+    }
+
+    /**
+     * Validate a cloud API key through the backend /models endpoint first so
+     * provider-specific diagnostics come back to the UI. If the backend is not
+     * reachable, fall back to direct provider validation to preserve setup flow.
+     */
+    async function validateCloudKey(provider, apiKey) {
+        const localEndpoint = normalizeEndpoint(els.localEndpoint?.value || DEFAULTS.localEndpoint);
+        const backendBaseUrl = getBackendBaseUrl(localEndpoint);
+        let data;
+
+        try {
+            data = await proxyFetch(`${backendBaseUrl}/models`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider,
+                    api_key: apiKey,
+                    base_url: localEndpoint
+                })
+            });
+
+        } catch (backendError) {
+            console.warn('[Options] Backend /models validation unavailable, falling back to direct provider validation:', backendError);
+            return validateCloudKeyDirect(provider, apiKey);
+        }
+
+        if (data.error) {
+            throw new Error(data.error_detail || data.error);
+        }
+
+        if (data.models && Array.isArray(data.models)) {
+            return data.models;
+        }
+
+        return validateCloudKeyDirect(provider, apiKey);
     }
 
     // Progressive disclosure state
@@ -169,7 +218,7 @@
             status_ai_gate_disabled: 'AI analysis is disabled. AI setup and neural modules are hidden.',
             status_settings_saved: 'Settings Saved!',
             cloud_provider_heading: 'Choose Cloud Provider',
-            cloud_provider_google_subtitle: 'Free tier available',
+            cloud_provider_google_subtitle: 'Free tier · gemini-2.5-flash / 2.5-pro',
             cloud_provider_openai_subtitle: 'GPT-4o, GPT-4o Mini',
             cloud_provider_anthropic_subtitle: 'Claude 3.5 Sonnet',
             validate_key_button: 'Validate & Save Key',
@@ -255,7 +304,7 @@
             ai_feature_item_3: '历史回填、夜间总结、薄弱技能练习生成。',
             ai_feature_item_4: 'Agent 定时与调试设置。',
             ai_configuration_heading: 'AI 配置',
-            active_model_label: '当前模型（请先选择）',
+            active_model_label: '当前模型',
             active_model_hint: '模型选项会根据当前模式（本地 / 云端）自动切换。',
             choose_intelligence_source_heading: '选择智能来源',
             local_card_title: '本地（隐私）',
@@ -319,7 +368,7 @@
             status_ai_gate_disabled: 'AI 分析已关闭。AI 配置与神经模块已隐藏。',
             status_settings_saved: '设置已保存！',
             cloud_provider_heading: '选择云端提供商',
-            cloud_provider_google_subtitle: '有免费额度',
+            cloud_provider_google_subtitle: '有免费额度 · gemini-2.5-flash / 2.5-pro',
             cloud_provider_openai_subtitle: 'GPT-4o, GPT-4o Mini',
             cloud_provider_anthropic_subtitle: 'Claude 3.5 Sonnet',
             validate_key_button: '验证并保存 Key',

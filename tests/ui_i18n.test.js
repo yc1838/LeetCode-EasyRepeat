@@ -88,7 +88,23 @@ describe('EasyRepeatI18n', () => {
         changeListeners[0]({ uiLanguage: { newValue: 'zh' } }, 'local');
 
         expect(listener).toHaveBeenCalledWith('zh');
-        it('contains all required filter translation keys', () => {
+    });
+
+    // Test: difficulty recommendations toggle label exists in both EN and ZH dictionaries
+    it('contains difficulty recommendations toggle translation', () => {
+        const en = EasyRepeatI18n.DICTIONARY.en;
+        const zh = EasyRepeatI18n.DICTIONARY.zh;
+
+        // Verify the key exists in both language dictionaries
+        expect(en).toHaveProperty('content_difficulty_recommendations');
+        expect(zh).toHaveProperty('content_difficulty_recommendations');
+
+        // Verify the exact translation values
+        expect(en.content_difficulty_recommendations).toBe('Enable difficulty recommendations');
+        expect(zh.content_difficulty_recommendations).toBe('启用难度推荐');
+    });
+
+    it('contains all required filter translation keys', () => {
         const en = EasyRepeatI18n.DICTIONARY.en;
         const zh = EasyRepeatI18n.DICTIONARY.zh;
 
@@ -116,5 +132,4 @@ describe('EasyRepeatI18n', () => {
         expect(en.filter_last_7d).toBe('Last 7 Days');
         expect(zh.filter_last_7d).toBe('最近7天');
     });
-});
 });
