@@ -73,11 +73,23 @@
         return [];
     }
 
-    /**
-     * Validate a cloud API key by calling the provider's models API directly.
-     * Returns array of model names on success, throws on failure.
-     */
-    async function validateCloudKey(provider, apiKey) {
+    function getBackendBaseUrl(localEndpoint) {
+        const endpoint = normalizeEndpoint(localEndpoint || DEFAULTS.localEndpoint);
+        try {
+            const url = new URL(endpoint);
+            url.search = '';
+            url.hash = '';
+            url.pathname = '/';
+            if (url.port !== '8000') {
+                url.port = '8000';
+            }
+            return url.toString().replace(/\/$/, '');
+        } catch (e) {
+            return 'http://localhost:8000';
+        }
+    }
+
+    async function validateCloudKeyDirect(provider, apiKey) {
         switch (provider) {
             case 'google': {
                 const data = await proxyFetch(
@@ -112,6 +124,43 @@
             default:
                 throw new Error(`Unknown provider: ${provider}`);
         }
+    }
+
+    /**
+     * Validate a cloud API key through the backend /models endpoint first so
+     * provider-specific diagnostics come back to the UI. If the backend is not
+     * reachable, fall back to direct provider validation to preserve setup flow.
+     */
+    async function validateCloudKey(provider, apiKey) {
+        const localEndpoint = normalizeEndpoint(els.localEndpoint?.value || DEFAULTS.localEndpoint);
+        const backendBaseUrl = getBackendBaseUrl(localEndpoint);
+        let data;
+
+        try {
+            data = await proxyFetch(`${backendBaseUrl}/models`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider,
+                    api_key: apiKey,
+                    base_url: localEndpoint
+                })
+            });
+
+        } catch (backendError) {
+            console.warn('[Options] Backend /models validation unavailable, falling back to direct provider validation:', backendError);
+            return validateCloudKeyDirect(provider, apiKey);
+        }
+
+        if (data.error) {
+            throw new Error(data.error_detail || data.error);
+        }
+
+        if (data.models && Array.isArray(data.models)) {
+            return data.models;
+        }
+
+        return validateCloudKeyDirect(provider, apiKey);
     }
 
     // Progressive disclosure state

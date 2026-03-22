@@ -208,8 +208,8 @@ def list_models(req: ModelsRequest):
                         if is_text and not is_specialized:
                             google_models.append(m.name.replace("models/", ""))
                     return {"models": google_models, "source": "dynamic"}
-                except Exception:
-                    return {"error": "Invalid API key or validation failed"}
+                except Exception as e:
+                    return _provider_validation_error("Google Gemini", e, final_key)
 
             case "openai":
                 env_key = current_settings.openai_api_key.get_secret_value() if current_settings.openai_api_key else None
@@ -221,8 +221,8 @@ def list_models(req: ModelsRequest):
                     client = openai.OpenAI(api_key=final_key)
                     models = [m.id for m in client.models.list().data if m.id.startswith(("gpt-", "o1-", "o3-"))]
                     return {"models": sorted(models, reverse=True), "source": "dynamic"}
-                except Exception:
-                    return {"error": "Invalid OpenAI API key or validation failed"}
+                except Exception as e:
+                    return _provider_validation_error("OpenAI", e, final_key)
 
             case "anthropic":
                 env_key = current_settings.anthropic_api_key.get_secret_value() if current_settings.anthropic_api_key else None
@@ -235,8 +235,8 @@ def list_models(req: ModelsRequest):
                     models_data = client.models.list().data
                     model_names = [m.id for m in models_data]
                     return {"models": model_names, "source": "dynamic"}
-                except Exception:
-                    return {"error": "Invalid Anthropic API key or validation failed"}
+                except Exception as e:
+                    return _provider_validation_error("Anthropic", e, final_key)
 
             case "ollama":
                 b_url = req.base_url or "http://localhost:11434"
@@ -274,6 +274,65 @@ def _parse_inputs(raw_input: str) -> list[str]:
     except Exception:
         pass
     return [raw_input]
+
+
+def _redact_error_detail(detail: str, *secrets: str | None) -> str:
+    sanitized = detail or ""
+    for secret in secrets:
+        if secret:
+            sanitized = sanitized.replace(secret, "[redacted]")
+    return sanitized
+
+
+def _provider_validation_error(provider_label: str, exc: Exception, *secrets: str | None) -> dict:
+    raw_detail = str(exc).strip() or exc.__class__.__name__
+    detail = _redact_error_detail(f"{exc.__class__.__name__}: {raw_detail}", *secrets)
+    lowered = detail.lower()
+    kind = exc.__class__.__name__.lower()
+
+    network_markers = (
+        "connecterror",
+        "connectionerror",
+        "name resolution",
+        "nodename nor servname",
+        "temporary failure in name resolution",
+        "failed to resolve",
+        "connection refused",
+        "timeout",
+        "timed out",
+        "dns",
+    )
+    auth_markers = (
+        "api key not valid",
+        "invalid api key",
+        "invalid_api_key",
+        "permission denied",
+        "permissiondenied",
+        "unauthenticated",
+        "authentication",
+        "401",
+        "403",
+    )
+
+    if any(marker in kind or marker in lowered for marker in network_markers):
+        return {
+            "error": f"{provider_label} connection failed",
+            "error_type": "network_error",
+            "error_detail": detail,
+        }
+
+    if any(marker in kind or marker in lowered for marker in auth_markers):
+        return {
+            "error": f"{provider_label} authentication failed",
+            "error_type": "auth_error",
+            "error_detail": detail,
+        }
+
+    return {
+        "error": f"{provider_label} validation failed",
+        "error_type": "provider_error",
+        "error_detail": detail,
+    }
 
 @app.post("/verify")
 async def verify_endpoint(req: VerificationRequest):
