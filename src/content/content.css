@@ -562,6 +562,30 @@
     --rating-color: #f58cd0;
 }
 
+/* --- Difficulty Recommendations Toggle (checkbox row below rating buttons) --- */
+.lc-rating-recommendation-toggle {
+    display: flex;            /* Horizontal layout: checkbox + label */
+    align-items: center;      /* Vertically center checkbox and label */
+    justify-content: flex-end;/* Align to the right side of the modal */
+    gap: 6px;                 /* Space between checkbox and label */
+    margin-top: 12px;         /* Separation from button container above */
+}
+
+.lc-rating-recommendation-toggle input[type="checkbox"] {
+    accent-color: var(--rating-panel-border); /* Match modal's theme border color */
+    width: 14px;              /* Small checkbox to not dominate the UI */
+    height: 14px;
+    cursor: pointer;
+}
+
+.lc-rating-recommendation-toggle label {
+    font-family: 'JetBrains Mono', monospace; /* Match modal's monospace font */
+    font-size: 10px;          /* Small label to stay unobtrusive */
+    color: var(--rating-hint-color);          /* Match the hint text color for consistency */
+    cursor: pointer;          /* Indicate clickability */
+    user-select: none;        /* Prevent accidental text selection */
+}
+
 @keyframes popInToast {
     from {
         transform: translateY(20px);
