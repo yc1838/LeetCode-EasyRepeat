@@ -299,89 +299,146 @@
             resolveModalTheme((modalTheme) => {
                 const maxRating = options.maxRating || 4;
 
-                const backdrop = document.createElement('div');
-                backdrop.className = 'lc-rating-backdrop';
+                // Build the modal after reading the stored recommendation preference
+                // to avoid a visual flash where buttons appear disabled then re-enable
+                const buildModal = (recEnabled) => {
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'lc-rating-backdrop';
 
-                const modal = document.createElement('div');
-                modal.className = `lc-rating-modal theme-${modalTheme}`;
+                    const modal = document.createElement('div');
+                    modal.className = `lc-rating-modal theme-${modalTheme}`;
 
-                // Header Container
-                const header = document.createElement('div');
-                header.className = 'lc-rating-header';
+                    // Header Container
+                    const header = document.createElement('div');
+                    header.className = 'lc-rating-header';
 
-                const heading = document.createElement('h3');
-                heading.innerText = translate('content_difficulty_check', {}, language);
-                header.appendChild(heading);
+                    const heading = document.createElement('h3');
+                    heading.innerText = translate('content_difficulty_check', {}, language);
+                    header.appendChild(heading);
 
-                const sub = document.createElement('div');
-                sub.className = 'lc-rating-subtitle';
-                sub.innerText = displayTitle;
+                    const sub = document.createElement('div');
+                    sub.className = 'lc-rating-subtitle';
+                    sub.innerText = displayTitle;
 
-                const hint = document.createElement('div');
-                hint.className = 'lc-rating-hint';
-                hint.innerText = translate('content_difficulty_hint', {}, language);
+                    const hint = document.createElement('div');
+                    hint.className = 'lc-rating-hint';
+                    hint.innerText = translate('content_difficulty_hint', {}, language);
 
-                const btnContainer = document.createElement('div');
-                btnContainer.className = 'lc-rating-btn-container';
-                btnContainer.classList.add('lc-rating-btn-container-ramp');
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'lc-rating-btn-container';
+                    btnContainer.classList.add('lc-rating-btn-container-ramp');
 
-                const ratings = [
-                    { tone: 'again', label: translate('rating_again', {}, language), value: 1, desc: translate('rating_again_desc', {}, language) },
-                    { tone: 'hard', label: translate('rating_hard', {}, language), value: 2, desc: translate('rating_hard_desc', {}, language) },
-                    { tone: 'good', label: translate('rating_good', {}, language), value: 3, desc: translate('rating_good_desc', {}, language) },
-                    { tone: 'easy', label: translate('rating_easy', {}, language), value: 4, desc: translate('rating_easy_desc', {}, language) }
-                ];
+                    const ratings = [
+                        { tone: 'again', label: translate('rating_again', {}, language), value: 1, desc: translate('rating_again_desc', {}, language) },
+                        { tone: 'hard', label: translate('rating_hard', {}, language), value: 2, desc: translate('rating_hard_desc', {}, language) },
+                        { tone: 'good', label: translate('rating_good', {}, language), value: 3, desc: translate('rating_good_desc', {}, language) },
+                        { tone: 'easy', label: translate('rating_easy', {}, language), value: 4, desc: translate('rating_easy_desc', {}, language) }
+                    ];
 
-                ratings.forEach(r => {
-                    const btn = document.createElement('button');
-                    btn.className = `lc-rating-btn rating-btn-${r.tone}`;
+                    // Collect button references for the toggle to enable/disable dynamically
+                    const buttonRefs = [];
 
-                    // Disable ratings above the cap (based on prior fail count)
-                    if (r.value > maxRating) {
-                        btn.disabled = true;
-                        btn.classList.add('lc-rating-btn-disabled');
-                        btn.style.opacity = '0.35';
-                        btn.style.pointerEvents = 'none';
-                        btn.style.cursor = 'not-allowed';
-                    }
+                    ratings.forEach(r => {
+                        const btn = document.createElement('button');
+                        btn.className = `lc-rating-btn rating-btn-${r.tone}`;
 
-                    // Construct button content
-                    const labelDiv = document.createElement('div');
-                    labelDiv.className = 'lc-rating-btn-label';
-                    labelDiv.innerText = r.label;
+                        // Only apply fail-count restrictions when recommendations are enabled
+                        if (recEnabled && r.value > maxRating) {
+                            btn.disabled = true;
+                            btn.classList.add('lc-rating-btn-disabled');
+                            btn.style.opacity = '0.35';
+                            btn.style.pointerEvents = 'none';
+                            btn.style.cursor = 'not-allowed';
+                        }
 
-                    const descDiv = document.createElement('div');
-                    descDiv.className = 'lc-rating-btn-desc';
-                    descDiv.innerText = r.desc;
+                        // Construct button content
+                        const labelDiv = document.createElement('div');
+                        labelDiv.className = 'lc-rating-btn-label';
+                        labelDiv.innerText = r.label;
 
-                    btn.appendChild(labelDiv);
-                    btn.appendChild(descDiv);
+                        const descDiv = document.createElement('div');
+                        descDiv.className = 'lc-rating-btn-desc';
+                        descDiv.innerText = r.desc;
 
-                    if (!btn.disabled) {
+                        btn.appendChild(labelDiv);
+                        btn.appendChild(descDiv);
+
+                        // Always attach click handler; guard with disabled check inside
+                        // so that dynamically re-enabled buttons (via toggle) work without re-binding
                         btn.addEventListener('click', () => {
-                            backdrop.remove();
-                            resolve(r.value);
+                            if (!btn.disabled) {
+                                backdrop.remove();
+                                resolve(r.value);
+                            }
                         });
-                    }
-                    btnContainer.appendChild(btn);
-                });
+                        btnContainer.appendChild(btn);
 
-                modal.appendChild(header);
-                modal.appendChild(sub);
-                modal.appendChild(hint);
-                modal.appendChild(btnContainer);
-                backdrop.appendChild(modal);
-                document.body.appendChild(backdrop);
+                        // Store reference for the checkbox toggle to use
+                        buttonRefs.push({ btn, value: r.value });
+                    });
 
-                // Allow closing by clicking backdrop (optional safety, returning null/undefined)
-                /*
-                backdrop.onclick = (e) => {
-                    if (e.target === backdrop) {
-                        backdrop.remove();
-                        // resolve(null); // Or just close
-                    }
-                };
-                */
+                    // --- Difficulty Recommendations Toggle (checkbox below rating buttons) ---
+                    const toggleContainer = document.createElement('div');
+                    toggleContainer.className = 'lc-rating-recommendation-toggle';
+
+                    // Checkbox: controls whether fail-count restrictions are active
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = 'lc-difficulty-rec';
+                    checkbox.checked = recEnabled; // Initial state matches stored preference
+
+                    // Label for the checkbox
+                    const toggleLabel = document.createElement('label');
+                    toggleLabel.htmlFor = 'lc-difficulty-rec';
+                    toggleLabel.innerText = translate('content_difficulty_recommendations', {}, language);
+
+                    toggleContainer.appendChild(checkbox);
+                    toggleContainer.appendChild(toggleLabel);
+
+                    // Toggle change handler: enable/disable buttons and persist preference
+                    checkbox.addEventListener('change', () => {
+                        buttonRefs.forEach(({ btn, value }) => {
+                            // Determine if this button should be disabled based on toggle state
+                            const shouldDisable = checkbox.checked && value > maxRating;
+                            btn.disabled = shouldDisable;
+                            if (shouldDisable) {
+                                btn.classList.add('lc-rating-btn-disabled');
+                                btn.style.opacity = '0.35';
+                                btn.style.pointerEvents = 'none';
+                                btn.style.cursor = 'not-allowed';
+                            } else {
+                                btn.classList.remove('lc-rating-btn-disabled');
+                                btn.style.opacity = '';
+                                btn.style.pointerEvents = '';
+                                btn.style.cursor = 'pointer';
+                            }
+                        });
+                        // Persist the preference to chrome.storage.local
+                        if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage?.local) {
+                            chrome.storage.local.set({ difficultyRecommendations: checkbox.checked });
+                        }
+                    });
+
+                    modal.appendChild(header);
+                    modal.appendChild(sub);
+                    modal.appendChild(hint);
+                    modal.appendChild(btnContainer);
+                    modal.appendChild(toggleContainer); // Checkbox row below buttons
+                    backdrop.appendChild(modal);
+                    document.body.appendChild(backdrop);
+                }; // end buildModal
+
+                // Read recommendation preference from storage before building the modal
+                if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage?.local) {
+                    chrome.storage.local.get({ difficultyRecommendations: true }, (res) => {
+                        // Default to true (recommendations enabled) if storage read fails
+                        const recEnabled = chrome.runtime?.lastError ? true : res.difficultyRecommendations;
+                        buildModal(recEnabled);
+                    });
+                } else {
+                    // No chrome storage available (e.g. test env without mock) — default to enabled
+                    buildModal(true);
+                }
             });
         });
     }
