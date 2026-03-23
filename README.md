@@ -28,6 +28,18 @@ Build the extension bundle so `dist/` assets exist:
 npm run build
 ```
 
+### 🖥️ Local AI Backend Server (Optional. Enhances Auto-Fix but not required)
+
+To enhance the AI auto-fix feature with local code verification, you can optionally set up and run the local Python backend server:
+
+```bash
+cd mcp-server
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn api:app --reload --port 8000
+```
+
 ### 📥  Install in Chrome Extensions
 
 <div align="center">
@@ -591,6 +603,18 @@ npm install
 
 ```bash
 npm run build
+```
+
+### 🖥️ 本地 AI 后端服务器 (可选配置，用于增强 Auto-Fix 功能)
+
+为了让 AI 自动修复功能支持本地代码验证，你可以选择性地配置并运行本机的 Python 后端服务器：
+
+```bash
+cd mcp-server
+python -m venv venv
+source venv/bin/activate  # Windows 环境请使用: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn api:app --reload --port 8000
 ```
 
 ### 📥 在 Chrome 扩展中加载
