@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verified Fix - Diff Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; background: #1e1e1e; }
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: #252526;
+            border-bottom: 1px solid #3c3c3c;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        #header .title {
+            color: #3fb950;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        #header .meta {
+            color: #8b949e;
+            font-size: 11px;
+        }
+        #header .labels {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+        }
+        #header .label-original { color: #f85149; }
+        #header .label-fixed { color: #3fb950; }
+        #container { height: calc(100% - 36px); }
+        #loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #8b949e;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div>
+            <span class="title" id="title-text">Verified Fix</span>
+            <span class="meta" id="meta-text"></span>
+        </div>
+        <div class="labels">
+            <span class="label-original">&#9664; Your Code</span>
+            <span class="label-fixed">Fixed Code &#9654;</span>
+        </div>
+    </div>
+    <div id="container">
+        <div id="loading">Loading Monaco Editor...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+    <script>
+        require.config({
+            paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' }
+        });
+
+        let editorReady = false;
+        let pendingData = null;
+
+        require(['vs/editor/editor.main'], function () {
+            editorReady = true;
+            document.getElementById('loading').style.display = 'none';
+
+            if (pendingData) {
+                renderDiff(pendingData);
+            }
+        });
+
+        function renderDiff(data) {
+            const { originalCode, fixedCode, attempts, testCount } = data;
+
+            // Update header
+            const metaText = document.getElementById('meta-text');
+            if (attempts || testCount) {
+                metaText.textContent = ` — ${attempts || 1} attempt(s), ${testCount || 0} tests passed`;
+            }
+
+            const originalModel = monaco.editor.createModel(originalCode, 'python');
+            const fixedModel = monaco.editor.createModel(fixedCode, 'python');
+
+            const diffEditor = monaco.editor.createDiffEditor(
+                document.getElementById('container'),
+                {
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    automaticLayout: true,
+                    renderSideBySide: false,
+                    enableSplitViewResizing: true,
+                    originalEditable: false,
+                    fontSize: 13,
+                    lineHeight: 20,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    renderOverviewRuler: false,
+                    diffWordWrap: 'on',
+                    renderIndicators: true,
+                    renderMarginRevertIcon: false
+                }
+            );
+
+            diffEditor.setModel({
+                original: originalModel,
+                modified: fixedModel
+            });
+        }
+
+        // Listen for code data from parent
+        window.addEventListener('message', (event) => {
+            console.log('[DiffViewer] Received message:', event.data?.type, 'originalCode length:', event.data?.originalCode?.length, 'fixedCode length:', event.data?.fixedCode?.length);
+            if (event.data && event.data.type === 'diff-data') {
+                if (editorReady) {
+                    renderDiff(event.data);
+                } else {
+                    pendingData = event.data;
+                }
+            }
+        });
+
+        // Signal ready to parent
+        console.log('[DiffViewer] Sending ready signal to parent');
+        window.parent.postMessage({ type: 'diff-viewer-ready' }, '*');
+    </script>
+</body>
+</html>

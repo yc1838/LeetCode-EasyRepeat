@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
+from sse_starlette.sse import EventSourceResponse
 import asyncio
 import inspect
 import os
+import re
 import anyio
 import time
 import uuid
@@ -29,6 +31,7 @@ _AUTOFIX_JOBS_LOCK = asyncio.Lock()
 # Prompt Versions for LangSmith Evaluation
 PROMPT_VERSIONS = {
     "fix_generation": "v1.1_structured_pydantic",
+    "fix_generation_streaming": "v1.0_freeform_streaming",
     "test_generation": "v1.0_edge_case_json"
 }
 
@@ -59,6 +62,7 @@ async def _create_autofix_job(max_attempts: int) -> str:
             "result": None,
             "error": None,
             "events": [],
+            "stream_queue": asyncio.Queue(maxsize=512),
             "created_at": now,
             "updated_at": now
         }
@@ -83,6 +87,49 @@ async def _record_autofix_event(job_id: str, event: dict):
         job["attempt"] = entry.get("attempt")
         job["message"] = entry.get("message")
         job["updated_at"] = now
+        # Push to SSE stream queue (non-blocking)
+        queue = job.get("stream_queue")
+        if queue:
+            try:
+                queue.put_nowait({"type": "step", **entry})
+            except asyncio.QueueFull:
+                pass
+
+async def _push_stream_token(job_id: str, step: str, token: str):
+    """Push a streaming token to the job's SSE queue."""
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            return
+        queue = job.get("stream_queue")
+        if queue:
+            try:
+                queue.put_nowait({"type": "token", "step": step, "token": token})
+            except asyncio.QueueFull:
+                pass
+
+async def _push_stream_done(job_id: str, result: dict | None = None, error: str | None = None):
+    """Signal end of SSE stream."""
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            return
+        queue = job.get("stream_queue")
+        if queue:
+            if error:
+                try:
+                    queue.put_nowait({"type": "error", "error": error})
+                except asyncio.QueueFull:
+                    pass
+            elif result:
+                try:
+                    queue.put_nowait({"type": "result", "result": result})
+                except asyncio.QueueFull:
+                    pass
+            try:
+                queue.put_nowait({"type": "done"})
+            except asyncio.QueueFull:
+                pass
 
 async def _set_autofix_job_state(job_id: str, state: str, result: dict | None = None, error: str | None = None):
     now = time.time()
@@ -365,25 +412,21 @@ class AgentFixer:
         # Or if the diff is small (harder to calculate without original)
         return len(code.split('\n')) < 15
 
-    @traceable(name="Generate_Fix", run_type="llm")
-    async def generate_fix(self, code: str, error: str, test_input: str) -> str:
-        """
-        Generates a fixed Python code snippet using LangChain and Chat models.
-        Uses Pydantic structured output to securely extract the executable code.
-        """
+    async def generate_fix_details(self, code: str, error: str, test_input: str) -> CodeFix | None:
+        """Return the structured code-fix payload, including explanation text."""
         template = """
         You are an expert Python coding assistant.
         The user has the following buggy code which failed with an error.
-        
+
         CODE:
         {code}
-        
+
         ERROR:
         {error}
-        
+
         FAILING INPUT:
         {test_input}
-        
+
         Task: Write a CORRECT, WORKING Python solution that fixes this error.
         Return it complying with the requested JSON schema.
         """
@@ -393,24 +436,105 @@ class AgentFixer:
             **self.metadata,
             "prompt_version": get_prompt_hash("fix", template)
         }
-        
+
         prompt = PromptTemplate.from_template(template)
-        
+
         try:
             # Enforce structured Pydantic output
+            # Some models struggle with with_structured_output if they don't support tool calling.
+            # We ensure the prompt is extra explicit as a backup.
             structured_llm = self.llm.with_structured_output(CodeFix)
             chain = prompt | structured_llm
-            res = await chain.ainvoke({
+            return await chain.ainvoke({
                 "code": code,
                 "error": error,
                 "test_input": test_input
             }, config={"metadata": call_metadata})
-            
-            if res and res.fixed_code:
-                return res.fixed_code.strip()
         except Exception as e:
-            print(f"LLM Generation Failed: {e}")
+            # This is where 'Invalid json output' or 'OUTPUT_PARSING_FAILURE' is caught.
+            print(f"LLM Generation Failed (Structured): {e}")
         return None
+
+    @traceable(name="Generate_Fix", run_type="llm")
+    async def generate_fix(self, code: str, error: str, test_input: str) -> str:
+        """
+        Generates a fixed Python code snippet using LangChain and Chat models.
+        Uses Pydantic structured output to securely extract the executable code.
+        """
+        res = await self.generate_fix_details(code, error, test_input)
+        if res and res.fixed_code:
+            return res.fixed_code.strip()
+        return None
+
+    @traceable(name="Generate_Fix_Streaming", run_type="llm")
+    async def generate_fix_streaming(self, code: str, error: str, test_input: str, stream_cb=None) -> str:
+        """
+        Streaming variant of generate_fix. Emits tokens via stream_cb as they arrive,
+        then parses the final accumulated output to extract the code.
+        Falls back to generate_fix if streaming fails.
+        """
+        template = """You are an expert Python coding assistant.
+The user has the following buggy code which failed with an error.
+
+CODE:
+{code}
+
+ERROR:
+{error}
+
+FAILING INPUT:
+{test_input}
+
+Task: Write a CORRECT, WORKING Python solution that fixes this error.
+First, briefly analyze the bug and explain your thought process. 
+Then, provide the fixed code inside a single ```python code fence.
+Do not provide additional explanations after the code fence.
+"""
+
+        call_metadata = {
+            **self.metadata,
+            "prompt_version": get_prompt_hash("fix_stream", template)
+        }
+
+        prompt = PromptTemplate.from_template(template)
+        chain = prompt | self.llm
+
+        try:
+            accumulated = ""
+            async for chunk in chain.astream(
+                {"code": code, "error": error, "test_input": test_input},
+                config={"metadata": call_metadata}
+            ):
+                token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                if isinstance(token, list):
+                    text_parts = []
+                    for t in token:
+                        if isinstance(t, dict) and "text" in t:
+                            text_parts.append(t["text"])
+                        elif isinstance(t, str):
+                            text_parts.append(t)
+                    token = "".join(text_parts)
+                elif not isinstance(token, str):
+                    token = str(token)
+                accumulated += token
+                if stream_cb:
+                    result = stream_cb(token)
+                    if inspect.isawaitable(result):
+                        await result
+
+            # Extract code from ```python ... ``` fence
+            match = re.search(r"```python\s*\n(.*?)```", accumulated, re.DOTALL)
+            if match:
+                return match.group(1).strip()
+            # Fallback: if no fence, try the whole response stripped
+            stripped = accumulated.strip()
+            if stripped:
+                return stripped
+        except Exception as e:
+            print(f"Streaming generation failed, falling back to structured: {e}")
+
+        # Fallback to non-streaming structured output
+        return await self.generate_fix(code, error, test_input)
 
     @traceable(name="Generate_Edge_Case_Tests", run_type="llm")
     async def generate_tests(self, code: str, error: str) -> list[str]:
@@ -481,7 +605,7 @@ class AgentFixer:
         return True, logs
 
     @traceable(name="Auto_Fix_Agent_Loop", run_type="chain")
-    async def attempt_fix(self, code: str, error: str, initial_inputs: list[str], max_retries: int = 3, progress_cb=None):
+    async def attempt_fix(self, code: str, error: str, initial_inputs: list[str], max_retries: int = 3, progress_cb=None, stream_cb=None):
         # Bind metadata for logs
         # Any nested traceable calls can pick up this metadata if using LangChain's RunContext
         # but here we pass it explicitly to ainvoke calls.
@@ -528,7 +652,15 @@ class AgentFixer:
             
             # Use the first failing input as the context for the prompt
             first_input = initial_inputs[0] if initial_inputs else ""
-            candidate = await self.generate_fix(current_code if attempt > 0 else code, current_error if attempt == 0 else retry_context, first_input)
+            if stream_cb:
+                candidate = await self.generate_fix_streaming(
+                    current_code if attempt > 0 else code,
+                    current_error if attempt == 0 else retry_context,
+                    first_input,
+                    stream_cb=stream_cb
+                )
+            else:
+                candidate = await self.generate_fix(current_code if attempt > 0 else code, current_error if attempt == 0 else retry_context, first_input)
             
             if not candidate:
                 await emit(f"generate_fix_attempt_{attempt + 1}", "error", "Failed to generate fix", attempt + 1)
@@ -646,15 +778,20 @@ async def _run_autofix_job(job_id: str, req: VerificationRequest):
             "interface": "chrome_extension_async"
         }
 
+        async def stream_cb(token: str):
+            await _push_stream_token(job_id, "generate_fix", token)
+
         inputs = _parse_inputs(req.test_input)
         initial_logs = await anyio.to_thread.run_sync(verify_solution_logic, req.code, inputs)
         error_context = initial_logs
         agent = AgentFixer(llm, metadata=metadata)
-        result = await agent.attempt_fix(req.code, error_context, inputs, max_retries=settings.max_retries, progress_cb=progress_cb)
+        result = await agent.attempt_fix(req.code, error_context, inputs, max_retries=settings.max_retries, progress_cb=progress_cb, stream_cb=stream_cb)
         final_state = "succeeded" if result.get("verified") else "failed"
         await _set_autofix_job_state(job_id, final_state, result=result)
+        await _push_stream_done(job_id, result=result)
     except Exception as e:
         await _set_autofix_job_state(job_id, "failed", error=str(e))
+        await _push_stream_done(job_id, error=str(e))
 
 @app.post("/autofix/async")
 async def autofix_async_endpoint(req: VerificationRequest):
@@ -681,6 +818,36 @@ async def autofix_status_endpoint(job_id: str):
             "result": job.get("result"),
             "error": job.get("error")
         }
+
+@app.get("/autofix/stream/{job_id}")
+async def autofix_stream_endpoint(job_id: str):
+    """SSE endpoint that streams step events and LLM tokens in real-time."""
+    async with _AUTOFIX_JOBS_LOCK:
+        job = _AUTOFIX_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        queue = job.get("stream_queue")
+        if not queue:
+            raise HTTPException(status_code=400, detail="Streaming not available for this job")
+
+    async def event_generator():
+        while True:
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=60.0)
+            except asyncio.TimeoutError:
+                yield {"event": "ping", "data": "{}"}
+                continue
+
+            event_type = event.get("type", "step")
+            yield {"event": event_type, "data": json.dumps(event)}
+
+            if event_type == "token":
+                await asyncio.sleep(0.02)  # Artificial delay for visual streaming effect
+
+            if event_type == "done":
+                return
+
+    return EventSourceResponse(event_generator())
 
 if __name__ == "__main__":
     import uvicorn

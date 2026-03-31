@@ -565,7 +565,83 @@
         }
     }
 
-    async function analyzeMistake(code, errorDetails, meta = {}, signal = null, onProgress = null) {
+    async function runSafeObserverStreaming(payload, baseUrl, onProgress, onToken, signal) {
+        console.log('[LLMSidecar] 🔴 Attempting SSE streaming...');
+        const startUrl = `${baseUrl}/autofix/async`;
+        const startRes = await proxyFetchJson(startUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!startRes?.job_id) {
+            throw new Error("Safe Observer async job failed to start.");
+        }
+
+        const streamUrl = `${baseUrl}/autofix/stream/${startRes.job_id}`;
+        console.log(`[LLMSidecar] 🔴 SSE stream URL: ${streamUrl}`);
+
+        return new Promise((resolve, reject) => {
+            const port = chrome.runtime.connect({ name: 'autofix-stream' });
+            console.log('[LLMSidecar] 🔴 Port connected for SSE streaming');
+            let result = null;
+            let settled = false;
+
+            const cleanup = () => {
+                if (!settled) {
+                    settled = true;
+                    try { port.disconnect(); } catch (_) {}
+                }
+            };
+
+            if (signal) {
+                signal.addEventListener('abort', () => {
+                    cleanup();
+                    const err = new Error("AbortError");
+                    err.name = "AbortError";
+                    reject(err);
+                });
+            }
+
+            port.onMessage.addListener((msg) => {
+                if (settled) return;
+                console.log('[LLMSidecar] 🔴 SSE msg:', msg.type, msg.type === 'token' ? msg.token?.substring(0, 20) : '');
+
+                if (msg.type === 'step' && onProgress) {
+                    onProgress({
+                        key: msg.step,
+                        status: msg.status,
+                        attempt: msg.attempt,
+                        total: msg.max_attempts,
+                        message: msg.message
+                    });
+                } else if (msg.type === 'token' && onToken) {
+                    onToken(msg.token);
+                } else if (msg.type === 'result') {
+                    result = msg.result;
+                } else if (msg.type === 'error') {
+                    cleanup();
+                    reject(new Error(msg.error || 'Stream error'));
+                    return;
+                } else if (msg.type === 'done') {
+                    cleanup();
+                    resolve(result);
+                    return;
+                }
+            });
+
+            port.onDisconnect.addListener(() => {
+                if (!settled) {
+                    settled = true;
+                    reject(new Error('Stream port disconnected'));
+                }
+            });
+
+            port.postMessage({ action: 'startStream', streamUrl });
+        });
+    }
+
+    async function analyzeMistake(code, errorDetails, meta = {}, signal = null, onProgress = null, onToken = null) {
         console.log(`[LLMSidecar] analyzeMistake started for ${meta.title || 'Unknown'}. Provider: ${state.aiProvider}, Model: ${state.selectedModelId}`);
         const title = meta.title || 'Unknown Problem';
         const difficulty = meta.difficulty || 'Unknown';
@@ -645,10 +721,16 @@
 
                 console.log(`[LLMSidecar] 🛡️ Requesting Auto-Fix at ${SAFE_OBSERVER_URL}...`);
                 let data = null;
+                // Try streaming first for live token display, fall back to polling
                 try {
-                    data = await runSafeObserverAsync(payload, baseUrl, onProgress, signal);
+                    data = await runSafeObserverStreaming(payload, baseUrl, onProgress, onToken, signal);
                 } catch (e) {
-                    console.warn("[LLMSidecar] Safe Observer async failed, falling back to sync:", e);
+                    console.warn("[LLMSidecar] Streaming failed, falling back to async polling:", e);
+                    try {
+                        data = await runSafeObserverAsync(payload, baseUrl, onProgress, signal);
+                    } catch (e2) {
+                        console.warn("[LLMSidecar] Safe Observer async failed, falling back to sync:", e2);
+                    }
                 }
 
                 if (!data) {
@@ -660,6 +742,17 @@
                     if (data.verified) {
                         console.log("%c[LLMSidecar] ✅ AUTO-FIX SUCCESS", "color: #00ff00; font-weight: bold;");
                         if (onProgress) onProgress({ key: 'llm_verifying_safe_observer', status: 'done' });
+                        // Emit fix data for diff viewer
+                        if (onProgress && data.fixed_code) {
+                            onProgress({
+                                key: '_fix_data',
+                                status: 'done',
+                                originalCode: code,
+                                fixedCode: data.fixed_code,
+                                attempts: data.attempts || 1,
+                                testCount: data.test_count || 1
+                            });
+                        }
 
                         // Append the verified fix to the advice context
                         let fixDisplay = "";

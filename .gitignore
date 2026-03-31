@@ -27,3 +27,4 @@ __pycache__/
 .claude/
 HACKATHON_DESCRIPTION.md
 HACKATHON_SUBMISSION.md
+/mcp-server/EVAL_INSTRUCTIONS.md

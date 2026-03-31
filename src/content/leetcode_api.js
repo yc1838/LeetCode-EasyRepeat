@@ -404,8 +404,11 @@
                                     let code = "";
                                     const lines = document.querySelectorAll('.view-lines .view-line');
                                     if (lines && lines.length > 0) {
-                                        code = Array.from(lines).map(l => l.innerText).join('\n');
-                                    } else {
+                                        // LeetCode's Monaco editor uses non-breaking spaces (\u00A0) for indentation/spacing,
+                                        // which causes SyntaxError in Python. We must replace them with regular spaces.
+                                        code = Array.from(lines)
+                                            .map(l => l.innerText.replace(/\u00A0/g, ' '))
+                                            .join('\n');                                    } else {
                                         code = "// Code could not be scraped. Please check permissions.";
                                     }
 
@@ -449,6 +452,16 @@
                                             controller.signal,
                                             (status) => {
                                                 if (progressUI) progressUI.update(status);
+                                                // Capture fix data for diff viewer
+                                                if (status && status.key === '_fix_data' && status.fixedCode) {
+                                                    showFixDiffViewer(status.originalCode, status.fixedCode, {
+                                                        attempts: status.attempts,
+                                                        testCount: status.testCount
+                                                    });
+                                                }
+                                            },
+                                            (token) => {
+                                                if (progressUI && progressUI.appendToken) progressUI.appendToken(token);
                                             }
                                         );
 

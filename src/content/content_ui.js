@@ -1069,6 +1069,35 @@
                     align-self: flex-end;
                 }
                 .lc-analysis-cancel-btn:hover { background: #ef4444; color: #fff; }
+
+                .lc-step-stream {
+                    margin-top: 4px;
+                    margin-left: 24px;
+                    padding: 6px 8px;
+                    background: rgba(34, 211, 238, 0.06);
+                    border-left: 2px solid rgba(34, 211, 238, 0.3);
+                    border-radius: 0 4px 4px 0;
+                    max-height: 80px;
+                    overflow-y: auto;
+                    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+                    font-size: 10.5px;
+                    line-height: 1.5;
+                    color: #94a3b8;
+                    white-space: pre-wrap;
+                    word-break: break-all;
+                    display: none;
+                }
+                .lc-step-stream.visible { display: block; }
+                .lc-stream-cursor {
+                    display: inline-block;
+                    width: 5px;
+                    height: 11px;
+                    background: #22d3ee;
+                    animation: lc-blink 1s step-end infinite;
+                    vertical-align: text-bottom;
+                    margin-left: 1px;
+                }
+                @keyframes lc-blink { 50% { opacity: 0; } }
             `;
             document.head.appendChild(style);
         }
@@ -1168,22 +1197,22 @@
             return 'pending';
         }
 
+        let currentStreamKey = null;
+
         function renderSteps() {
             const stepsEl = container.querySelector('.lc-analysis-steps');
             if (!stepsEl) return;
             const ordered = Array.from(steps.values()).sort((a, b) => a.order - b.order);
-            // Find the currently active step — it's already shown in the header,
-            // so skip it in the step list to avoid displaying the same text twice.
             const activeStep = ordered.find(step => step.status === 'active');
             stepsEl.innerHTML = '';
             ordered.forEach((step) => {
-                if (step === activeStep) return; // shown in header already
                 const row = document.createElement('div');
                 row.className = `lc-analysis-step ${step.status}`;
                 const icon = document.createElement('span');
                 icon.className = 'lc-step-icon';
                 if (step.status === 'done') icon.textContent = '✓';
                 else if (step.status === 'error') icon.textContent = '×';
+                else if (step.status === 'active') icon.textContent = '◎';
                 else icon.textContent = '•';
                 const text = document.createElement('span');
                 text.textContent = getStepLabel(step.key, { attempt: step.attempt, total: step.total });
@@ -1196,12 +1225,35 @@
                     row.appendChild(msg);
                 }
                 stepsEl.appendChild(row);
+
+                // Add inline streaming area under the active step
+                if (step === activeStep) {
+                    const streamArea = document.createElement('div');
+                    streamArea.className = 'lc-step-stream';
+                    streamArea.id = 'lc-active-stream';
+                    const streamText = document.createElement('span');
+                    streamText.className = 'lc-stream-text';
+                    const cursor = document.createElement('span');
+                    cursor.className = 'lc-stream-cursor';
+                    streamArea.appendChild(streamText);
+                    streamArea.appendChild(cursor);
+
+                    // Restore accumulated tokens if this is the same step
+                    if (currentStreamKey === step.key && streamAccumulated) {
+                        streamText.textContent = streamAccumulated;
+                        streamArea.classList.add('visible');
+                    }
+
+                    stepsEl.appendChild(streamArea);
+                }
             });
             const statusText = container.querySelector('.lc-analysis-status-text');
             if (statusText && activeStep) {
                 statusText.textContent = getStepLabel(activeStep.key, { attempt: activeStep.attempt, total: activeStep.total });
             }
         }
+
+        let streamAccumulated = '';
 
         function close() {
             container.classList.remove('show');
@@ -1262,7 +1314,45 @@
             // bar.style.width = percent + '%';
         }
 
-        return { close, update, updateStep };
+        function appendToken(token) {
+            streamAccumulated += token;
+            const streamEl = container.querySelector('#lc-active-stream');
+            const textEl = streamEl?.querySelector('.lc-stream-text');
+            if (!streamEl || !textEl) return;
+            if (!streamEl.classList.contains('visible')) {
+                streamEl.classList.add('visible');
+            }
+            textEl.textContent = streamAccumulated;
+            streamEl.scrollTop = streamEl.scrollHeight;
+        }
+
+        function clearStream() {
+            streamAccumulated = '';
+            currentStreamKey = null;
+            const streamEl = container.querySelector('#lc-active-stream');
+            if (streamEl) {
+                streamEl.classList.remove('visible');
+                const textEl = streamEl.querySelector('.lc-stream-text');
+                if (textEl) textEl.textContent = '';
+            }
+        }
+
+        // When a new step becomes active, reset the stream
+        const origUpdateStep = updateStep;
+        function updateStepWithStream(payload) {
+            if (payload) {
+                const status = normalizeStatus(payload.status);
+                const key = payload.key || payload.step;
+                if (status === 'active' && key !== currentStreamKey) {
+                    // New active step — clear previous stream
+                    streamAccumulated = '';
+                    currentStreamKey = key;
+                }
+            }
+            origUpdateStep(payload);
+        }
+
+        return { close, update, updateStep: updateStepWithStream, appendToken, clearStream };
     }
 
     /**
@@ -1299,12 +1389,167 @@
         }, 100);
     }
 
+    /**
+     * Show a Monaco diff editor panel comparing original code vs the verified fix.
+     * Uses a sandboxed iframe to load Monaco from CDN.
+     * Only shown when Safe Observer successfully verifies a fix.
+     */
+    function showFixDiffViewer(originalCode, fixedCode, meta = {}) {
+        // Remove existing
+        const existing = document.querySelector('.lc-diff-viewer-overlay');
+        if (existing) existing.remove();
+
+        // Inject styles once
+        if (!document.getElementById('lc-diff-viewer-style')) {
+            const style = document.createElement('style');
+            style.id = 'lc-diff-viewer-style';
+            style.textContent = `
+                .lc-diff-viewer-overlay {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    width: 700px;
+                    height: 450px;
+                    background: #1e1e1e;
+                    border: 1px solid #3c3c3c;
+                    border-radius: 10px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+                    z-index: 100001;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    transform: translateY(20px);
+                    opacity: 0;
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                    resize: both;
+                }
+                .lc-diff-viewer-overlay.show { transform: translateY(0); opacity: 1; }
+                .lc-diff-viewer-bar {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 6px 12px;
+                    background: #252526;
+                    border-bottom: 1px solid #3c3c3c;
+                    cursor: move;
+                    user-select: none;
+                }
+                .lc-diff-viewer-bar .title {
+                    color: #3fb950;
+                    font-size: 12px;
+                    font-weight: 600;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                }
+                .lc-diff-viewer-bar .meta {
+                    color: #8b949e;
+                    font-size: 11px;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    margin-left: 8px;
+                }
+                .lc-diff-viewer-bar .close-btn {
+                    background: transparent;
+                    border: none;
+                    color: #8b949e;
+                    cursor: pointer;
+                    font-size: 18px;
+                    line-height: 1;
+                    padding: 0 4px;
+                    transition: color 0.2s;
+                }
+                .lc-diff-viewer-bar .close-btn:hover { color: #f85149; }
+                .lc-diff-viewer-iframe {
+                    flex: 1;
+                    border: none;
+                    width: 100%;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'lc-diff-viewer-overlay';
+
+        // Title bar (draggable)
+        const bar = document.createElement('div');
+        bar.className = 'lc-diff-viewer-bar';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'title';
+        titleSpan.textContent = '\u2705 Verified Fix';
+
+        if (meta.attempts || meta.testCount) {
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'meta';
+            metaSpan.textContent = `${meta.attempts || 1} attempt(s), ${meta.testCount || 0} tests passed`;
+            titleSpan.appendChild(metaSpan);
+        }
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.onclick = () => {
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.remove(), 300);
+        };
+
+        bar.appendChild(titleSpan);
+        bar.appendChild(closeBtn);
+
+        // Make draggable
+        let isDragging = false, dragX = 0, dragY = 0;
+        bar.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragX = e.clientX - overlay.offsetLeft;
+            dragY = e.clientY - overlay.offsetTop;
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                document.removeEventListener('mousemove', onDrag);
+            }, { once: true });
+        });
+        function onDrag(e) {
+            if (!isDragging) return;
+            overlay.style.left = (e.clientX - dragX) + 'px';
+            overlay.style.top = (e.clientY - dragY) + 'px';
+            overlay.style.right = 'auto';
+            overlay.style.bottom = 'auto';
+        }
+
+        // Monaco iframe
+        const iframe = document.createElement('iframe');
+        iframe.className = 'lc-diff-viewer-iframe';
+        iframe.src = chrome.runtime.getURL('src/diff_viewer.html');
+
+        // Send data once iframe signals ready
+        console.log(`[DiffViewer] showFixDiffViewer called. originalCode: ${originalCode?.length} chars, fixedCode: ${fixedCode?.length} chars`);
+        window.addEventListener('message', function handler(event) {
+            if (event.data && event.data.type === 'diff-viewer-ready') {
+                window.removeEventListener('message', handler);
+                console.log('[DiffViewer] iframe ready, sending diff data');
+                iframe.contentWindow.postMessage({
+                    type: 'diff-data',
+                    originalCode,
+                    fixedCode,
+                    attempts: meta.attempts,
+                    testCount: meta.testCount
+                }, '*');
+            }
+        });
+
+        overlay.appendChild(bar);
+        overlay.appendChild(iframe);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('show'));
+    }
+
     return {
         showCompletionToast,
         showDuplicateSkipToast,
         showRatingModal,
         showAnalysisModal,
         showAnalysisProgress, // New Export
+        showFixDiffViewer,
         createNotesWidget,
         insertNotesButton
     };

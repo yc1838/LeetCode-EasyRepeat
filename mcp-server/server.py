@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def verify_solution_logic(code: str, test_inputs: list[str]) -> str:
+    # 0. Sanitize code (strip U+00A0 non-breaking spaces that cause SyntaxError)
+    code = code.replace('\u00A0', ' ')
+    
     # 1. Initialize E2B Sandbox (Synchronous context manager)
     with Sandbox.create() as sandbox:
         # 2. Prepare the verification script

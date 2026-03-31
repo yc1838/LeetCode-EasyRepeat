@@ -386,4 +386,65 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
 });
 
+// --- SSE Proxy via Port for autofix streaming ---
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'autofix-stream') return;
+
+    let aborted = false;
+    port.onDisconnect.addListener(() => { aborted = true; });
+
+    port.onMessage.addListener(async (msg) => {
+        if (msg.action !== 'startStream') return;
+        const { streamUrl } = msg;
+        console.log(`[Background] 🔴 SSE: Connecting to ${streamUrl}`);
+
+        try {
+            const response = await fetch(streamUrl);
+            console.log(`[Background] 🔴 SSE: Response status ${response.status}, hasBody: ${!!response.body}`);
+            if (!response.ok || !response.body) {
+                port.postMessage({ type: 'error', error: `HTTP ${response.status}` });
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (!aborted) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // keep incomplete line in buffer
+
+                let eventType = 'message';
+                for (const line of lines) {
+                    if (line.startsWith('event:')) {
+                        eventType = line.slice(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        const dataStr = line.slice(5).trim();
+                        if (!dataStr) continue;
+                        try {
+                            const parsed = JSON.parse(dataStr);
+                            console.log(`[Background] 🔴 SSE event: ${parsed.type}`, parsed.type === 'token' ? '' : JSON.stringify(parsed).substring(0, 80));
+                            if (!aborted) port.postMessage(parsed);
+                            if (eventType === 'done' || parsed.type === 'done') {
+                                aborted = true;
+                            }
+                        } catch (e) {
+                            // skip malformed JSON
+                        }
+                        eventType = 'message';
+                    }
+                }
+            }
+        } catch (e) {
+            if (!aborted) {
+                try { port.postMessage({ type: 'error', error: e.message }); } catch (_) {}
+            }
+        }
+    });
+});
+
 console.log("[Background] Service Worker Loaded.");

@@ -40,6 +40,18 @@
         "service_worker": "dist/background.js",
         "type": "module"
     },
+    "sandbox": {
+        "pages": ["src/diff_viewer.html"]
+    },
+    "content_security_policy": {
+        "sandbox": "sandbox allow-scripts allow-popups; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": ["src/diff_viewer.html"],
+            "matches": ["https://leetcode.com/*", "https://leetcode.cn/*"]
+        }
+    ],
     "content_scripts": [
         {
             "matches": [

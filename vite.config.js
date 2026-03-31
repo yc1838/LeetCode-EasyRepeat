@@ -81,6 +81,14 @@ function chromeExtensionPlugin() {
                  });
                  console.log('Copied content script dependencies to dist/src/');
             }
+
+            // 4. Copy diff_viewer.html (sandboxed page for Monaco diff editor)
+            const diffViewerSrc = path.resolve(srcDir, 'diff_viewer.html');
+            if (existsSync(diffViewerSrc)) {
+                if (!existsSync(distSrcDir)) mkdirSync(distSrcDir, { recursive: true });
+                copyFileSync(diffViewerSrc, path.resolve(distSrcDir, 'diff_viewer.html'));
+                console.log('Copied diff_viewer.html');
+            }
         }
     };
 }

@@ -73,7 +73,7 @@ def get_llm(provider: str, model: str, api_key: str | None = None, base_url: str
 
             return ChatGoogleGenerativeAI(
                 model=model, api_key=final_key,
-                temperature=0.4, max_retries=3,
+                temperature=0.4, max_retries=3, streaming=True,
             )
 
         case "openai":
@@ -86,7 +86,7 @@ def get_llm(provider: str, model: str, api_key: str | None = None, base_url: str
 
             return ChatOpenAI(
                 model=model, api_key=final_key,
-                temperature=0.4, max_retries=3,
+                temperature=0.4, max_retries=3, streaming=True,
             )
 
         case "anthropic":
@@ -99,7 +99,7 @@ def get_llm(provider: str, model: str, api_key: str | None = None, base_url: str
 
             return ChatAnthropic(
                 model_name=model, api_key=final_key,
-                temperature=0.4, max_retries=3,
+                temperature=0.4, max_retries=3, streaming=True,
             )
 
         case "ollama":
