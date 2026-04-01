@@ -32,6 +32,7 @@
      * @param {string} difficultySource - Debug info about where difficulty came from
      * @param {number|null} rating  - User rating (1-4) or null for legacy SM-2
      * @param {Array<string>} topics - List of topic names (e.g. ["Array", "DP"])
+     * @param {string} [source='leetcode'] - Platform origin ("leetcode" | "neetcode")
      */
     async function saveSubmission(problemTitle, problemSlug, difficulty, difficultySource = 'unknown', rating = null, topics = [], source = 'leetcode') {
         if (!chrome.runtime?.id) {
