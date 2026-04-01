@@ -33,7 +33,7 @@
      * @param {number|null} rating  - User rating (1-4) or null for legacy SM-2
      * @param {Array<string>} topics - List of topic names (e.g. ["Array", "DP"])
      */
-    async function saveSubmission(problemTitle, problemSlug, difficulty, difficultySource = 'unknown', rating = null, topics = []) {
+    async function saveSubmission(problemTitle, problemSlug, difficulty, difficultySource = 'unknown', rating = null, topics = [], source = 'leetcode') {
         if (!chrome.runtime?.id) {
             console.warn("[LeetCode EasyRepeat] Extension context invalidated. Please refresh the page.");
             return;
@@ -101,6 +101,7 @@
             title: problemTitle,
             slug: problemSlug,
             difficulty: difficulty,
+            source: source,
             interval: 0,
             repetition: 0,
             easeFactor: 2.5,
@@ -161,6 +162,7 @@
         problems[problemKey] = {
             ...currentProblem,
             difficulty: difficulty,
+            source: source || currentProblem.source || 'leetcode',
             lastSolved: nowISO,
             interval: nextStep.nextInterval,
             repetition: nextStep.nextRepetition,

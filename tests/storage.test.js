@@ -82,6 +82,26 @@ describe('Storage Logic', () => {
         expect(result).toEqual(expect.objectContaining({ success: true }));
     });
 
+    test('should persist source field when provided', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({ problems: {} });
+        global.chrome.storage.local.set.mockResolvedValue();
+
+        await saveSubmission('Two Sum', 'two-sum', 'Easy', 'api', 3, ['Array'], 'neetcode');
+
+        const setCall = global.chrome.storage.local.set.mock.calls[0][0];
+        expect(setCall.problems['two-sum'].source).toBe('neetcode');
+    });
+
+    test('should default source to "leetcode" when not provided', async () => {
+        global.chrome.storage.local.get.mockResolvedValue({ problems: {} });
+        global.chrome.storage.local.set.mockResolvedValue();
+
+        await saveSubmission('Two Sum', 'two-sum', 'Easy', 'api', 3, ['Array']);
+
+        const setCall = global.chrome.storage.local.set.mock.calls[0][0];
+        expect(setCall.problems['two-sum'].source).toBe('leetcode');
+    });
+
     test('should still skip exact duplicate (same day, same difficulty)', async () => {
         const today = new Date().toISOString();
         const problemKey = 'two-sum';
