@@ -97,6 +97,7 @@ export function renderVectors(problemList, containerId, isInteractive, options =
         card.innerHTML = `
             <div class="vector-meta">
                 <span>#${problem.slug}</span>
+                ${problem.source === 'neetcode' ? '<span class="stat-tag source-neetcode">NeetCode</span>' : ''}
                 <span>${t('popup_retention', {}, language)}: ${Math.min(100, Math.round(problem.easeFactor * 40))}%</span>
             </div>
             <div class="vector-title">${displayTitle}</div>
@@ -150,7 +151,10 @@ export function renderVectors(problemList, containerId, isInteractive, options =
             goBtn.onclick = (e) => {
                 e.stopPropagation();
                 if (typeof chrome !== 'undefined' && chrome.tabs) {
-                    chrome.tabs.create({ url: `${problemUrlBaseSafe}/problems/${problem.slug}/` });
+                    const url = problem.source === 'neetcode'
+                        ? `https://neetcode.io/problems/${problem.slug}/`
+                        : `${problemUrlBaseSafe}/problems/${problem.slug}/`;
+                    chrome.tabs.create({ url });
                 }
             };
         }

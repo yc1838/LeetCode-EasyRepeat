@@ -691,6 +691,16 @@ body::before {
     white-space: nowrap;
 }
 
+.source-neetcode {
+    background: #f97316;
+    color: #fff;
+    border-color: #f97316;
+    font-size: 0.5rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: none;
+}
+
 /* TACTICAL SWITCHES (BUTTONS) */
 .tactical-btn {
     background: none;

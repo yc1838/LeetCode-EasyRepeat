@@ -147,7 +147,7 @@ describe('Popup GO Button', () => {
         const card = document.querySelector('.vector-card');
         const goBtn = document.querySelector('.go-btn');
 
-        // Spy on classList toggle? 
+        // Spy on classList toggle?
         // Or check if 'expanded' class is added.
         // The card adds 'expanded' on click.
 
@@ -161,5 +161,46 @@ describe('Popup GO Button', () => {
         // Click card itself
         card.click();
         expect(card.classList.contains('expanded')).toBe(true);
+    });
+
+    test('should open neetcode.io for problems with source "neetcode"', () => {
+        const problems = [
+            {
+                slug: 'is-anagram',
+                title: 'Valid Anagram',
+                difficulty: 'Easy',
+                source: 'neetcode',
+                interval: 1,
+                nextReviewDate: new Date().toISOString()
+            }
+        ];
+
+        popup.renderVectors(problems, 'vector-list', true);
+
+        const goBtn = document.querySelector('.go-btn');
+        goBtn.click();
+
+        expect(chrome.tabs.create).toHaveBeenCalledWith({
+            url: 'https://neetcode.io/problems/is-anagram/'
+        });
+    });
+
+    test('should render NeetCode badge for neetcode source problems', () => {
+        const problems = [
+            {
+                slug: 'is-anagram',
+                title: 'Valid Anagram',
+                difficulty: 'Easy',
+                source: 'neetcode',
+                interval: 1,
+                nextReviewDate: new Date().toISOString()
+            }
+        ];
+
+        popup.renderVectors(problems, 'vector-list', true);
+
+        const badge = document.querySelector('.source-neetcode');
+        expect(badge).not.toBeNull();
+        expect(badge.textContent).toBe('NeetCode');
     });
 });
