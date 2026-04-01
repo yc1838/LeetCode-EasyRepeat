@@ -19,6 +19,7 @@
     "host_permissions": [
         "https://leetcode.com/*",
         "https://leetcode.cn/*",
+        "https://neetcode.io/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
     ],
@@ -73,6 +74,23 @@
             "css": [
                 "src/content/content.css",
                 "src/content/llm_sidecar.css"
+            ]
+        },
+        {
+            "matches": [
+                "https://neetcode.io/problems/*"
+            ],
+            "js": [
+                "src/algorithms/srs_logic.js",
+                "src/shared/config.js",
+                "src/shared/ui_i18n.js",
+                "src/algorithms/fsrs_logic.js",
+                "src/content/content_ui.js",
+                "src/shared/storage.js",
+                "src/content/neetcode_content.js"
+            ],
+            "css": [
+                "src/content/content.css"
             ]
         }
     ]
