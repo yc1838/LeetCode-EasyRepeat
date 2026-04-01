@@ -83,18 +83,22 @@
   }
 
   async function _getQuestionInfo(slug) {
+    let cached = null;
     try {
       const result = await chrome.storage.local.get({ [CACHE_KEY_PREFIX + slug]: null });
-      const cached = result[CACHE_KEY_PREFIX + slug];
-      if (cached && cached.title) return cached;
-    } catch (e) { /* fall through */ }
+      cached = result[CACHE_KEY_PREFIX + slug];
+    } catch (e) { /* ignore */ }
 
-    // Fallback: read live from DOM (works on question page)
+    // Merge cached data with live DOM to fill gaps (e.g. difficulty renders late)
+    const liveTitle = extractTitle(document.title);
+    const liveDifficulty = extractDifficulty(document);
+    const liveTopics = extractTopics(document);
+
     return {
       slug,
-      title: extractTitle(document.title),
-      difficulty: extractDifficulty(document),
-      topics: extractTopics(document),
+      title: cached?.title || liveTitle,
+      difficulty: cached?.difficulty || liveDifficulty,
+      topics: cached?.topics?.length > 1 ? cached.topics : liveTopics,
     };
   }
 
@@ -147,7 +151,7 @@
           if (node.nodeType !== 1) continue;
 
           const check = (el) => {
-            const cls = el.className || '';
+            const cls = el.getAttribute?.('class') || '';
             if (!cls.includes('output-header')) return;
             if (!isAcceptedResult(el.textContent)) return;
             observer.disconnect();
