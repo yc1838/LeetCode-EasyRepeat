@@ -140,7 +140,7 @@
 
     const topics = info.topics || ['NeetCode'];
     const rating = await showRatingModal(title, { slug, maxRating: 4 });
-    await saveSubmission(title, slug, difficulty, 'neetcode_dom', rating, topics);
+    await saveSubmission(title, slug, difficulty, 'neetcode_dom', rating, topics, 'neetcode');
     console.log(`[NeetCode EasyRepeat] Saved: ${title} (${difficulty})`);
   }
 
