@@ -694,7 +694,7 @@ body::before {
 .source-neetcode {
     background: #f97316;
     color: #fff;
-    border-color: #f97316;
+    border: 1px solid #f97316;
     font-size: 0.5rem;
     padding: 1px 6px;
     border-radius: 3px;
