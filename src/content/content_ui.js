@@ -511,14 +511,26 @@
         const baseCleanup = widget._lcNotesCleanup;
         const extraCleanupFns = [];
 
-        // --- THEME LOGIC ---
+        // --- THEME & POSITION LOGIC ---
         if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
             const syncWidgetTheme = () => new Promise((resolve) => {
                 try {
                     if (!chrome.runtime?.id) { resolve(); return; }
-                    chrome.storage.local.get({ theme: 'sakura' }, (result) => {
+                    chrome.storage.local.get(['theme', 'notesWidgetPosition'], (result) => {
                         if (!chrome.runtime?.lastError) {
                             applyNotesWidgetTheme(widget, result.theme || 'sakura');
+
+                            // Apply stored position if exists
+                            if (result.notesWidgetPosition) {
+                                const { left, top } = result.notesWidgetPosition;
+                                // Basic bounds check to ensure it's not off-screen
+                                const safeLeft = Math.max(0, Math.min(left, window.innerWidth - 50));
+                                const safeTop = Math.max(0, Math.min(top, window.innerHeight - 50));
+                                
+                                widget.style.right = 'auto';
+                                widget.style.top = `${safeTop}px`;
+                                widget.style.left = `${safeLeft}px`;
+                            }
                         }
                         resolve();
                     });
@@ -937,6 +949,17 @@
                 container.classList.remove('dragging');
                 handle.dataset.justDragged = 'true';
                 setTimeout(() => { handle.dataset.justDragged = 'false'; }, 50);
+
+                // Save new position
+                if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
+                    const rect = container.getBoundingClientRect();
+                    chrome.storage.local.set({
+                        notesWidgetPosition: {
+                            left: rect.left,
+                            top: rect.top
+                        }
+                    });
+                }
             }
         };
 
