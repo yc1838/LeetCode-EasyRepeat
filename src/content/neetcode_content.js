@@ -145,15 +145,19 @@
   }
 
   function _startObserver(slug) {
+    let handled = false;
     const observer = new MutationObserver((mutations) => {
+      if (handled) return;
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node.nodeType !== 1) continue;
 
           const check = (el) => {
+            if (handled) return;
             const cls = el.getAttribute?.('class') || '';
             if (!cls.includes('output-header')) return;
             if (!isAcceptedResult(el.textContent)) return;
+            handled = true;
             observer.disconnect();
             console.log('[NeetCode EasyRepeat] Accepted submission detected via DOM.');
             _handleAccepted(slug).catch(e =>
@@ -162,7 +166,7 @@
           };
 
           check(node);
-          node.querySelectorAll?.('[class*="output-header"]').forEach(check);
+          if (!handled) node.querySelectorAll?.('[class*="output-header"]').forEach(check);
         }
       }
     });
