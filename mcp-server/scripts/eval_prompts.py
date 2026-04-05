@@ -252,7 +252,7 @@ async def structured_target(
         return parse_structured_fix(None)
 
 
-async def streaming_target(
+async def structured_caveman_target(
     inputs: dict[str, Any],
     *,
     provider: str = DEFAULT_PROVIDER,
@@ -263,15 +263,23 @@ async def streaming_target(
     try:
         resolved_model = _resolve_app_model(provider, model)
         llm = get_llm(provider, resolved_model, api_key=api_key, base_url=base_url)
-        agent = AgentFixer(llm)
-        fixed_code = await agent.generate_fix_streaming(
-            inputs.get("code", ""),
-            inputs.get("error", ""),
-            inputs.get("test_input", ""),
-        )
-        return {"fixed_code": (fixed_code or "").strip()}
+        agent = AgentFixer(llm, caveman_mode=True)
+
+        if hasattr(agent, "generate_fix_details"):
+            result = await agent.generate_fix_details(
+                inputs.get("code", ""),
+                inputs.get("error", ""),
+                inputs.get("test_input", ""),
+            )
+        else:
+            result = await agent.generate_fix(
+                inputs.get("code", ""),
+                inputs.get("error", ""),
+                inputs.get("test_input", ""),
+            )
+        return parse_structured_fix(result)
     except Exception:
-        return {"fixed_code": ""}
+        return parse_structured_fix(None)
 
 
 def print_experiment_summary(label: str, results: Any) -> None:
@@ -301,6 +309,23 @@ def print_experiment_summary(label: str, results: Any) -> None:
     if numeric_means:
         print(json.dumps(numeric_means, indent=2, sort_keys=True))
 
+    # Token usage summary
+    token_cols = {
+        col: col for col in frame.columns
+        if any(tok in str(col).lower() for tok in ("prompt_token", "completion_token", "total_token"))
+    }
+    if token_cols:
+        token_stats: dict[str, float] = {}
+        for col_name in token_cols:
+            try:
+                mean_val = float(frame[col_name].dropna().mean())
+                if mean_val == mean_val:
+                    token_stats[str(col_name)] = round(mean_val, 1)
+            except Exception:
+                continue
+        if token_stats:
+            print(f"[{label}] token_usage={json.dumps(token_stats, sort_keys=True)}")
+
 
 async def run_evaluations(
     *,
@@ -312,29 +337,55 @@ async def run_evaluations(
     judge_model: str = DEFAULT_JUDGE_MODEL,
     judge_base_url: str = DEFAULT_JUDGE_BASE_URL,
     max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
+    caveman_only: bool = False,
 ) -> dict[str, Any]:
     resolved_dataset_name = dataset_name or _default_dataset_name()
     resolved_model = _resolve_app_model(provider, model)
     fix_quality_scorer, explanation_quality_scorer = build_scorers(judge_model, judge_base_url)
 
-    structured_metadata = {
+    results = {}
+
+    if not caveman_only:
+        structured_metadata = {
+            "prompt_version": PROMPT_VERSIONS["fix_generation"],
+            "variant": "structured",
+            "caveman_mode": False,
+            "app_provider": provider,
+            "app_model": resolved_model,
+            "judge_model": judge_model,
+        }
+
+        structured_results = await aevaluate(
+            functools.partial(
+                structured_target,
+                provider=provider,
+                model=resolved_model,
+                api_key=api_key,
+                base_url=base_url,
+            ),
+            data=resolved_dataset_name,
+            evaluators=[fix_quality_scorer, explanation_quality_scorer],
+            experiment_prefix="structured-pydantic",
+            description="Structured Pydantic autofix prompt evaluation.",
+            metadata=structured_metadata,
+            max_concurrency=max_concurrency,
+        )
+        print_experiment_summary("structured-pydantic", structured_results)
+        results["structured"] = structured_results
+
+    # --- Caveman variant ---
+    caveman_metadata = {
         "prompt_version": PROMPT_VERSIONS["fix_generation"],
-        "variant": "structured",
-        "app_provider": provider,
-        "app_model": resolved_model,
-        "judge_model": judge_model,
-    }
-    streaming_metadata = {
-        "prompt_version": PROMPT_VERSIONS["fix_generation_streaming"],
-        "variant": "streaming",
+        "variant": "structured-caveman",
+        "caveman_mode": True,
         "app_provider": provider,
         "app_model": resolved_model,
         "judge_model": judge_model,
     }
 
-    structured_results = await aevaluate(
+    caveman_results = await aevaluate(
         functools.partial(
-            structured_target,
+            structured_caveman_target,
             provider=provider,
             model=resolved_model,
             api_key=api_key,
@@ -342,34 +393,15 @@ async def run_evaluations(
         ),
         data=resolved_dataset_name,
         evaluators=[fix_quality_scorer, explanation_quality_scorer],
-        experiment_prefix="structured-pydantic",
-        description="Structured Pydantic autofix prompt evaluation.",
-        metadata=structured_metadata,
+        experiment_prefix="structured-caveman",
+        description="Structured Pydantic autofix with caveman mode — token savings evaluation.",
+        metadata=caveman_metadata,
         max_concurrency=max_concurrency,
     )
-    print_experiment_summary("structured-pydantic", structured_results)
+    print_experiment_summary("structured-caveman", caveman_results)
+    results["caveman"] = caveman_results
 
-    streaming_results = await aevaluate(
-        functools.partial(
-            streaming_target,
-            provider=provider,
-            model=resolved_model,
-            api_key=api_key,
-            base_url=base_url,
-        ),
-        data=resolved_dataset_name,
-        evaluators=[fix_quality_scorer],
-        experiment_prefix="streaming-freeform",
-        description="Streaming freeform autofix prompt evaluation.",
-        metadata=streaming_metadata,
-        max_concurrency=max_concurrency,
-    )
-    print_experiment_summary("streaming-freeform", streaming_results)
-
-    return {
-        "structured": structured_results,
-        "streaming": streaming_results,
-    }
+    return results
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -382,6 +414,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--judge-model", default=DEFAULT_JUDGE_MODEL)
     parser.add_argument("--judge-base-url", default=DEFAULT_JUDGE_BASE_URL)
     parser.add_argument("--max-concurrency", type=int, default=DEFAULT_MAX_CONCURRENCY)
+    parser.add_argument(
+        "--caveman-only",
+        action="store_true",
+        help="Skip baseline structured experiment, only run caveman variant",
+    )
     return parser
 
 
@@ -397,6 +434,7 @@ def main() -> None:
             judge_model=args.judge_model,
             judge_base_url=args.judge_base_url,
             max_concurrency=args.max_concurrency,
+            caveman_only=args.caveman_only,
         )
     )
 
