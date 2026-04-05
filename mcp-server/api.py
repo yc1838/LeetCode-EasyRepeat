@@ -440,6 +440,9 @@ class AgentFixer:
         Return it complying with the requested JSON schema.
         """
 
+        if self.caveman_mode:
+            template += f"\n        {CAVEMAN_INSTRUCTION}\n"
+
         # Auto-versioning: metadata changes whenever template changes
         call_metadata = {
             **self.metadata,

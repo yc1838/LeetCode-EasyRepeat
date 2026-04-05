@@ -33,6 +33,68 @@ def test_agent_fixer_caveman_mode_true():
 
 
 @pytest.mark.anyio
+async def test_generate_fix_details_caveman_injects_instruction():
+    """When caveman_mode=True, the prompt sent to the LLM contains CAVEMAN_INSTRUCTION."""
+    from api import CAVEMAN_INSTRUCTION
+
+    mock_codefix = CodeFix(
+        fixed_code="def fixed(): return 1",
+        explanation="Fixed"
+    )
+
+    mock_llm = _make_mock_llm()
+    mock_chain = MagicMock()
+    from unittest.mock import AsyncMock
+    mock_chain.ainvoke = AsyncMock(return_value=mock_codefix)
+
+    captured_template = {}
+
+    original_from_template = __import__('langchain_core.prompts', fromlist=['PromptTemplate']).PromptTemplate.from_template
+
+    def spy_from_template(template_str):
+        captured_template['text'] = template_str
+        return original_from_template(template_str)
+
+    with patch("api.PromptTemplate.from_template", side_effect=spy_from_template):
+        with patch("api.PromptTemplate.__or__", return_value=mock_chain):
+            agent = AgentFixer(mock_llm, caveman_mode=True)
+            await agent.generate_fix_details("bad code", "Error", "1")
+
+    assert CAVEMAN_INSTRUCTION in captured_template['text']
+
+
+@pytest.mark.anyio
+async def test_generate_fix_details_no_caveman_by_default():
+    """When caveman_mode=False (default), the prompt does NOT contain CAVEMAN_INSTRUCTION."""
+    from api import CAVEMAN_INSTRUCTION
+
+    mock_codefix = CodeFix(
+        fixed_code="def fixed(): return 1",
+        explanation="Fixed"
+    )
+
+    mock_llm = _make_mock_llm()
+    mock_chain = MagicMock()
+    from unittest.mock import AsyncMock
+    mock_chain.ainvoke = AsyncMock(return_value=mock_codefix)
+
+    captured_template = {}
+
+    original_from_template = __import__('langchain_core.prompts', fromlist=['PromptTemplate']).PromptTemplate.from_template
+
+    def spy_from_template(template_str):
+        captured_template['text'] = template_str
+        return original_from_template(template_str)
+
+    with patch("api.PromptTemplate.from_template", side_effect=spy_from_template):
+        with patch("api.PromptTemplate.__or__", return_value=mock_chain):
+            agent = AgentFixer(mock_llm, caveman_mode=False)
+            await agent.generate_fix_details("bad code", "Error", "1")
+
+    assert CAVEMAN_INSTRUCTION not in captured_template['text']
+
+
+@pytest.mark.anyio
 async def test_generate_fix_happy_path():
     # (A) Happy path: Mocks with_structured_output returning a valid CodeFix
 
