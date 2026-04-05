@@ -503,6 +503,9 @@ Then, provide the fixed code inside a single ```python code fence.
 Do not provide additional explanations after the code fence.
 """
 
+        if self.caveman_mode:
+            template += f"\n{CAVEMAN_INSTRUCTION}\n"
+
         call_metadata = {
             **self.metadata,
             "prompt_version": get_prompt_hash("fix_stream", template)
