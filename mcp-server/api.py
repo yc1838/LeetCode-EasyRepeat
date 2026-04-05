@@ -35,6 +35,14 @@ PROMPT_VERSIONS = {
     "test_generation": "v1.0_edge_case_json"
 }
 
+CAVEMAN_INSTRUCTION = (
+    "CRITICAL: Respond like a SMART CAVEMAN. "
+    "Cut ALL articles (a, an, the), filler, and pleasantries. "
+    "Minimize pronouns and auxiliary verbs. "
+    "Technical accuracy must remain 100%. "
+    "Structure: [thing] [action] [reason]. [next step]."
+)
+
 async def _prune_autofix_jobs():
     now = time.time()
     async with _AUTOFIX_JOBS_LOCK:
@@ -398,14 +406,15 @@ async def verify_endpoint(req: VerificationRequest):
 
 
 class AgentFixer:
-    def __init__(self, llm, metadata: dict = None):
+    def __init__(self, llm, metadata: dict = None, *, caveman_mode: bool = False):
         """Accept a pre-built BaseChatModel — provider-agnostic.
-        
+
         The caller (autofix_endpoint) is responsible for constructing the LLM
         via get_llm(provider, model, api_key, base_url).
         """
         self.llm = llm
         self.metadata = metadata or {}
+        self.caveman_mode = caveman_mode
 
     def is_simple_fix(self, code: str) -> bool:
         # Heuristic: If code is < 10 lines, it's simple enough to show
@@ -486,7 +495,7 @@ FAILING INPUT:
 {test_input}
 
 Task: Write a CORRECT, WORKING Python solution that fixes this error.
-First, briefly analyze the bug and explain your thought process. 
+First, briefly analyze the bug and explain your thought process.
 Then, provide the fixed code inside a single ```python code fence.
 Do not provide additional explanations after the code fence.
 """
