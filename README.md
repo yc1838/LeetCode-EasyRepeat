@@ -11,7 +11,7 @@ It automatically tracks your submissions (both Accepted and Wrong Answer), sched
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green?logo=google-chrome)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)
-![Version](https://img.shields.io/badge/version-1.0.1-orange)
+![Version](https://img.shields.io/badge/version-1.0.6-orange)
 
 ## 🚀 Quick Setup
 
