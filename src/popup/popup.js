@@ -20,6 +20,7 @@ let localizedTitleHydrationInFlight = false;
 let themePersistInFlight = false;
 let queuedThemeForPersist = null;
 let currentFilters = { difficulty: 'all', topic: 'all', timeRange: 'all' };
+let dataLoaded = false;
 let currentLeetCodeBase = 'https://leetcode.com';
 
 const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
@@ -125,13 +126,26 @@ function queueThemePersist(themeName) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await setupTheme();
-    await setupLanguage();
-    setupOptionsButton();
-    setupSidebar();
-    await setupFilters();
-    await updateDashboard();
-    setupStorageListeners();
+    console.log('[Popup][DIAG] DOMContentLoaded fired at', Date.now());
+    try {
+        console.log('[Popup][DIAG] Step 1: setupTheme...');
+        await setupTheme();
+        console.log('[Popup][DIAG] Step 2: setupLanguage...');
+        await setupLanguage();
+        console.log('[Popup][DIAG] Step 3: setupOptionsButton...');
+        setupOptionsButton();
+        console.log('[Popup][DIAG] Step 4: setupSidebar...');
+        setupSidebar();
+        console.log('[Popup][DIAG] Step 5: setupFilters...');
+        await setupFilters();
+        console.log('[Popup][DIAG] Step 6: updateDashboard...');
+        await updateDashboard();
+        console.log('[Popup][DIAG] Step 7: setupStorageListeners...');
+        setupStorageListeners();
+        console.log('[Popup][DIAG] ✅ All init steps completed');
+    } catch (err) {
+        console.error('[Popup][DIAG] ❌ Init CRASHED at some step:', err);
+    }
 });
 
 function setupStorageListeners() {
@@ -165,7 +179,9 @@ async function setupTheme() {
 async function setupLanguage() {
     const i18n = getI18n();
     const button = document.getElementById('lang-toggle');
+    console.log('[Popup][DIAG] setupLanguage: i18n=', !!i18n);
     currentLanguage = i18n ? await i18n.getLanguage() : 'en';
+    console.log('[Popup][DIAG] setupLanguage: language=', currentLanguage);
     applyLanguage(currentLanguage);
 
     if (button) {
@@ -180,6 +196,7 @@ async function setupLanguage() {
     if (i18n && typeof i18n.onLanguageChange === 'function') {
         i18n.onLanguageChange((nextLanguage) => {
             if (nextLanguage === currentLanguage) return;
+            console.log('[Popup][DIAG] onLanguageChange fired:', nextLanguage);
             currentLanguage = nextLanguage;
             applyLanguage(currentLanguage);
             void updateDashboard();
@@ -206,7 +223,12 @@ function applyLanguage(language) {
 
     applyTheme(currentTheme);
     updateQueueTitle();
-    rerenderCurrentView();
+    if (dataLoaded) {
+        console.log('[Popup][DIAG] applyLanguage: dataLoaded=true, calling rerenderCurrentView');
+        rerenderCurrentView();
+    } else {
+        console.log('[Popup][DIAG] applyLanguage: dataLoaded=false, SKIPPING rerenderCurrentView');
+    }
 }
 
 function setupOptionsButton() {
@@ -264,42 +286,64 @@ function applyTheme(themeName) {
 }
 
 async function updateDashboard() {
+    console.log('[Popup][DIAG] updateDashboard: START');
     const result = await chrome.storage.local.get({ problems: {}, localizedProblemTitles: {} });
     const problems = Object.values(result.problems);
     const now = getCurrentDate();
+
+    console.log('[Popup][DIAG] updateDashboard: total problems =', problems.length, ', now =', now.toISOString());
 
     const dueProblems = problems.filter(problem => new Date(problem.nextReviewDate) <= now);
     dueProblems.sort((a, b) => new Date(a.nextReviewDate) - new Date(b.nextReviewDate));
     problems.sort((a, b) => new Date(a.nextReviewDate) - new Date(b.nextReviewDate));
 
+    console.log('[Popup][DIAG] updateDashboard: due =', dueProblems.length, ', all =', problems.length);
+
     currentDueProblems = dueProblems;
     currentAllProblems = problems;
     currentTitleCache = result.localizedProblemTitles || {};
 
+    console.log('[Popup][DIAG] updateDashboard: calling resolveLeetCodeBaseUrl...');
     currentLeetCodeBase = await resolveLeetCodeBaseUrl();
+    console.log('[Popup][DIAG] updateDashboard: baseUrl resolved =', currentLeetCodeBase);
 
-    const streakValueEl = document.getElementById('streak-value');
-    if (streakValueEl) {
-        const streakCount = await calculateStreakFn();
-        streakValueEl.innerText = String(streakCount);
-    } else {
-        const streakEl = document.getElementById('streak-display');
-        if (streakEl) {
-            const streakCount = await calculateStreakFn();
-            streakEl.innerText = `${t('popup_streak_days')} ${streakCount}`;
-        }
-    }
-
-    rerenderCurrentView();
+    // Render immediately after data is ready — before streak/sync which can fail
+    dataLoaded = true;
+    // IMPORTANT: populateTopicDropdown MUST run before rerenderCurrentView!
+    // It validates persisted topic filters (e.g. "NeetCode") against the actual
+    // topics in the loaded problems. If the persisted topic no longer exists,
+    // it resets currentFilters.topic to 'all'. Without this, a stale topic
+    // filter would cause rerenderCurrentView to show 0 results.
     populateTopicDropdown(problems);
+    console.log('[Popup][DIAG] updateDashboard: calling rerenderCurrentView, currentView =', currentView, ', filters =', JSON.stringify(currentFilters));
+    rerenderCurrentView();
     renderGlobalHeatmap();
     updateClock();
     if (!clockIntervalId) {
         clockIntervalId = setInterval(updateClock, 1000);
     }
 
+    // Streak calculation — non-critical, wrapped in try-catch
+    try {
+        const streakValueEl = document.getElementById('streak-value');
+        if (streakValueEl) {
+            const streakCount = await calculateStreakFn();
+            streakValueEl.innerText = String(streakCount);
+        } else {
+            const streakEl = document.getElementById('streak-display');
+            if (streakEl) {
+                const streakCount = await calculateStreakFn();
+                streakEl.innerText = `${t('popup_streak_days')} ${streakCount}`;
+            }
+        }
+    } catch (e) {
+        console.warn('[Popup] Streak calculation failed:', e);
+    }
+
+    console.log('[Popup][DIAG] updateDashboard: calling syncCurrentProblemDifficulty...');
     await syncCurrentProblemDifficulty();
     void hydrateLocalizedTitles(problems);
+    console.log('[Popup][DIAG] updateDashboard: END');
 }
 
 function rerenderCurrentView() {
@@ -311,6 +355,11 @@ function rerenderCurrentView() {
     if (PopupFilter && PopupFilter.filterProblems) {
         problems = PopupFilter.filterProblems(baseProblems, currentFilters);
     }
+
+    console.log('[Popup][DIAG] rerenderCurrentView: view=', currentView,
+        ', base=', baseProblems.length,
+        ', after filter=', problems.length,
+        ', filters=', JSON.stringify(currentFilters));
 
     renderVectors(problems, 'vector-list', currentView === 'dashboard', {
         language: currentLanguage,
@@ -375,6 +424,7 @@ async function setupFilters() {
         if (stored.popupFilters) {
             currentFilters = { ...currentFilters, ...stored.popupFilters };
         }
+        console.log('[Popup][DIAG] setupFilters: restored filters =', JSON.stringify(currentFilters));
     } catch (e) {
         console.warn('[Popup] Could not restore filters:', e);
     }
@@ -664,6 +714,7 @@ if (typeof module !== 'undefined') {
     module.exports = {
         updateDashboard,
         calculateStreak: calculateStreakFn,
-        setupSidebar
+        setupSidebar,
+        setupFilters
     };
 }
