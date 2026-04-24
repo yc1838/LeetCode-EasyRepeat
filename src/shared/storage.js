@@ -72,7 +72,21 @@
                 lastSolvedDate = new Date(lastSolvedVal);
             }
             if (isSameLocalDay(lastSolvedDate, now)) {
-                isDuplicateDay = true;
+                // Source-aware dedup: only treat as duplicate if same source
+                const storedSource = problems[problemKey].lastSolvedSource;
+                if (storedSource && source) {
+                    // Both have explicit sources — only duplicate if they match
+                    isDuplicateDay = (storedSource === source);
+                } else if (!storedSource && !source) {
+                    // Both unknown — backward compat, treat as duplicate
+                    isDuplicateDay = true;
+                } else if (!storedSource) {
+                    // Legacy data without lastSolvedSource — allow new source through
+                    isDuplicateDay = false;
+                } else {
+                    // storedSource exists but new source is empty — treat as different
+                    isDuplicateDay = false;
+                }
             }
         }
 
@@ -165,6 +179,7 @@
             difficulty: difficulty,
             source: source || currentProblem.source || 'leetcode',
             lastSolved: nowISO,
+            lastSolvedSource: source || 'leetcode',
             interval: nextStep.nextInterval,
             repetition: nextStep.nextRepetition,
             easeFactor: nextStep.nextEaseFactor,

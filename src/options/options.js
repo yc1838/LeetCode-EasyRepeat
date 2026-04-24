@@ -31,6 +31,7 @@
         localEndpoint: 'http://127.0.0.1:11434',
         selectedModelId: 'gemma3:latest',
         aiAnalysisEnabled: true,
+        isCavemanMode: true,
         uiLanguage: 'en'
     };
 
@@ -434,7 +435,10 @@
             status_backup_invalid: '备份格式无效。',
             status_backup_parse_failed: '无法读取这个备份文件。',
             status_backup_restore_cancelled: '已取消恢复。',
-            confirm_backup_restore: '恢复这个备份并覆盖当前本地数据吗？'
+            confirm_backup_restore: '恢复这个备份并覆盖当前本地数据吗？',
+            caveman_mode_label: '原始人模式 (Caveman)',
+            caveman_mode_label_off: '原始人模式 已关闭',
+            caveman_mode_hint: '极致压缩分析结果。节省 Token，跳过废话，让 AI 像聪明原始人一样说话。'
         }
     };
 
@@ -499,7 +503,10 @@
         pattern_threshold_hint: 'Number of mistakes required to activate a pattern',
         debug_logs_label: 'Verbose Debug Logs:',
         debug_logs_hint: 'Enable background debug logging',
-        save_agent_settings_button: '💾 Save Agent Settings'
+        save_agent_settings_button: '💾 Save Agent Settings',
+        caveman_mode_label: 'Caveman Mode',
+        caveman_mode_label_off: 'CAVEMAN MODE OFF',
+        caveman_mode_hint: 'Ultra-compressed explanations. Save tokens, skip filler, talk like smart caveman.'
     });
 
     const createLocalePack = (overrides) => ({ ...I18N.en, ...overrides });
@@ -2102,6 +2109,9 @@
             ...DEFAULTS,
             [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT
         });
+        
+        els.isCavemanMode.checked = settings.isCavemanMode !== false;
+        updateCavemanUI();
 
         currentLanguage = normalizeLanguage(settings.uiLanguage);
         if (els.langSelect) {
@@ -2168,6 +2178,7 @@
             aiAnalysisEnabled: Boolean(els.aiAnalysisEnabled?.checked),
             localEndpoint: els.localEndpoint.value.trim(),
             selectedModelId: els.modelSelect?.value || '',
+            isCavemanMode: Boolean(els.isCavemanMode?.checked),
             uiLanguage: currentLanguage
         };
 
@@ -2394,6 +2405,15 @@
         els.backupFileInput.click();
     }
 
+    function updateCavemanUI() {
+        if (!els.isCavemanMode) return;
+        const titleEl = els.isCavemanMode.parentElement.querySelector('.title');
+        if (!titleEl) return;
+        
+        const isOff = !els.isCavemanMode.checked;
+        titleEl.textContent = isOff ? t('caveman_mode_label_off') : t('caveman_mode_label');
+    }
+
     function normalizeEndpoint(input) {
         let url = (input || '').trim();
 
@@ -2441,6 +2461,7 @@
         els.aiGateStatus = getEl('ai-gate-status');
         els.aiConfigCard = getEl('ai-config-card');
         els.safeObserverCard = getEl('safe-observer-card');
+        els.isCavemanMode = getEl('is-caveman-mode');
 
         els.saveBtn = getEl('save-settings');
         els.saveStatus = getEl('save-status');
@@ -2455,6 +2476,10 @@
 
         els.saveBtn.addEventListener('click', saveSettings);
         els.testBtn.addEventListener('click', testLocalConnection);
+        
+        if (els.isCavemanMode) {
+            els.isCavemanMode.addEventListener('change', updateCavemanUI);
+        }
 
         // Cloud provider radio change → show API key input for that provider
         document.querySelectorAll('input[name="cloud-provider"]').forEach(radio => {
@@ -2516,6 +2541,7 @@
                 currentLanguage = normalizeLanguage(els.langSelect.value);
                 els.langSelect.value = currentLanguage;
                 applyTranslations();
+                updateCavemanUI();
                 const backupState = await chrome.storage.local.get({ [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT });
                 renderBackupMeta(backupState[BACKUP_METADATA_KEY]);
 

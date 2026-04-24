@@ -76,7 +76,8 @@
 
         messages: [],
         input: '',
-        isLoading: false
+        isLoading: false,
+        isCavemanMode: false
     };
 
     async function t(key, defaultVal) {
@@ -157,7 +158,8 @@
                     cloudProvider: '',
                     keys: { google: '', openai: '', anthropic: '' },
                     selectedModelId: 'gemma3:latest',
-                    localEndpoint: 'http://localhost:11434'
+                    localEndpoint: 'http://localhost:11434',
+                    isCavemanMode: true
                 });
 
                 state.aiProvider = globalSettings.aiProvider;
@@ -165,6 +167,7 @@
                 state.keys = globalSettings.keys;
                 state.selectedModelId = globalSettings.selectedModelId;
                 state.localEndpoint = globalSettings.localEndpoint;
+                state.isCavemanMode = globalSettings.isCavemanMode !== false;
                 ensureModelMatchesMode();
             }
 
@@ -189,8 +192,8 @@
             if (changes.aiProvider) state.aiProvider = changes.aiProvider.newValue;
             if (changes.cloudProvider) state.cloudProvider = changes.cloudProvider.newValue;
             if (changes.keys) state.keys = changes.keys.newValue;
-            if (changes.selectedModelId) state.selectedModelId = changes.selectedModelId.newValue;
             if (changes.localEndpoint) state.localEndpoint = changes.localEndpoint.newValue;
+            if (changes.isCavemanMode) state.isCavemanMode = changes.isCavemanMode.newValue;
             ensureModelMatchesMode();
             render();
         }
@@ -791,8 +794,15 @@
             'You are a LeetCode mentor.',
             'Analyze the failure, point out the likely bug or misconception, and suggest a fix.',
             'If "Safe Observer Verification" logs are provided, use them as GROUND TRUTH for what happened. Do not guess.',
-            isRecurrence ? 'Be VERY CONCISE. The user has seen this before.' : 'Be concise and focus on actionable guidance.'
-        ].join(' ');
+            isRecurrence ? 'Be VERY CONCISE. The user has seen this before.' : 'Be concise and focus on actionable guidance.',
+            state.isCavemanMode ? [
+                'CRITICAL: Respond like a SMART CAVEMAN.',
+                'Cut ALL articles (a, an, the), filler, and pleasantries.',
+                'Minimize pronouns (I, you, we) and auxiliary verbs (am, is, are, was, were).',
+                'Technical accuracy must remain 100%.',
+                'Structure: [thing] [action] [reason]. [next step].'
+            ].join(' ') : ''
+        ].filter(Boolean).join(' ');
 
         const prompt = [
             `Problem: ${title}`,
@@ -1137,6 +1147,27 @@
         };
         area.appendChild(optionsBtn);
 
+        // Toggle Caveman Mode
+        area.appendChild(createElement('div', 'llm-spacer', ''));
+        area.appendChild(createElement('span', 'llm-section-label', 'PERSONALITY OVERRIDE'));
+        const cavemanBtn = createElement('button', `llm-action-btn ${state.isCavemanMode ? 'active' : ''}`, 
+            state.isCavemanMode ? '🦴 CAVEMAN_MODE: ON' : '👤 CAVEMAN_MODE: OFF');
+        
+        if (state.isCavemanMode) {
+            cavemanBtn.style.borderColor = 'var(--color-cyan)';
+            cavemanBtn.style.background = 'rgba(34, 211, 238, 0.1)';
+        }
+
+        cavemanBtn.onclick = async () => {
+            const nextVal = !state.isCavemanMode;
+            state.isCavemanMode = nextVal;
+            if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                await chrome.storage.local.set({ isCavemanMode: nextVal });
+            }
+            render();
+        };
+        area.appendChild(cavemanBtn);
+
         // Migration Tool
         area.appendChild(createElement('div', 'llm-spacer', ''));
         area.appendChild(createElement('span', 'llm-section-label', 'MAINTENANCE TOOLS'));
@@ -1225,7 +1256,10 @@
         render();
 
         try {
-            const res = await callLLM(prompt);
+            const systemPrompt = state.isCavemanMode ? 
+                'Respond like a SMART CAVEMAN. Cut articles (a, an, the), filler, and pleasantries. Structure: [thing] [action] [reason]. [next step].' : 
+                'You are a helpful LeetCode mentor.';
+            const res = await callLLM(prompt, systemPrompt);
             state.messages.push({ role: 'assistant', content: res });
         } catch (e) {
             state.messages.push({ role: 'system', content: `Error: ${e.message}` });

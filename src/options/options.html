@@ -230,6 +230,19 @@ Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
                 </select>
                 <p class="hint" data-i18n="active_model_hint">Models are loaded after a successful connection test or key validation.</p>
             </div>
+            <!-- Caveman Mode: Using radio-card style for consistency, but with a checkbox -->
+            <div class="row mode-row" style="margin: 24px 0;">
+                <label class="radio-card">
+                    <input type="checkbox" id="is-caveman-mode">
+                    <div class="card-content">
+                        <span class="icon">🦴</span>
+                        <div class="text">
+                            <span class="title" data-i18n="caveman_mode_label">Caveman Mode</span>
+                            <span class="subtitle" data-i18n="caveman_mode_hint">Ultra-compressed explanations. Save tokens, skip filler, talk like smart caveman.</span>
+                        </div>
+                    </div>
+                </label>
+            </div>
 
             <div class="actions">
                 <button id="save-settings" class="btn primary" data-i18n="save_all_settings_button">Save All

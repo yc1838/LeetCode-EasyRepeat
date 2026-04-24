@@ -196,7 +196,7 @@
                 };
 
                 // Skip rating modal if already saved today
-                if (await isAlreadySavedToday(slug, details.difficulty)) {
+                if (await isAlreadySavedToday(slug, details.difficulty, 'leetcode')) {
                     console.log(`[LeetCode EasyRepeat] Already saved today for ${slug}. Skipping rating modal.`);
                     const showDuplicateSkipToast = getDep('showDuplicateSkipToast');
                     if (showDuplicateSkipToast) showDuplicateSkipToast(details.title, { slug });
@@ -326,7 +326,7 @@
 
                         if (showRatingModal && saveSubmission) {
                             // Skip rating modal if this problem was already saved today
-                            if (await isAlreadySavedToday(slug, finalDifficulty)) {
+                            if (await isAlreadySavedToday(slug, finalDifficulty, 'leetcode')) {
                                 console.log(`[LeetCode EasyRepeat] Already saved today for ${slug}. Skipping rating modal.`);
                                 const showDuplicateSkipToast = getDep('showDuplicateSkipToast');
                                 if (showDuplicateSkipToast) showDuplicateSkipToast(finalTitle, { slug });
@@ -567,7 +567,7 @@
      * Check if a problem was already saved to storage today (same local day + same difficulty).
      * Used to skip the rating modal on duplicate AC submissions within the same day.
      */
-    async function isAlreadySavedToday(slug, difficulty) {
+    async function isAlreadySavedToday(slug, difficulty, source) {
         try {
             if (typeof chrome === 'undefined' || !chrome.runtime?.id) return false;
             const result = await chrome.storage.local.get({ problems: {} });
@@ -580,7 +580,14 @@
                 now.getMonth() === lastSolved.getMonth() &&
                 now.getDate() === lastSolved.getDate();
 
-            return sameDay && problem.difficulty === difficulty;
+            if (!sameDay || problem.difficulty !== difficulty) return false;
+
+            // Source-aware: only skip if same source saved today
+            if (source && problem.lastSolvedSource) {
+                return problem.lastSolvedSource === source;
+            }
+            // Legacy data without lastSolvedSource — allow through
+            return !source && !problem.lastSolvedSource;
         } catch (e) {
             return false;
         }

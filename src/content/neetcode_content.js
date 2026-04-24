@@ -102,7 +102,7 @@
     };
   }
 
-  async function _isAlreadySavedToday(slug, difficulty) {
+  async function _isAlreadySavedToday(slug, difficulty, source) {
     try {
       if (!chrome.runtime?.id) return false;
       const result = await chrome.storage.local.get({ problems: {} });
@@ -110,10 +110,16 @@
       if (!problem || !problem.lastSolved) return false;
       const now = new Date();
       const last = new Date(problem.lastSolved);
-      return now.getFullYear() === last.getFullYear() &&
+      const sameDay = now.getFullYear() === last.getFullYear() &&
         now.getMonth() === last.getMonth() &&
-        now.getDate() === last.getDate() &&
-        problem.difficulty === difficulty;
+        now.getDate() === last.getDate();
+      if (!sameDay || problem.difficulty !== difficulty) return false;
+      // Source-aware: only skip if same source saved today
+      if (source && problem.lastSolvedSource) {
+        return problem.lastSolvedSource === source;
+      }
+      // Legacy data without lastSolvedSource — allow through
+      return !source && !problem.lastSolvedSource;
     } catch (e) {
       return false;
     }
@@ -131,7 +137,7 @@
     const title = info.title || slug;
     const difficulty = info.difficulty || 'Medium';
 
-    if (await _isAlreadySavedToday(slug, difficulty)) {
+    if (await _isAlreadySavedToday(slug, difficulty, 'neetcode')) {
       console.log(`[NeetCode EasyRepeat] Already saved today for ${slug}. Skipping.`);
       const showDuplicateSkipToast = _getDep('showDuplicateSkipToast');
       if (showDuplicateSkipToast) showDuplicateSkipToast(title, { slug });

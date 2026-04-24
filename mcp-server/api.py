@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 import asyncio
+from contextlib import asynccontextmanager
 import inspect
 import os
 import re
@@ -19,8 +20,15 @@ import hashlib
 from server import verify_solution_logic
 from config import get_settings
 from providers import PROVIDERS, get_llm
+from tracing import configure_tracing
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    configure_tracing()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 settings = get_settings()
 
 # In-memory job registry for async autofix progress

@@ -40,6 +40,8 @@ pip install -r requirements.txt
 uvicorn api:app --reload --port 8000
 ```
 
+If you want Arize traces for backend LLM calls, add `ARIZE_API_KEY` and `ARIZE_SPACE_ID` to `mcp-server/.env` before starting the server. Tracing is enabled automatically when those values are present.
+
 ### 📥  Install in Chrome Extensions
 
 <div align="center">

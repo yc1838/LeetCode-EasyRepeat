@@ -344,6 +344,7 @@ async def run_evaluations(
     fix_quality_scorer, explanation_quality_scorer = build_scorers(judge_model, judge_base_url)
 
     results = {}
+    tasks = []
 
     if not caveman_only:
         structured_metadata = {
@@ -355,7 +356,7 @@ async def run_evaluations(
             "judge_model": judge_model,
         }
 
-        structured_results = await aevaluate(
+        coro_structured = aevaluate(
             functools.partial(
                 structured_target,
                 provider=provider,
@@ -370,8 +371,7 @@ async def run_evaluations(
             metadata=structured_metadata,
             max_concurrency=max_concurrency,
         )
-        print_experiment_summary("structured-pydantic", structured_results)
-        results["structured"] = structured_results
+        tasks.append(("structured", "structured-pydantic", coro_structured))
 
     # --- Caveman variant ---
     caveman_metadata = {
@@ -383,7 +383,7 @@ async def run_evaluations(
         "judge_model": judge_model,
     }
 
-    caveman_results = await aevaluate(
+    coro_caveman = aevaluate(
         functools.partial(
             structured_caveman_target,
             provider=provider,
@@ -398,8 +398,15 @@ async def run_evaluations(
         metadata=caveman_metadata,
         max_concurrency=max_concurrency,
     )
-    print_experiment_summary("structured-caveman", caveman_results)
-    results["caveman"] = caveman_results
+    tasks.append(("caveman", "structured-caveman", coro_caveman))
+
+    # Run evaluations concurrently
+    coros = [t[2] for t in tasks]
+    eval_results = await asyncio.gather(*coros)
+
+    for (key, prefix, _), res in zip(tasks, eval_results):
+        print_experiment_summary(prefix, res)
+        results[key] = res
 
     return results
 
