@@ -516,7 +516,7 @@
             const syncWidgetTheme = () => new Promise((resolve) => {
                 try {
                     if (!chrome.runtime?.id) { resolve(); return; }
-                    chrome.storage.local.get(['theme', 'notesWidgetPosition'], (result) => {
+                    chrome.storage.local.get({ theme: 'sakura', notesWidgetPosition: null }, (result) => {
                         if (!chrome.runtime?.lastError) {
                             applyNotesWidgetTheme(widget, result.theme || 'sakura');
 
