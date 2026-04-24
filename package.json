@@ -1,6 +1,6 @@
 {
     "name": "leetcode-srs-extension",
-    "version": "1.0.1",
+    "version": "1.0.6",
     "description": "LeetCode SRS Extension",
     "scripts": {
         "test": "jest --testPathIgnorePatterns=browser_e2e",
