@@ -3,7 +3,12 @@
 [English](#english) | [中文版](#中文版-chinese-version)
 
 <a id="english"></a>
+<div align="center">
+  <img src="assets/sakura_theme.png" alt="Sakura Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+  <img src="assets/matrix_theme.png" alt="Matrix Theme UI" width="48%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);" />
+</div>
 
+---
 A Chrome Extension that helps you master LeetCode problems using a **Spaced Repetition System** (a learning technique that involves reviewing information at increasing intervals of time). 
 
 It automatically tracks your submissions (both Accepted and Wrong Answer), schedules reviews based on the **FSRS v4.5 algorithm**, and features a stunning cyberpunk-inspired UI with customizable themes.
