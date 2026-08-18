@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     # LLM Provider Keys
     google_api_key: Optional[SecretStr] = Field(validation_alias="GOOGLE_API_KEY", default=None)
     openai_api_key: Optional[SecretStr] = Field(validation_alias="OPENAI_API_KEY", default=None)
+    deepseek_api_key: Optional[SecretStr] = Field(validation_alias="DEEPSEEK_API_KEY", default=None)
+    qwen_api_key: Optional[SecretStr] = Field(validation_alias="DASHSCOPE_API_KEY", default=None)
     anthropic_api_key: Optional[SecretStr] = Field(validation_alias="ANTHROPIC_API_KEY", default=None)
     
     # LangSmith Tracing Keys

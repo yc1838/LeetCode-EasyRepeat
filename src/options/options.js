@@ -12,6 +12,20 @@
             { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
             { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai' }
         ],
+        deepseek: [
+            { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', provider: 'deepseek' },
+            { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'deepseek' },
+            { id: 'deepseek-chat', name: 'DeepSeek Chat (Legacy Alias)', provider: 'deepseek' },
+            { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (Legacy Alias)', provider: 'deepseek' }
+        ],
+        qwen: [
+            { id: 'qwen3.8-max', name: 'Qwen 3.8 Max', provider: 'qwen' },
+            { id: 'qwen3.7-plus', name: 'Qwen 3.7 Plus', provider: 'qwen' },
+            { id: 'qwen3.7-flash', name: 'Qwen 3.7 Flash', provider: 'qwen' },
+            { id: 'qwen3-coder-plus', name: 'Qwen 3 Coder Plus', provider: 'qwen' },
+            { id: 'qwen3-coder-flash', name: 'Qwen 3 Coder Flash', provider: 'qwen' },
+            { id: 'qwen3-coder-next', name: 'Qwen 3 Coder Next', provider: 'qwen' }
+        ],
         anthropic: [
             { id: 'claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet', provider: 'anthropic' }
         ],
@@ -27,7 +41,9 @@
     const DEFAULTS = {
         aiProvider: 'local',
         cloudProvider: '',
-        keys: { google: '', openai: '', anthropic: '' },
+        keys: { google: '', openai: '', deepseek: '', qwen: '', anthropic: '', custom: '' },
+        providerBaseUrls: { qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1', custom: '' },
+        availableModels: {},
         localEndpoint: 'http://127.0.0.1:11434',
         selectedModelId: 'gemma3:latest',
         aiAnalysisEnabled: true,
@@ -38,7 +54,16 @@
     const CLOUD_PROVIDER_CONFIG = {
         google:    { placeholder: 'AIzaSy...', label: 'Google Gemini API Key', helpUrl: 'https://aistudio.google.com/apikey' },
         openai:    { placeholder: 'sk-...',    label: 'OpenAI API Key',        helpUrl: 'https://platform.openai.com/api-keys' },
+        deepseek:  { placeholder: 'sk-...',    label: 'DeepSeek API Key',      helpUrl: 'https://platform.deepseek.com/api_keys' },
+        qwen:      { placeholder: 'sk-...',    label: 'DashScope API Key',     helpUrl: 'https://bailian.console.aliyun.com/' },
         anthropic: { placeholder: 'sk-ant-...', label: 'Anthropic API Key',    helpUrl: 'https://console.anthropic.com/settings/keys' },
+        custom:    { placeholder: 'API Key',   label: 'OpenAI-Compatible API Key', helpUrl: 'https://platform.openai.com/docs/api-reference' },
+    };
+
+    const DEFAULT_PROVIDER_BASE_URLS = {
+        deepseek: 'https://api.deepseek.com',
+        qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        custom: ''
     };
 
     /**
@@ -71,6 +96,34 @@
             return data.models.map(m => m.name || m.model);
         }
         return [];
+    }
+
+    function getProviderBaseUrl(provider) {
+        if (provider === 'qwen' || provider === 'custom') {
+            const raw = String(els.cloudBaseUrlInput?.value || DEFAULT_PROVIDER_BASE_URLS[provider] || '').trim();
+            return raw ? normalizeEndpoint(raw) : '';
+        }
+        return DEFAULT_PROVIDER_BASE_URLS[provider] || '';
+    }
+
+    async function ensureHostPermission(baseUrl) {
+        if (!baseUrl || !chrome.permissions) return;
+        const origin = `${new URL(baseUrl).origin}/*`;
+        const hasPermission = await chrome.permissions.contains({ origins: [origin] });
+        if (!hasPermission) {
+            const granted = await chrome.permissions.request({ origins: [origin] });
+            if (!granted) throw new Error(`Permission denied for ${new URL(baseUrl).origin}`);
+        }
+    }
+
+    async function fetchOpenAICompatibleModels(baseUrl, apiKey) {
+        await ensureHostPermission(baseUrl);
+        const data = await proxyFetch(`${baseUrl.replace(/\/+$/, '')}/models`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        if (data.error) throw new Error(data.error.message || 'Could not list models');
+        return (data.data || []).map(model => model.id).filter(Boolean);
     }
 
     function getBackendBaseUrl(localEndpoint) {
@@ -113,6 +166,27 @@
                     .map(m => m.id)
                     .sort().reverse();
             }
+            case 'deepseek': {
+                return fetchOpenAICompatibleModels(DEFAULT_PROVIDER_BASE_URLS.deepseek, apiKey);
+            }
+            case 'qwen': {
+                const baseUrl = getProviderBaseUrl('qwen');
+                try {
+                    const models = await fetchOpenAICompatibleModels(baseUrl, apiKey);
+                    return models.length ? models : MODELS.qwen.map(model => model.id);
+                } catch (error) {
+                    console.warn('[Options] DashScope model discovery is unavailable; using the recommended list:', error);
+                    return MODELS.qwen.map(model => model.id);
+                }
+            }
+            case 'custom': {
+                const baseUrl = getProviderBaseUrl('custom');
+                if (!baseUrl) throw new Error('Enter an OpenAI-compatible Base URL');
+                const models = await fetchOpenAICompatibleModels(baseUrl, apiKey);
+                const customId = els.customModelId?.value?.trim();
+                if (!models.length && customId) return [customId];
+                return models;
+            }
             case 'anthropic': {
                 const data = await proxyFetch('https://api.anthropic.com/v1/models', {
                     method: 'GET',
@@ -133,18 +207,25 @@
      */
     async function validateCloudKey(provider, apiKey) {
         const localEndpoint = normalizeEndpoint(els.localEndpoint?.value || DEFAULTS.localEndpoint);
+        const providerBaseUrl = getProviderBaseUrl(provider);
         const backendBaseUrl = getBackendBaseUrl(localEndpoint);
+        const providerUsesCustomBaseUrl = provider === 'deepseek'
+            || provider === 'qwen'
+            || provider === 'custom';
+        const validationPayload = {
+            provider,
+            api_key: apiKey
+        };
+        if (providerUsesCustomBaseUrl && providerBaseUrl) {
+            validationPayload.base_url = providerBaseUrl;
+        }
         let data;
 
         try {
             data = await proxyFetch(`${backendBaseUrl}/models`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider,
-                    api_key: apiKey,
-                    base_url: localEndpoint
-                })
+                body: JSON.stringify(validationPayload)
             });
 
         } catch (backendError) {
@@ -157,6 +238,10 @@
         }
 
         if (data.models && Array.isArray(data.models)) {
+            if (provider === 'custom' && data.models.length === 0) {
+                const customId = els.customModelId?.value?.trim();
+                if (customId) return [customId];
+            }
             return data.models;
         }
 
@@ -166,6 +251,7 @@
     // Progressive disclosure state
     let cloudProviderSelected = null;
     let keyValidated = false;
+    let availableModelsByProvider = {};
 
     const BACKUP_SCHEMA_VERSION = 2;
     const BACKUP_METADATA_KEY = 'backupMeta';
@@ -1893,6 +1979,7 @@
         };
 
         if (mode === 'local') {
+            if (els.customModelField) els.customModelField.style.display = 'none';
             // Fetch dynamically from Ollama directly
             try {
                 const baseUrl = normalizeEndpoint(els.localEndpoint?.value || DEFAULTS.localEndpoint);
@@ -1908,6 +1995,7 @@
                 createGroup(t('model_group_local'), MODELS.local);
             }
         } else {
+            if (els.customModelField) els.customModelField.style.display = cloudProviderSelected ? 'block' : 'none';
             // Cloud mode: populate only the selected provider's models
             const provider = cloudProviderSelected;
             if (!provider) {
@@ -1917,11 +2005,22 @@
             const providerGroupMap = {
                 google: { label: t('model_group_google'), models: MODELS.gemini },
                 openai: { label: t('model_group_openai'), models: MODELS.openai },
+                deepseek: { label: 'DeepSeek', models: MODELS.deepseek },
+                qwen: { label: 'Qwen (DashScope)', models: MODELS.qwen },
                 anthropic: { label: t('model_group_anthropic'), models: MODELS.anthropic }
             };
             const group = providerGroupMap[provider];
             if (group) {
-                createGroup(group.label, group.models);
+                const discovered = availableModelsByProvider[provider];
+                const models = Array.isArray(discovered) && discovered.length
+                    ? discovered.map(id => ({ id, name: id, provider }))
+                    : group.models;
+                createGroup(group.label, models);
+            } else if (provider === 'custom') {
+                const discovered = availableModelsByProvider.custom || [];
+                if (discovered.length) {
+                    createGroup('OpenAI-Compatible', discovered.map(id => ({ id, name: id, provider: 'custom' })));
+                }
             }
         }
 
@@ -1944,7 +2043,10 @@
         const providerLabels = {
             google: t('model_group_google'),
             openai: t('model_group_openai'),
+            deepseek: 'DeepSeek',
+            qwen: 'Qwen (DashScope)',
             anthropic: t('model_group_anthropic'),
+            custom: 'OpenAI-Compatible',
             ollama: t('model_group_local')
         };
 
@@ -2004,6 +2106,7 @@
 
         // Show key input section
         if (els.cloudKeySection) els.cloudKeySection.style.display = 'block';
+        if (els.customModelField) els.customModelField.style.display = 'block';
 
         // Hide model dropdown until key is validated
         setModelSelectVisible(false);
@@ -2014,6 +2117,14 @@
             if (els.cloudKeyInput) els.cloudKeyInput.placeholder = config.placeholder;
             if (els.cloudKeyLabel) els.cloudKeyLabel.textContent = config.label;
             if (els.cloudKeyHelp) els.cloudKeyHelp.href = config.helpUrl;
+        }
+
+        const usesBaseUrl = providerValue === 'qwen' || providerValue === 'custom';
+        if (els.cloudBaseUrlSection) els.cloudBaseUrlSection.style.display = usesBaseUrl ? 'block' : 'none';
+        if (usesBaseUrl && els.cloudBaseUrlInput) {
+            chrome.storage.local.get({ providerBaseUrls: DEFAULTS.providerBaseUrls }, result => {
+                els.cloudBaseUrlInput.value = result.providerBaseUrls?.[providerValue] || DEFAULT_PROVIDER_BASE_URLS[providerValue] || '';
+            });
         }
 
         // Pre-fill key from storage if it exists
@@ -2051,7 +2162,18 @@
                 // Save key immediately
                 const stored = await chrome.storage.local.get({ keys: DEFAULTS.keys });
                 const keys = { ...stored.keys, [cloudProviderSelected]: apiKey };
-                await chrome.storage.local.set({ keys, cloudProvider: cloudProviderSelected });
+                availableModelsByProvider = { ...availableModelsByProvider, [cloudProviderSelected]: models };
+                const baseState = await chrome.storage.local.get({ providerBaseUrls: DEFAULTS.providerBaseUrls });
+                const providerBaseUrls = { ...baseState.providerBaseUrls };
+                if (cloudProviderSelected === 'qwen' || cloudProviderSelected === 'custom') {
+                    providerBaseUrls[cloudProviderSelected] = getProviderBaseUrl(cloudProviderSelected);
+                }
+                await chrome.storage.local.set({
+                    keys,
+                    cloudProvider: cloudProviderSelected,
+                    availableModels: availableModelsByProvider,
+                    providerBaseUrls
+                });
 
                 // Show and populate model dropdown with dynamic models
                 populateModelSelectFromList(models, cloudProviderSelected);
@@ -2102,6 +2224,7 @@
             ...DEFAULTS,
             [BACKUP_METADATA_KEY]: BACKUP_META_DEFAULT
         });
+        availableModelsByProvider = settings.availableModels || {};
 
         currentLanguage = normalizeLanguage(settings.uiLanguage);
         if (els.langSelect) {
@@ -2132,9 +2255,16 @@
                 els.cloudKeyInput.value = savedKey;
                 keyValidated = true;
             }
+            if ((settings.cloudProvider === 'qwen' || settings.cloudProvider === 'custom') && els.cloudBaseUrlInput) {
+                els.cloudBaseUrlInput.value = settings.providerBaseUrls?.[settings.cloudProvider] || DEFAULT_PROVIDER_BASE_URLS[settings.cloudProvider] || '';
+            }
         }
 
         await setModeUI(mode, settings.selectedModelId || '');
+        if (els.customModelId) {
+            const listed = Array.from(els.modelSelect?.options || []).some(option => option.value === settings.selectedModelId);
+            els.customModelId.value = settings.selectedModelId && !listed ? settings.selectedModelId : '';
+        }
 
         // For returning local users: auto-try to populate models if endpoint is set
         if (mode === 'local') {
@@ -2157,17 +2287,24 @@
         // Build keys: preserve existing keys, update current cloud provider's key
         const stored = await chrome.storage.local.get({ keys: DEFAULTS.keys });
         const keys = { ...stored.keys };
+        const storedBaseUrls = await chrome.storage.local.get({ providerBaseUrls: DEFAULTS.providerBaseUrls });
+        const providerBaseUrls = { ...storedBaseUrls.providerBaseUrls };
         if (mode === 'cloud' && cloudProviderSelected && els.cloudKeyInput) {
             keys[cloudProviderSelected] = els.cloudKeyInput.value.trim();
+            if ((cloudProviderSelected === 'qwen' || cloudProviderSelected === 'custom') && els.cloudBaseUrlInput) {
+                providerBaseUrls[cloudProviderSelected] = els.cloudBaseUrlInput.value.trim();
+            }
         }
 
         const payload = {
             aiProvider: mode,
             cloudProvider: cloudProviderSelected || '',
             keys: keys,
+            providerBaseUrls,
+            availableModels: availableModelsByProvider,
             aiAnalysisEnabled: Boolean(els.aiAnalysisEnabled?.checked),
             localEndpoint: els.localEndpoint.value.trim(),
-            selectedModelId: els.modelSelect?.value || '',
+            selectedModelId: els.customModelId?.value?.trim() || els.modelSelect?.value || '',
             uiLanguage: currentLanguage
         };
 
@@ -2431,11 +2568,15 @@
         els.cloudKeyInput = getEl('cloud-key-input');
         els.cloudKeyLabel = getEl('cloud-key-label');
         els.cloudKeyHelp = getEl('cloud-key-help');
+        els.cloudBaseUrlSection = getEl('cloud-base-url-section');
+        els.cloudBaseUrlInput = getEl('cloud-base-url-input');
         els.validateKeyBtn = getEl('validate-key');
         els.keyStatus = getEl('key-status');
         els.modelSelectField = getEl('model-select-field');
         els.localEndpoint = getEl('local-endpoint');
         els.modelSelect = getEl('model-select');
+        els.customModelId = getEl('custom-model-id');
+        els.customModelField = getEl('custom-model-field');
         els.aiAnalysisEnabled = getEl('ai-analysis-enabled');
         els.aiAnalysisDisabled = getEl('ai-analysis-disabled');
         els.aiGateStatus = getEl('ai-gate-status');
@@ -2465,6 +2606,9 @@
         if (els.validateKeyBtn) {
             els.validateKeyBtn.addEventListener('click', onValidateKey);
         }
+        els.modelSelect?.addEventListener('change', () => {
+            if (els.customModelId) els.customModelId.value = '';
+        });
 
         els.backupExportBtn?.addEventListener('click', async () => {
             try {

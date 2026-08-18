@@ -40,6 +40,30 @@ PROVIDERS: dict[str, ProviderInfo] = {
         default_model="gpt-4o-mini",
         fallback_models=["gpt-4o", "gpt-4o-mini", "o1-mini", "o3-mini"],
     ),
+    "deepseek": ProviderInfo(
+        name="deepseek",
+        display_name="DeepSeek",
+        requires_api_key=True,
+        default_model="deepseek-v4-flash",
+        fallback_models=["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
+    ),
+    "qwen": ProviderInfo(
+        name="qwen",
+        display_name="Qwen (DashScope)",
+        requires_api_key=True,
+        default_model="qwen3.7-plus",
+        fallback_models=[
+            "qwen3.8-max", "qwen3.7-plus", "qwen3.7-flash",
+            "qwen3-coder-plus", "qwen3-coder-flash", "qwen3-coder-next",
+        ],
+    ),
+    "custom": ProviderInfo(
+        name="custom",
+        display_name="OpenAI-Compatible",
+        requires_api_key=True,
+        default_model="",
+        fallback_models=[],
+    ),
     "anthropic": ProviderInfo(
         name="anthropic",
         display_name="Anthropic",
@@ -87,6 +111,52 @@ def get_llm(provider: str, model: str, api_key: str | None = None, base_url: str
             return ChatOpenAI(
                 model=model, api_key=final_key,
                 temperature=0.4, max_retries=3,
+            )
+
+        case "deepseek":
+            from langchain_openai import ChatOpenAI
+
+            env_key = settings.deepseek_api_key.get_secret_value() if settings.deepseek_api_key else None
+            final_key = api_key or env_key
+            if not final_key:
+                raise ValueError("DeepSeek requires an API key. Check settings or .env.")
+
+            return ChatOpenAI(
+                model=model,
+                api_key=final_key,
+                base_url=base_url or "https://api.deepseek.com",
+                temperature=0.4,
+                max_retries=3,
+            )
+
+        case "qwen":
+            from langchain_openai import ChatOpenAI
+
+            env_key = settings.qwen_api_key.get_secret_value() if settings.qwen_api_key else None
+            final_key = api_key or env_key
+            if not final_key:
+                raise ValueError("Qwen/DashScope requires an API key.")
+            return ChatOpenAI(
+                model=model,
+                api_key=final_key,
+                base_url=base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                temperature=0.4,
+                max_retries=3,
+            )
+
+        case "custom":
+            from langchain_openai import ChatOpenAI
+
+            if not api_key:
+                raise ValueError("The OpenAI-compatible provider requires an API key.")
+            if not base_url:
+                raise ValueError("The OpenAI-compatible provider requires a Base URL.")
+            return ChatOpenAI(
+                model=model,
+                api_key=api_key,
+                base_url=base_url,
+                temperature=0.4,
+                max_retries=3,
             )
 
         case "anthropic":

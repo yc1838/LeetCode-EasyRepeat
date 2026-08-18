@@ -36,6 +36,88 @@
         return null;
     };
 
+    async function getCurrentUiLanguage() {
+        const i18n = getI18n();
+        if (i18n && typeof i18n.getLanguage === 'function') {
+            try {
+                // Read once so the language used for the prompt and the saved
+                // note cannot diverge because of duplicate async reads.
+                const storedLanguage = await i18n.getLanguage();
+                const normalizedLanguage = typeof i18n.normalizeLanguage === 'function'
+                    ? i18n.normalizeLanguage(storedLanguage)
+                    : storedLanguage;
+                return String(normalizedLanguage || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+            } catch (e) { /* fall through to storage/default */ }
+        }
+
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                const result = await chrome.storage.local.get({ uiLanguage: 'en' });
+                return String(result.uiLanguage || 'en').startsWith('zh') ? 'zh' : 'en';
+            }
+        } catch (e) { /* use default */ }
+        return 'en';
+    }
+
+    function translateUi(key, language, fallback) {
+        const i18n = getI18n();
+        if (i18n && typeof i18n.t === 'function') {
+            const translated = i18n.t(key, {}, language);
+            if (translated && translated !== key) return translated;
+        }
+        return fallback;
+    }
+
+    function localizeSubmissionStatus(status, language) {
+        if (language !== 'zh') return status || 'Unknown Error';
+        const statusMap = {
+            'Wrong Answer': '答案错误',
+            'Runtime Error': '运行错误',
+            'Compile Error': '编译错误',
+            'Time Limit Exceeded': '超出时间限制',
+            'Memory Limit Exceeded': '超出内存限制',
+            'Output Limit Exceeded': '超出输出限制',
+            'Internal Error': '内部错误'
+        };
+        return statusMap[status] || status || '未知错误';
+    }
+
+    /**
+     * Best-effort editor snapshot. Monaco virtualizes its DOM, so a successful
+     * capture is explicitly marked as partial rather than pretending it is the
+     * exact submitted source. Capturing at click time still avoids reading code
+     * that the user edits after the submission has already been sent.
+     */
+    function captureEditorCodeFromDom() {
+        if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') {
+            return { status: 'failed', source: 'dom_viewport', code: '', reason: 'document_unavailable' };
+        }
+
+        const selectors = [
+            '.monaco-editor.focused .view-lines .view-line',
+            '.monaco-editor .view-lines .view-line',
+            '.view-lines .view-line'
+        ];
+
+        try {
+            for (const selector of selectors) {
+                const lines = document.querySelectorAll(selector);
+                if (lines && lines.length > 0) {
+                    return {
+                        status: 'partial',
+                        source: 'dom_viewport',
+                        code: Array.from(lines).map(line => line.innerText || line.textContent || '').join('\n'),
+                        reason: 'monaco_virtualized_dom'
+                    };
+                }
+            }
+        } catch (e) {
+            return { status: 'failed', source: 'dom_viewport', code: '', reason: e.message || 'capture_error' };
+        }
+
+        return { status: 'failed', source: 'dom_viewport', code: '', reason: 'editor_lines_not_found' };
+    }
+
     const normalizeDifficulty = (value) => {
         const i18n = getI18n();
         if (i18n && typeof i18n.normalizeDifficulty === 'function') {
@@ -234,7 +316,7 @@
     /**
      * Poll the LeetCode API to find the result of the submission.
      */
-    async function pollSubmissionResult(slug, clickTime, title, difficulty) {
+    async function pollSubmissionResult(slug, clickTime, title, difficulty, submissionContext = {}) {
         try {
             console.log(`[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling for ${slug} since ${clickTime}`);
             let attempts = 0;
@@ -290,7 +372,7 @@
             console.log(`[LeetCode EasyRepeat] [LEETCODE-DEBUG] Found submission ID: ${submissionId}. Polling status...`);
 
             // Step 2: Poll for Result (Accepted/Wrong Answer)
-            await checkSubmissionStatus(submissionId, title, slug, difficulty);
+            await checkSubmissionStatus(submissionId, title, slug, difficulty, submissionContext);
         } catch (e) {
             console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Critical error in pollSubmissionResult:", e);
         }
@@ -299,7 +381,7 @@
     /**
      * Check status of a specific submission ID until it finishes processing.
      */
-    async function checkSubmissionStatus(submissionId, title, slug, difficulty) {
+    async function checkSubmissionStatus(submissionId, title, slug, difficulty, submissionContext = {}) {
         let checks = 0;
         while (checks < 20) {
             try {
@@ -399,15 +481,10 @@
                                 }
 
                                 if (shouldAnalyze) {
-                                    // 3. Get Code (Scrape from DOM)
-                                    // Try to find Monaco lines
-                                    let code = "";
-                                    const lines = document.querySelectorAll('.view-lines .view-line');
-                                    if (lines && lines.length > 0) {
-                                        code = Array.from(lines).map(l => l.innerText).join('\n');
-                                    } else {
-                                        code = "// Code could not be scraped. Please check permissions.";
-                                    }
+                                    // 3. Use the click-time snapshot when available. Falling back to
+                                    // a current DOM snapshot is best-effort and remains marked partial.
+                                    const capture = submissionContext.capture || captureEditorCodeFromDom();
+                                    const code = typeof capture.code === 'string' ? capture.code : '';
 
                                     // 4. Question info already available via shared getQuestionInfo() above
                                     // finalTitle, finalDifficulty, finalTopics are in scope from parent
@@ -433,6 +510,10 @@
 
                                     try {
                                         const errorDetails = data.runtime_error || data.compile_error || data.full_runtime_error || data.status_msg;
+                                        // Resolve the language once for the entire analysis. This keeps
+                                        // the model response and the note wrapper in the same language,
+                                        // even if the option changes while the request is in flight.
+                                        const language = await getCurrentUiLanguage();
 
                                         // Extract failing test case if available
                                         const testInput = data.last_testcase || data.input_formatted || data.input || "";
@@ -444,7 +525,15 @@
                                             {
                                                 title: finalTitle,
                                                 difficulty: finalDifficulty,
-                                                test_input: testInput
+                                                test_input: testInput,
+                                                expected_output: data.expected_output || data.expected || '',
+                                                actual_output: data.code_output || data.std_output || data.output || '',
+                                                ui_language: language,
+                                                code_capture_status: capture.status,
+                                                code_capture_source: capture.source,
+                                                code_capture_reason: capture.reason || '',
+                                                language: data.lang || data.lang_name || data.language || '',
+                                                topics: finalTopics
                                             },
                                             controller.signal,
                                             (status) => {
@@ -454,8 +543,13 @@
 
                                         // 6. Save to Notes
                                         if (analysis && saveNotes) {
-                                            const now = new Date().toLocaleString();
-                                            const noteEntry = `\n\n### 🤖 AI Analysis (${now})\n**Mistake:** ${data.status_msg}\n\n${analysis}`;
+                                            const locale = language === 'zh' ? 'zh-CN' : 'en-US';
+                                            const now = new Date().toLocaleString(locale);
+                                            const heading = translateUi('content_ai_analysis_heading', language, language === 'zh' ? 'AI 错误分析' : 'AI Analysis');
+                                            const mistakeLabel = translateUi('content_mistake_label', language, language === 'zh' ? '错误类型' : 'Mistake');
+                                            const localizedStatus = localizeSubmissionStatus(data.status_msg, language);
+                                            const labelSeparator = language === 'zh' ? '：' : ':';
+                                            const noteEntry = `\n\n### 🤖 ${heading} (${now})\n**${mistakeLabel}${labelSeparator}** ${localizedStatus}\n\n${analysis}`;
 
                                             // Append to existing
                                             const getNotes = getDep('getNotes');
@@ -536,9 +630,10 @@
 
                     const slug = getCurrentProblemSlug();
                     if (slug) {
+                        const capture = captureEditorCodeFromDom();
                         // Title & difficulty are just fallbacks here — getQuestionInfo()
                         // in checkSubmissionStatus() will fetch the real values from API
-                        pollSubmissionResult(slug, clickTime, slug.replace(/-/g, ' '), 'Medium')
+                        pollSubmissionResult(slug, clickTime, slug.replace(/-/g, ' '), 'Medium', { capture })
                             .catch(err => console.error("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Polling failed:", err));
                     } else {
                         console.warn("[LeetCode EasyRepeat] [LEETCODE-DEBUG] Could not determine slug on click.");
@@ -618,6 +713,7 @@
         fetchQuestionDetails,
         getQuestionInfo,
         updateActiveSession,
+        captureEditorCodeFromDom,
         /** Clear the in-memory question info cache (useful for testing). */
         clearQuestionInfoCache: () => _questionInfoCache.clear()
     };

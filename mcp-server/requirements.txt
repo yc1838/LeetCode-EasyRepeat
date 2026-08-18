@@ -30,6 +30,7 @@ langchain==1.2.12
 langchain-core==1.2.18
 langchain-google-genai==4.2.1
 langchain-ollama==1.0.1
+langchain-openai==1.1.11
 langgraph==1.1.2
 langgraph-checkpoint==4.0.1
 langgraph-prebuilt==1.0.8
