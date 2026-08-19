@@ -27,6 +27,7 @@ jsonpointer==3.0.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 langchain==1.2.12
+langchain-anthropic==1.2.0
 langchain-core==1.2.18
 langchain-google-genai==4.2.1
 langchain-ollama==1.0.1

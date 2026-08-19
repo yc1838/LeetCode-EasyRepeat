@@ -142,6 +142,16 @@
         }
     }
 
+    function getCustomModelFallback(provider, customModelId, error = null) {
+        const modelId = provider === 'custom' ? String(customModelId || '').trim() : '';
+        if (!modelId) return null;
+
+        const message = String(error?.message || error || '');
+        if (/permission denied/i.test(message)) return null;
+
+        return [modelId];
+    }
+
     async function validateCloudKeyDirect(provider, apiKey) {
         switch (provider) {
             case 'google': {
@@ -182,10 +192,18 @@
             case 'custom': {
                 const baseUrl = getProviderBaseUrl('custom');
                 if (!baseUrl) throw new Error('Enter an OpenAI-compatible Base URL');
-                const models = await fetchOpenAICompatibleModels(baseUrl, apiKey);
                 const customId = els.customModelId?.value?.trim();
-                if (!models.length && customId) return [customId];
-                return models;
+                try {
+                    const models = await fetchOpenAICompatibleModels(baseUrl, apiKey);
+                    return models.length ? models : (getCustomModelFallback(provider, customId) || []);
+                } catch (error) {
+                    const fallback = getCustomModelFallback(provider, customId, error);
+                    if (fallback) {
+                        console.warn('[Options] Compatible provider model discovery is unavailable; using the custom model ID:', error);
+                        return fallback;
+                    }
+                    throw error;
+                }
             }
             case 'anthropic': {
                 const data = await proxyFetch('https://api.anthropic.com/v1/models', {
@@ -234,6 +252,11 @@
         }
 
         if (data.error) {
+            const fallback = getCustomModelFallback(provider, els.customModelId?.value, data.error_detail || data.error);
+            if (fallback) {
+                console.warn('[Options] Backend model discovery is unavailable; using the custom model ID:', data.error_detail || data.error);
+                return fallback;
+            }
             throw new Error(data.error_detail || data.error);
         }
 
@@ -1579,6 +1602,11 @@
 
     const els = {};
     const statusTimers = new WeakMap();
+
+    if (typeof window !== 'undefined') {
+        window.EasyRepeatOptions = window.EasyRepeatOptions || {};
+        window.EasyRepeatOptions.__test = { getCustomModelFallback };
+    }
 
     function getEl(id) {
         return document.getElementById(id);
