@@ -123,7 +123,7 @@ def test_get_llm_unknown_provider_raises():
     """Unknown provider string → ValueError."""
     from providers import get_llm
     with pytest.raises(ValueError, match="Unsupported provider"):
-        get_llm("deepseek", "deepseek-r1")
+        get_llm("unknown", "some-model")
 
 
 def test_get_llm_empty_provider_raises():
@@ -183,10 +183,12 @@ def test_get_llm_google_falls_back_to_env(mock_cls):
 # F) PROVIDERS registry structure validation
 # ---------------------------------------------------------------------------
 
-def test_providers_registry_has_all_four():
-    """PROVIDERS dict has exactly ollama, google, openai, anthropic."""
+def test_providers_registry_has_all_supported_providers():
+    """PROVIDERS contains every provider exposed by the extension."""
     from providers import PROVIDERS
-    assert set(PROVIDERS.keys()) == {"ollama", "google", "openai", "anthropic"}
+    assert set(PROVIDERS.keys()) == {
+        "ollama", "google", "openai", "deepseek", "qwen", "custom", "anthropic"
+    }
 
 
 def test_providers_ollama_requires_no_key():
@@ -198,22 +200,28 @@ def test_providers_ollama_requires_no_key():
 def test_providers_cloud_require_keys():
     """All cloud providers require API keys."""
     from providers import PROVIDERS
-    for name in ("google", "openai", "anthropic"):
+    for name in ("google", "openai", "deepseek", "qwen", "custom", "anthropic"):
         assert PROVIDERS[name].requires_api_key is True, f"{name} should require API key"
 
 
 def test_providers_have_fallback_models():
-    """Every provider has a non-empty fallback_models list."""
+    """Built-in providers have fallbacks; custom providers require an explicit model ID."""
     from providers import PROVIDERS
     for name, info in PROVIDERS.items():
-        assert len(info.fallback_models) > 0, f"{name} missing fallback_models"
+        if name == "custom":
+            assert info.fallback_models == []
+        else:
+            assert len(info.fallback_models) > 0, f"{name} missing fallback_models"
 
 
 def test_providers_have_default_model():
-    """Every provider has a non-empty default_model."""
+    """Built-in providers have defaults; custom providers require an explicit model ID."""
     from providers import PROVIDERS
     for name, info in PROVIDERS.items():
-        assert info.default_model, f"{name} missing default_model"
+        if name == "custom":
+            assert info.default_model == ""
+        else:
+            assert info.default_model, f"{name} missing default_model"
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +243,9 @@ def test_get_providers_endpoint():
     assert "ollama" in names
     assert "google" in names
     assert "openai" in names
+    assert "deepseek" in names
+    assert "qwen" in names
+    assert "custom" in names
     assert "anthropic" in names
 
     # Each provider has expected fields
@@ -255,7 +266,7 @@ def test_post_models_unknown_provider_returns_400():
     from api import app
     client = TestClient(app)
 
-    response = client.post("/models", json={"provider": "deepseek"})
+    response = client.post("/models", json={"provider": "unknown"})
     assert response.status_code == 400
 
 
@@ -347,6 +358,6 @@ def test_autofix_unknown_provider_returns_400():
     response = client.post("/autofix", json={
         "code": "def foo(): pass",
         "test_input": "1",
-        "provider": "deepseek"
+        "provider": "unknown"
     })
     assert response.status_code == 400

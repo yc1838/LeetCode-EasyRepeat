@@ -23,6 +23,8 @@ if (typeof self !== 'undefined') {
 
 import './gemini_client.js';
 import './openai_client.js';
+import './deepseek_client.js';
+import './openai_compatible_client.js';
 import './anthropic_client.js';
 import './local_client.js';
 import './llm_gateway.js';

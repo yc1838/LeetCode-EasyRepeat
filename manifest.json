@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "LeetCode EasyRepeat",
-    "version": "1.0.6",
+    "version": "1.0.9",
     "description": "Automatically capture LeetCode submissions and schedule spaced repetition reviews.",
     "icons": {
         "16": "src/assets/icons/icon16.png",
@@ -19,8 +19,14 @@
     "host_permissions": [
         "https://leetcode.com/*",
         "https://leetcode.cn/*",
+        "https://api.deepseek.com/*",
+        "https://dashscope.aliyuncs.com/*",
         "http://localhost/*",
         "http://127.0.0.1/*"
+    ],
+    "optional_host_permissions": [
+        "https://*/*",
+        "http://*/*"
     ],
     "options_ui": {
         "page": "dist/src/options/options.html",

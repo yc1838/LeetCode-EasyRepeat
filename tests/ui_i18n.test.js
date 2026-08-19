@@ -104,6 +104,34 @@ describe('EasyRepeatI18n', () => {
         expect(zh.content_difficulty_recommendations).toBe('启用难度推荐');
     });
 
+    it('contains localized AI analysis note labels in both languages', () => {
+        const en = EasyRepeatI18n.DICTIONARY.en;
+        const zh = EasyRepeatI18n.DICTIONARY.zh;
+
+        expect(en.content_ai_analysis_heading).toBe('AI Analysis');
+        expect(en.content_mistake_label).toBe('Mistake');
+        expect(zh.content_ai_analysis_heading).toBe('AI 错误分析');
+        expect(zh.content_mistake_label).toBe('错误类型');
+
+        [
+            'llm_analysis_title',
+            'llm_submission_status',
+            'llm_why_wrong',
+            'llm_correct_approach',
+            'llm_correct_code',
+            'llm_missing_to_solution',
+            'llm_gap_summary',
+            'llm_next_step',
+            'llm_empty_submission_hint',
+            'llm_incomplete_submission_hint',
+            'llm_capture_failed_hint',
+            'llm_partial_capture_notice'
+        ].forEach(key => {
+            expect(en).toHaveProperty(key);
+            expect(zh).toHaveProperty(key);
+        });
+    });
+
     it('contains all required filter translation keys', () => {
         const en = EasyRepeatI18n.DICTIONARY.en;
         const zh = EasyRepeatI18n.DICTIONARY.zh;

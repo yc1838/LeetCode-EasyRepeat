@@ -224,6 +224,47 @@ def list_models(req: ModelsRequest):
                 except Exception as e:
                     return _provider_validation_error("OpenAI", e, final_key)
 
+            case "deepseek":
+                env_key = current_settings.deepseek_api_key.get_secret_value() if current_settings.deepseek_api_key else None
+                final_key = req.api_key or env_key
+                if not final_key:
+                    return {"models": info.fallback_models, "source": "fallback"}
+                try:
+                    import openai
+                    client = openai.OpenAI(api_key=final_key, base_url=req.base_url or "https://api.deepseek.com")
+                    models = [m.id for m in client.models.list().data]
+                    return {"models": models or info.fallback_models, "source": "dynamic"}
+                except Exception as e:
+                    return _provider_validation_error("DeepSeek", e, final_key)
+
+            case "qwen":
+                env_key = current_settings.qwen_api_key.get_secret_value() if current_settings.qwen_api_key else None
+                final_key = req.api_key or env_key
+                if not final_key:
+                    return {"models": info.fallback_models, "source": "fallback"}
+                try:
+                    import openai
+                    client = openai.OpenAI(
+                        api_key=final_key,
+                        base_url=req.base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    )
+                    models = [m.id for m in client.models.list().data]
+                    return {"models": models or info.fallback_models, "source": "dynamic"}
+                except Exception:
+                    # DashScope does not guarantee OpenAI-compatible model discovery.
+                    return {"models": info.fallback_models, "source": "fallback"}
+
+            case "custom":
+                if not req.api_key or not req.base_url:
+                    return {"models": [], "source": "fallback", "warning": "API key and Base URL are required"}
+                try:
+                    import openai
+                    client = openai.OpenAI(api_key=req.api_key, base_url=req.base_url)
+                    models = [m.id for m in client.models.list().data]
+                    return {"models": models, "source": "dynamic"}
+                except Exception as e:
+                    return _provider_validation_error("OpenAI-compatible provider", e, req.api_key)
+
             case "anthropic":
                 env_key = current_settings.anthropic_api_key.get_secret_value() if current_settings.anthropic_api_key else None
                 final_key = req.api_key or env_key

@@ -29,7 +29,6 @@ global.document = {
     querySelector: jest.fn(),
     querySelectorAll: jest.fn(),
     getElementsByTagName: jest.fn(),
-    getElementsByTagName: jest.fn(),
     referrer: '',
     head: { appendChild: jest.fn() },
     body: { appendChild: jest.fn() },
@@ -72,10 +71,56 @@ const {
     pollSubmissionResult,
     checkSubmissionStatus,
     checkLatestSubmissionViaApi,
+    captureEditorCodeFromDom,
     clearQuestionInfoCache
 } = require('../src/content/leetcode_api.js');
 
 const { saveSubmission } = require('../src/shared/storage.js');
+
+async function flushDetachedAnalysis() {
+    // The production hook is intentionally detached from submission polling.
+    // Give each awaited mock in that hook a chance to settle before assertions.
+    for (let i = 0; i < 3; i++) {
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+}
+
+describe('Monaco editor snapshot capture', () => {
+    beforeEach(() => {
+        document.querySelectorAll.mockReset();
+    });
+
+    test('marks capture as failed when no Monaco lines are available', () => {
+        document.querySelectorAll.mockReturnValue([]);
+
+        expect(captureEditorCodeFromDom()).toEqual({
+            status: 'failed',
+            source: 'dom_viewport',
+            code: '',
+            reason: 'editor_lines_not_found'
+        });
+    });
+
+    test('marks Monaco DOM text as partial instead of exact source', () => {
+        document.querySelectorAll.mockImplementation((selector) => {
+            if (selector === '.monaco-editor.focused .view-lines .view-line') {
+                return [
+                    { innerText: 'class Solution {' },
+                    { innerText: '  return 1;' },
+                    { innerText: '}' }
+                ];
+            }
+            return [];
+        });
+
+        expect(captureEditorCodeFromDom()).toEqual({
+            status: 'partial',
+            source: 'dom_viewport',
+            code: 'class Solution {\n  return 1;\n}',
+            reason: 'monaco_virtualized_dom'
+        });
+    });
+});
 
 describe('API Submission Check Logic', () => {
     beforeEach(() => {
@@ -305,10 +350,38 @@ describe('Manual API Scan Logic (checkLatestSubmissionViaApi)', () => {
 });
 
 describe('AI Analysis Hook (Wrong Answer path)', () => {
+    let uiLanguage;
+
+    function mockWrongAnswerResponses(status = 'Wrong Answer') {
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                state: 'SUCCESS',
+                status_msg: status
+            })
+        });
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: {
+                    question: {
+                        difficulty: 'Medium',
+                        title: 'Two Sum',
+                        questionFrontendId: '1',
+                        topicTags: []
+                    }
+                }
+            })
+        });
+    }
+
     beforeEach(() => {
         fetch.mockReset();
         jest.clearAllMocks();
         clearQuestionInfoCache();
+        uiLanguage = 'en';
+        delete global.window.EasyRepeatI18n;
+        document.querySelectorAll.mockReturnValue([]);
 
         global.window.LLMSidecar = {
             analyzeMistake: jest.fn().mockResolvedValue('AI analysis')
@@ -319,11 +392,11 @@ describe('AI Analysis Hook (Wrong Answer path)', () => {
         global.getNotes = jest.fn().mockResolvedValue('Existing Notes');
 
         global.chrome.storage.local.get = jest.fn().mockImplementation((keys) => {
-            if (Array.isArray(keys) && keys.includes('alwaysAnalyze')) {
-                return Promise.resolve({ alwaysAnalyze: false });
-            }
             if (typeof keys === 'object' && keys.aiAnalysisEnabled !== undefined) {
-                return Promise.resolve({ aiAnalysisEnabled: true });
+                return Promise.resolve({ aiAnalysisEnabled: true, alwaysAnalyze: false });
+            }
+            if (typeof keys === 'object' && keys.uiLanguage !== undefined) {
+                return Promise.resolve({ uiLanguage });
             }
             return Promise.resolve({});
         });
@@ -331,77 +404,106 @@ describe('AI Analysis Hook (Wrong Answer path)', () => {
 
     test('does not run analysis when AI mode is disabled', async () => {
         global.chrome.storage.local.get.mockImplementation((keys) => {
-            if (Array.isArray(keys) && keys.includes('alwaysAnalyze')) {
-                return Promise.resolve({ alwaysAnalyze: false });
-            }
             if (typeof keys === 'object' && keys.aiAnalysisEnabled !== undefined) {
-                return Promise.resolve({ aiAnalysisEnabled: false });
+                return Promise.resolve({ aiAnalysisEnabled: false, alwaysAnalyze: false });
             }
             return Promise.resolve({});
         });
 
-        // Mock submission check response
-        fetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                state: 'SUCCESS',
-                status_msg: 'Wrong Answer'
-            })
-        });
-        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
-        fetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                data: {
-                    question: {
-                        difficulty: "Medium",
-                        title: "Two Sum",
-                        questionFrontendId: "1",
-                        topicTags: []
-                    }
-                }
-            })
-        });
+        mockWrongAnswerResponses();
 
         await checkSubmissionStatus('123', 'Two Sum', 'two-sum', 'Medium');
-        await new Promise((r) => setImmediate(r));
+        await flushDetachedAnalysis();
 
         expect(global.window.LLMSidecar.analyzeMistake).not.toHaveBeenCalled();
         expect(global.saveNotes).not.toHaveBeenCalled();
     });
 
-    test('runs analysis and saves notes when AI mode is enabled', async () => {
-        // Mock submission check response
-        fetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                state: 'SUCCESS',
-                status_msg: 'Wrong Answer'
-            })
-        });
-        // Mock getQuestionInfo -> fetchQuestionDetails (GraphQL call)
-        fetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-                data: {
-                    question: {
-                        difficulty: "Medium",
-                        title: "Two Sum",
-                        questionFrontendId: "1",
-                        topicTags: []
-                    }
-                }
-            })
-        });
+    test('forwards a partial click-time snapshot and saves an English note', async () => {
+        mockWrongAnswerResponses();
+        const capture = {
+            status: 'partial',
+            source: 'dom_viewport',
+            code: 'return nums[0];',
+            reason: 'monaco_virtualized_dom'
+        };
 
-        await checkSubmissionStatus('123', 'Two Sum', 'two-sum', 'Medium');
-        await new Promise((r) => setImmediate(r));
+        await checkSubmissionStatus('123', 'Two Sum', 'two-sum', 'Medium', { capture });
+        await flushDetachedAnalysis();
 
         expect(global.window.LLMSidecar.analyzeMistake).toHaveBeenCalledTimes(1);
+        const analysisArgs = global.window.LLMSidecar.analyzeMistake.mock.calls[0];
+        expect(analysisArgs[0]).toBe('return nums[0];');
+        expect(analysisArgs[2]).toEqual(expect.objectContaining({
+            ui_language: 'en',
+            code_capture_status: 'partial',
+            code_capture_source: 'dom_viewport',
+            code_capture_reason: 'monaco_virtualized_dom'
+        }));
         expect(global.saveNotes).toHaveBeenCalledTimes(1);
 
-        const args = global.saveNotes.mock.calls[0];
-        expect(args[0]).toBe('two-sum');
-        expect(args[1]).toContain('AI Analysis');
+        const noteArgs = global.saveNotes.mock.calls[0];
+        expect(noteArgs[0]).toBe('two-sum');
+        expect(noteArgs[1]).toContain('### 🤖 AI Analysis');
+        expect(noteArgs[1]).toContain('**Mistake:** Wrong Answer');
+
+        const languageReads = global.chrome.storage.local.get.mock.calls
+            .filter(([defaults]) => defaults && defaults.uiLanguage !== undefined);
+        expect(languageReads).toHaveLength(1);
+    });
+
+    test('forwards a failed capture as empty code without a fake code comment', async () => {
+        mockWrongAnswerResponses('Compile Error');
+        const capture = {
+            status: 'failed',
+            source: 'dom_viewport',
+            code: '',
+            reason: 'editor_lines_not_found'
+        };
+
+        await checkSubmissionStatus('123', 'Two Sum', 'two-sum', 'Medium', { capture });
+        await flushDetachedAnalysis();
+
+        expect(global.window.LLMSidecar.analyzeMistake).toHaveBeenCalledTimes(1);
+        const analysisArgs = global.window.LLMSidecar.analyzeMistake.mock.calls[0];
+        expect(analysisArgs[0]).toBe('');
+        expect(analysisArgs[0]).not.toContain('Code could not be scraped');
+        expect(analysisArgs[2]).toEqual(expect.objectContaining({
+            code_capture_status: 'failed',
+            code_capture_source: 'dom_viewport',
+            code_capture_reason: 'editor_lines_not_found'
+        }));
+    });
+
+    test('uses Chinese for both model metadata and the saved note wrapper', async () => {
+        global.window.EasyRepeatI18n = {
+            getLanguage: jest.fn().mockResolvedValue('zh-CN'),
+            normalizeLanguage: jest.fn().mockReturnValue('zh')
+        };
+        global.window.LLMSidecar.analyzeMistake.mockResolvedValue('这里是中文分析。');
+        mockWrongAnswerResponses();
+
+        await checkSubmissionStatus('123', 'Two Sum', 'two-sum', 'Medium', {
+            capture: {
+                status: 'partial',
+                source: 'dom_viewport',
+                code: 'return [];',
+                reason: 'monaco_virtualized_dom'
+            }
+        });
+        await flushDetachedAnalysis();
+
+        const analysisArgs = global.window.LLMSidecar.analyzeMistake.mock.calls[0];
+        expect(analysisArgs[2].ui_language).toBe('zh');
+
+        const savedNote = global.saveNotes.mock.calls[0][1];
+        expect(savedNote).toContain('### 🤖 AI 错误分析');
+        expect(savedNote).toContain('**错误类型：** 答案错误');
+        expect(savedNote).toContain('这里是中文分析。');
+
+        expect(global.window.EasyRepeatI18n.getLanguage).toHaveBeenCalledTimes(1);
+        const storageLanguageReads = global.chrome.storage.local.get.mock.calls
+            .filter(([defaults]) => defaults && defaults.uiLanguage !== undefined);
+        expect(storageLanguageReads).toHaveLength(0);
     });
 });

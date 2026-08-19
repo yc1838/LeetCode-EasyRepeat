@@ -44,7 +44,7 @@ def test_models_endpoint_ollama_fallback(mock_get):
 
 def test_models_endpoint_unknown_provider():
     """POST /models with unknown provider returns 400."""
-    response = client.post("/models", json={"provider": "deepseek"})
+    response = client.post("/models", json={"provider": "unknown"})
     assert response.status_code == 400
 
 

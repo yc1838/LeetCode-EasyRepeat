@@ -139,6 +139,33 @@
                             <span class="subtitle" data-i18n="cloud_provider_anthropic_subtitle">Claude 3.5 Sonnet</span>
                         </div>
                     </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="deepseek" id="cp-deepseek">
+                        <div class="card-content">
+                            <span class="title">DeepSeek</span>
+                            <span class="subtitle">DeepSeek Chat / Reasoner</span>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="qwen" id="cp-qwen">
+                        <div class="card-content">
+                            <span class="title">Qwen / DashScope</span>
+                            <span class="subtitle">Alibaba Cloud Model Studio</span>
+                        </div>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cloud-provider" value="custom" id="cp-custom">
+                        <div class="card-content">
+                            <span class="title">OpenAI-Compatible</span>
+                            <span class="subtitle">Custom Base URL and model</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="cloud-base-url-section" class="field" style="display:none; margin-bottom: 12px;">
+                    <label for="cloud-base-url-input">API Base URL</label>
+                    <input id="cloud-base-url-input" type="url" placeholder="https://example.com/v1">
+                    <span class="hint">DashScope users may enter a regional or Workspace-specific compatible-mode URL.</span>
                 </div>
 
                 <!-- Step 2: API Key Input (shown after provider selected) -->
@@ -229,6 +256,12 @@ Use the server URL shown in the UI (usually http://localhost:1234)</code></pre>
                     <!-- Populated by JS after successful connection/validation -->
                 </select>
                 <p class="hint" data-i18n="active_model_hint">Models are loaded after a successful connection test or key validation.</p>
+            </div>
+
+            <div class="field" id="custom-model-field" style="display:none; margin-top: 12px;">
+                <label for="custom-model-id" style="margin-top: 10px;">Custom model ID (optional)</label>
+                <input id="custom-model-id" type="text" placeholder="Enter an exact model ID to override the dropdown">
+                <p class="hint">Use this when a newly released model is not returned by the provider's model-list endpoint.</p>
             </div>
 
             <div class="actions">

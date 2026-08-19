@@ -28,7 +28,7 @@
     }
 }(typeof self !== 'undefined' ? self : this, function () {
 
-    let GeminiClient, OpenAIClient, AnthropicClient, LocalClient;
+    let GeminiClient, OpenAIClient, DeepSeekClient, OpenAICompatibleClient, AnthropicClient, LocalClient;
     const globalRoot = typeof self !== 'undefined' ? self : this;
     const KNOWN_LOCAL_MODELS = new Set([
         'llama3.2',
@@ -56,6 +56,15 @@
         console.warn('[LLMGateway] OpenAIClient not found on global');
     }
 
+    if (globalRoot.DeepSeekClient) {
+        DeepSeekClient = globalRoot.DeepSeekClient;
+        console.log('[LLMGateway] DeepSeekClient loaded from global');
+    }
+
+    if (globalRoot.OpenAICompatibleClient) {
+        OpenAICompatibleClient = globalRoot.OpenAICompatibleClient;
+    }
+
     if (globalRoot.AnthropicClient) {
         AnthropicClient = globalRoot.AnthropicClient;
         console.log('[LLMGateway] AnthropicClient loaded from global');
@@ -78,6 +87,12 @@
         if (!OpenAIClient) {
             try { OpenAIClient = require('./openai_client'); } catch (e) { }
         }
+        if (!DeepSeekClient) {
+            try { DeepSeekClient = require('./deepseek_client'); } catch (e) { }
+        }
+        if (!OpenAICompatibleClient) {
+            try { OpenAICompatibleClient = require('./openai_compatible_client'); } catch (e) { }
+        }
         if (!AnthropicClient) {
             try { AnthropicClient = require('./anthropic_client'); } catch (e) { }
         }
@@ -92,6 +107,8 @@
 
         if (normalized.startsWith('gemini-')) return 'google';
         if (normalized.startsWith('gpt-') || normalized.startsWith('o1') || normalized.startsWith('o3')) return 'openai';
+        if (normalized.startsWith('deepseek-')) return 'deepseek';
+        if (normalized.startsWith('qwen')) return 'qwen';
         if (normalized.startsWith('claude-')) return 'anthropic';
         if (KNOWN_LOCAL_MODELS.has(normalized)) return 'local';
 
@@ -101,6 +118,8 @@
     function getClientForProvider(provider) {
         if (provider === 'google') return GeminiClient;
         if (provider === 'openai') return OpenAIClient;
+        if (provider === 'deepseek') return DeepSeekClient;
+        if (provider === 'qwen' || provider === 'custom') return OpenAICompatibleClient;
         if (provider === 'anthropic') return AnthropicClient;
         if (provider === 'local') return LocalClient;
         return null;
@@ -108,7 +127,7 @@
 
     async function getSettings() {
         if (typeof chrome !== 'undefined' && chrome.storage) {
-            return chrome.storage.local.get(['aiProvider', 'selectedModelId', 'keys', 'geminiApiKey']);
+            return chrome.storage.local.get(['aiProvider', 'cloudProvider', 'selectedModelId', 'keys', 'geminiApiKey', 'providerBaseUrls']);
         }
         return {};
     }
@@ -128,12 +147,18 @@
             settings?.geminiApiKey ||
             keys.google ||
             keys.openai ||
+            keys.deepseek ||
+            keys.qwen ||
+            keys.custom ||
             keys.anthropic
         );
         return hasCloudKey ? 'cloud' : 'local';
     }
 
     function resolveCloudProvider(settings) {
+        if (['google', 'openai', 'deepseek', 'qwen', 'anthropic', 'custom'].includes(settings?.cloudProvider)) {
+            return settings.cloudProvider;
+        }
         const providerFromModel = inferProviderFromModelId(settings?.selectedModelId);
         if (providerFromModel && providerFromModel !== 'local') {
             return providerFromModel;
@@ -142,6 +167,9 @@
         const keys = settings?.keys || {};
         if (keys.google || settings?.geminiApiKey) return 'google';
         if (keys.openai) return 'openai';
+        if (keys.deepseek) return 'deepseek';
+        if (keys.qwen) return 'qwen';
+        if (keys.custom) return 'custom';
         if (keys.anthropic) return 'anthropic';
 
         return 'google';
@@ -172,6 +200,9 @@
     function providerLabel(provider) {
         if (provider === 'google') return 'Gemini';
         if (provider === 'openai') return 'OpenAI';
+        if (provider === 'deepseek') return 'DeepSeek';
+        if (provider === 'qwen') return 'Qwen (DashScope)';
+        if (provider === 'custom') return 'OpenAI-Compatible';
         if (provider === 'anthropic') return 'Anthropic';
         if (provider === 'local') return 'Local';
         return provider || 'Unknown';
