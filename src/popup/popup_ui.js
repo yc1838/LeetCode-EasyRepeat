@@ -149,7 +149,9 @@ export function renderVectors(problemList, containerId, isInteractive, options =
         if (goBtn) {
             goBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (typeof chrome !== 'undefined' && chrome.tabs) {
+                if (typeof options.onGo === 'function') {
+                    options.onGo(problem);
+                } else if (typeof chrome !== 'undefined' && chrome.tabs) {
                     chrome.tabs.create({ url: `${problemUrlBaseSafe}/problems/${problem.slug}/` });
                 }
             };

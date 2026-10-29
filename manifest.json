@@ -56,12 +56,25 @@
                 "src/shared/storage.js",
                 "src/content/leetcode_api.js",
                 "src/content/llm_sidecar.js",
-                "src/content/content.js"
+                "src/shared/review_reset.js",
+                "src/content/content.js",
+                "src/content/review_reset_content.js"
             ],
             "css": [
                 "src/content/content.css",
                 "src/content/llm_sidecar.css"
             ]
+        },
+        {
+            "matches": [
+                "https://leetcode.com/problems/*",
+                "https://leetcode.cn/problems/*"
+            ],
+            "js": [
+                "src/content/editor_reset_main.js"
+            ],
+            "world": "MAIN",
+            "run_at": "document_idle"
         }
     ]
 }
