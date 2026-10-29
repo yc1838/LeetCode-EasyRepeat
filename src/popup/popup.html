@@ -90,6 +90,20 @@
                     <span id="queue-title">PROBLEMS DUE TODAY</span>
                 </div>
 
+                <!-- LEAVE BAR (请假) -->
+                <div class="leave-bar" id="leave-bar">
+                    <span id="leave-status" class="leave-status"></span>
+                    <button id="btn-leave-today" class="leave-btn" type="button">TAKE LEAVE TODAY</button>
+                </div>
+
+                <!-- BATCH OPEN (一次打开 N 题) -->
+                <div class="batch-bar" id="batch-bar">
+                    <span id="batch-label-pre">Open first</span>
+                    <input id="batch-count" class="batch-count" type="number" min="1" max="20" value="3" />
+                    <span id="batch-label-post">due</span>
+                    <button id="btn-open-batch" class="batch-btn" type="button">OPEN</button>
+                </div>
+
                 <!-- FILTER BAR -->
                 <div class="filter-bar" id="filter-bar">
                     <select id="filter-difficulty" class="filter-select" title="Filter by difficulty" data-i18n-title="filter_difficulty_title">
