@@ -57,16 +57,9 @@
     function nextDifficulty(d, rating) {
         // D_new = D - w6 * (rating - 3)
         // Note: w[5] corresponds to w6 in standard notation (0-indexed vs 1-indexed confusion in papers)
-        let next_d = d - w[5] * (rating - 3);
-
-        // Standard FSRS v4.5 Mean Reversion:
-        // next_d = w[7] * w[4] + (1 - w[7]) * next_d
-        // w[4] = Initial Mean Difficulty (D0)
-        // w[7] = Mean Reversion Rate
-        // However, in this optimized implementation, we often skip mean reversion or it's baked differently.
-        // For now, we stick to the core update:
-
-        // Apply bounds
+        // FSRS v4.5: D' = D - w6·(G-3), then mean reversion towards D0(Good) = w4.
+        let next_d = d - w[6] * (rating - 3);
+        next_d = w[7] * w[4] + (1 - w[7]) * next_d;
         return constrainDifficulty(next_d);
     }
 
@@ -99,49 +92,28 @@
         // Update Difficulty
         let next_d = nextDifficulty(d, rating);
 
-        // Update Stability
+        // Update Stability (FSRS v4.5 formulas, using the difficulty before this review).
+        // Weight layout: w0-3 initial S · w4-5 initial D · w6 D update · w7 mean reversion
+        //                w8-10 recall · w11-14 forget · w15 hard penalty · w16 easy bonus
         let next_s = s;
 
         if (rating === 1) {
-            // AGAIN (Fail) logic
-            // S_new = w[11] * D^-w[12] * S^w[13] * exp(w[14]*(1-R))
-            // w indices:
-            // S0: 0..3
-            // D: 4..5
-            // Recall: 8..10? (Wait, exact mapping is key)
-
-            // Re-mapping w based on standard v4.5 implementations:
-            // w[8] = 1.54575 (Forgot Coeff 1)
-            // w[9] = 0.1192 (Forgot D power)
-            // w[10] = 1.01925 (Forgot S power)
-            // w[11] = 1.9395 (Forgot R factor)
-
-            next_s = w[8] *
-                Math.pow(next_d, -w[9]) *
-                Math.pow(s, w[10]) *
-                Math.exp(w[11] * (1 - retrievability));
-
-            // Constraint: Stability shouldn't increase on failure? 
-            // Usually it drops heavily.
-
+            // Forgot: S' = w11 · D^-w12 · ((S+1)^w13 - 1) · e^(w14·(1-R)), never above S.
+            next_s = w[11] *
+                Math.pow(d, -w[12]) *
+                (Math.pow(s + 1, w[13]) - 1) *
+                Math.exp(w[14] * (1 - retrievability));
+            next_s = Math.min(next_s, s);
         } else {
-            // SUCCESS (Hard/Good/Easy)
-
-            // Reference: FSRS v4.5 Formula for Stability Increase (Recall)
-            // S_new = S * (1 + exp(w[r]) * (11-D) * S^(-w[15]) * (exp(w[16]*(1-R)) - 1))
-
-            let r_factor = 0;
-            if (rating === 2) r_factor = w[12]; // Hard penalty
-            if (rating === 3) r_factor = w[13]; // Good factor
-            if (rating === 4) r_factor = w[14]; // Easy bonus
-
-            // w[15] = Stability Slope
-            // w[16] = Retrievability Slope
-
-            next_s = s * (1 + Math.exp(r_factor) *
-                (11 - next_d) *
-                Math.pow(s, -w[15]) *
-                (Math.exp(w[16] * (1 - retrievability)) - 1));
+            // Recalled: S' = S · (1 + e^w8 · (11-D) · S^-w9 · (e^(w10·(1-R)) - 1) · penalty/bonus)
+            const hardPenalty = rating === 2 ? w[15] : 1;
+            const easyBonus = rating === 4 ? w[16] : 1;
+            next_s = s * (1 + Math.exp(w[8]) *
+                (11 - d) *
+                Math.pow(s, -w[9]) *
+                (Math.exp(w[10] * (1 - retrievability)) - 1) *
+                hardPenalty *
+                easyBonus);
         }
 
         // Stability lower bound

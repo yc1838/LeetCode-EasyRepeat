@@ -71,3 +71,24 @@ describe('FSRS Logic', () => {
         expect(firstProj > futureStart).toBe(true);
     });
 });
+
+describe('FSRS lapse regression (Again must shorten the interval)', () => {
+    const fsrsLapse = require('../src/algorithms/fsrs_logic.js');
+    const card = (stability, difficulty) => ({ state: 'Review', stability, difficulty, last_review: new Date() });
+
+    test.each([[120, 5, 120], [30, 6, 30], [3, 6, 3], [300, 10, 200]])('S=%p D=%p elapsed=%p', (s, d, elapsed) => {
+        const again = fsrsLapse.calculateFSRS(card(s, d), 1, elapsed);
+        const good = fsrsLapse.calculateFSRS(card(s, d), 3, elapsed);
+        expect(again.newStability).toBeLessThanOrEqual(s);
+        expect(again.nextInterval).toBeLessThan(Math.max(2, s / 5));
+        expect(again.nextState).toBe('Relearning');
+        expect(good.newStability).toBeGreaterThan(again.newStability);
+    });
+
+    test('ratings are ordered: Again < Hard < Good < Easy', () => {
+        const r = [1, 2, 3, 4].map(g => fsrsLapse.calculateFSRS(card(20, 5), g, 20).newStability);
+        expect(r[0]).toBeLessThan(r[1]);
+        expect(r[1]).toBeLessThan(r[2]);
+        expect(r[2]).toBeLessThan(r[3]);
+    });
+});
