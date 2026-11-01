@@ -38,8 +38,9 @@ global.document = {
         appendChild: jest.fn(),
         removeChild: jest.fn()
     },
-    // Mock getElementById/querySelector if needed
+    // Mock getElementById/querySelector if needed (the completion toast looks up its stack)
     querySelector: jest.fn(),
+    getElementById: jest.fn(() => null),
     cookie: '',
 
     createElement: jest.fn().mockImplementation((tag) => {
@@ -112,6 +113,20 @@ global.calculateNextReview = jest.fn().mockReturnValue({
 });
 
 
+
+// chrome.storage.local.get supports both callback and Promise styles (like Chrome).
+function storageGet(data) {
+    return (keys, callback) => {
+        const defaults = keys && typeof keys === 'object' && !Array.isArray(keys) ? keys : {};
+        const result = { ...defaults, ...data };
+        if (typeof callback === 'function') {
+            callback(result);
+            return undefined;
+        }
+        return Promise.resolve(result);
+    };
+}
+
 // We need to require content.js dynamically for each test
 let contentScript;
 
@@ -123,7 +138,7 @@ describe('Rating Integration Flow', () => {
         createdElements.length = 0; // Clear tracked elements
 
         // Default Storage Mock
-        global.chrome.storage.local.get.mockResolvedValue({ problems: {} });
+        global.chrome.storage.local.get.mockImplementation(storageGet({ problems: {} }));
         global.chrome.storage.local.set.mockResolvedValue();
 
         // Mock local functions from content_ui.js

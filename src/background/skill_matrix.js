@@ -29,7 +29,7 @@ console.log('[SkillMatrix] Module file executing...');
 // implications and test thoroughly with `npm run build` + manual extension testing.
 // ============================================================================
 (function (root, factory) {
-    console.log('[SkillMatrix] UMD wrapper executing, root type:', typeof root, 'is self?', root === self);
+    console.log('[SkillMatrix] UMD wrapper executing, root type:', typeof root, 'is self?', typeof self !== 'undefined' && root === self);
     console.log('[SkillMatrix] module check:', typeof module, 'module.exports?', typeof module !== 'undefined' && module.exports);
 
     const exports = factory();

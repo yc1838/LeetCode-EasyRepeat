@@ -134,7 +134,7 @@ describe('Skill Graph Component', () => {
     });
 
     describe('renderGraph', () => {
-        it('should render skill families as nodes', () => {
+        it('should render one bar per skill family', () => {
             const skillData = {
                 families: [
                     { id: 'arrays', name: 'Arrays', confidence: 0.7 },
@@ -144,31 +144,30 @@ describe('Skill Graph Component', () => {
 
             const svg = SkillGraph.renderGraph(skillData);
 
-            const nodes = svg.querySelectorAll('.skill-node');
-            expect(nodes.length).toBe(3); // 2 families + 1 center node
+            const bars = svg.querySelectorAll('.skill-bar');
+            expect(bars.length).toBe(2);
+            const labels = Array.from(svg.querySelectorAll('text')).map(t => t.textContent);
+            expect(labels).toEqual(expect.arrayContaining(['Arrays', 'Graphs', '70%', '40%']));
         });
 
-        it('should position nodes in circular layout', () => {
+        it('should stack bars weakest first, with length proportional to confidence', () => {
             const skillData = {
                 families: [
-                    { id: 'a', name: 'A', confidence: 0.5 },
-                    { id: 'b', name: 'B', confidence: 0.5 },
+                    { id: 'a', name: 'A', confidence: 0.9 },
+                    { id: 'b', name: 'B', confidence: 0.2 },
                     { id: 'c', name: 'C', confidence: 0.5 }
                 ]
             };
 
             const svg = SkillGraph.renderGraph(skillData);
-            const nodes = svg.querySelectorAll('.skill-node circle');
+            const bars = Array.from(svg.querySelectorAll('.skill-bar'));
+            const ys = bars.map(b => Number(b.getAttribute('y')));
+            const widths = bars.map(b => Number(b.getAttribute('width')));
 
-            // Check nodes have different positions
-            const positions = new Set();
-            nodes.forEach(n => {
-                const cx = n.getAttribute('cx');
-                const cy = n.getAttribute('cy');
-                positions.add(`${cx},${cy}`);
-            });
-
-            expect(positions.size).toBe(4); // 3 families + 1 center node
+            expect(new Set(ys).size).toBe(3);               // each on its own row
+            expect(ys).toEqual([...ys].sort((x, y) => x - y)); // top to bottom
+            expect(widths[0]).toBeLessThan(widths[1]);       // 0.2 < 0.5
+            expect(widths[1]).toBeLessThan(widths[2]);       // 0.5 < 0.9
         });
     });
 

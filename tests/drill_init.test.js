@@ -46,6 +46,8 @@ function setupDom(search = '?drillId=drill1') {
 }
 
 function installGlobals({ session, drillMarkup } = {}) {
+    // drill_init translates its UI through the shared dictionary.
+    if (global.window) global.window.EasyRepeatI18n = require('../src/shared/ui_i18n.js');
     const defaultSession = {
         drills: [
             { id: 'drill1', type: 'fill-in-blank', skillId: 'arrays' }
@@ -124,7 +126,8 @@ describe('drill_init navigation flow', () => {
         await flushPromises();
 
         expect(global.DrillPage.renderDrillContent).toHaveBeenCalledWith(
-            expect.objectContaining({ id: 'drill2' })
+            expect.objectContaining({ id: 'drill2' }),
+            expect.objectContaining({ language: expect.any(String) })
         );
 
         expect(document.getElementById('drill-progress').textContent).toBe('Drill 2 of 2');
@@ -149,7 +152,8 @@ describe('drill_init navigation flow', () => {
         await flushPromises();
 
         expect(global.DrillPage.renderDrillContent).toHaveBeenCalledWith(
-            expect.objectContaining({ id: 'drill1' })
+            expect.objectContaining({ id: 'drill1' }),
+            expect.objectContaining({ language: expect.any(String) })
         );
         expect(document.getElementById('drill-progress').textContent).toBe('Drill 1 of 2');
     });

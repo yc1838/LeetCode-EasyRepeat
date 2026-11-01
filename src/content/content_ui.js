@@ -583,13 +583,17 @@
     function checkAndShowTooltip(targetBtn) {
         if (!targetBtn) return;
         if (typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get(['seenDragTooltip'], (result) => {
-                if (chrome.runtime?.lastError) return;
-                if (!result.seenDragTooltip) {
-                    showDragTooltip(targetBtn);
-                    chrome.storage.local.set({ seenDragTooltip: true });
-                }
-            });
+            try {
+                chrome.storage.local.get(['seenDragTooltip'], (result) => {
+                    if (chrome.runtime?.lastError || !result) return;
+                    if (!result.seenDragTooltip) {
+                        showDragTooltip(targetBtn);
+                        chrome.storage.local.set({ seenDragTooltip: true });
+                    }
+                });
+            } catch (e) {
+                // Extension context invalidated (extension reloaded) — skip silently
+            }
         }
     }
 
