@@ -25,6 +25,8 @@ let currentLeetCodeBase = 'https://leetcode.com';
 let currentLeave = { leaveDays: [], settings: null, isLeaveToday: false };
 let currentBatchSize = 3;
 let currentVisibleProblems = [];
+let currentPlan = null;
+let showAllDue = false;
 
 const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
 
@@ -183,6 +185,62 @@ async function openReviewTabs(problemList) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Daily reviews (每天推荐复习量)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Today's recommended number of reviews, logged for tomorrow's adjustment,
+ * and the due list split into today's share and the rest.
+ */
+async function computeDailyPlan(problemMap, dueProblems) {
+    const DR = window.DailyReviews;
+    if (!DR) return null;
+    const RL = window.Relearn;
+    const now = new Date();
+    const stored = await chrome.storage.local.get({ dailyReviews: null, dailyReviewSettings: null });
+    const day = DR.today(problemMap, now, stored.dailyReviews, stored.dailyReviewSettings, currentLeave.leaveDays);
+    const done = DR.reviewsOn(problemMap, DR.toKey(now));
+    let state = day.state;
+    let changed = day.changed;
+    if (!currentLeave.isLeaveToday) {
+        const logged = DR.logDay(state, now, day.recommended, done + dueProblems.length);
+        state = logged.state;
+        changed = changed || logged.changed;
+    }
+    if (changed) await chrome.storage.local.set({ dailyReviews: state });
+    const parts = DR.split(dueProblems, day.recommended - done, RL ? RL.currentStep : undefined);
+    return { recommended: day.recommended, fixed: day.fixed, done, today: parts.today, later: parts.later };
+}
+
+function setupPlanBar() {
+    const button = document.getElementById('btn-plan-toggle');
+    if (!button) return;
+    button.addEventListener('click', () => {
+        showAllDue = !showAllDue;
+        void updateDashboard();
+    });
+}
+
+function renderPlanBar() {
+    const bar = document.getElementById('plan-bar');
+    const status = document.getElementById('plan-status');
+    const button = document.getElementById('btn-plan-toggle');
+    if (!bar || !status || !button) return;
+    const p = currentPlan;
+    if (!p || currentView !== 'dashboard') {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+    const left = Math.max(0, p.recommended - p.done);
+    let text = t(p.fixed ? 'popup_plan_line_fixed' : 'popup_plan_line', { rec: p.recommended, done: p.done, left });
+    if (p.later.length) text += ` · ${t('popup_plan_more', { count: p.later.length })}`;
+    status.innerText = text;
+    button.style.display = p.later.length ? '' : 'none';
+    button.innerText = showAllDue ? t('popup_plan_show_today') : t('popup_plan_show_all');
+}
+
+/* ------------------------------------------------------------------ */
 /* Leave (请假)                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -336,6 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await setupFilters();
         await setupBatchBar();
         setupLeaveBar();
+        setupPlanBar();
         console.log('[Popup][DIAG] Step 6: updateDashboard...');
         await updateDashboard();
         console.log('[Popup][DIAG] Step 7: setupStorageListeners...');
@@ -498,7 +557,8 @@ async function updateDashboard() {
 
     console.log('[Popup][DIAG] updateDashboard: due =', dueProblems.length, ', all =', problems.length);
 
-    currentDueProblems = dueProblems;
+    currentPlan = await computeDailyPlan(problemMap, dueProblems);
+    currentDueProblems = currentPlan && !showAllDue ? currentPlan.today : (currentPlan ? [...currentPlan.today, ...currentPlan.later] : dueProblems);
     currentAllProblems = problems;
     currentTitleCache = result.localizedProblemTitles || {};
 
@@ -570,6 +630,7 @@ function rerenderCurrentView() {
         onGo: isDashboard ? (problem) => { void openReviewTabs([problem]); } : undefined
     });
     updateQueueTitle();
+    renderPlanBar();
     renderBatchBar();
     renderLeaveBar();
     syncSidebarState();
@@ -886,8 +947,13 @@ async function updateProblemSRS(slug, ease) {
         nextStep = calculateNextReview(problem.interval, problem.repetition, ease, now);
     }
 
+    // Hard/Again: short-term review after 1, 3, 7 days (see relearn.js).
+    const relearnFields = window.Relearn ? window.Relearn.fields(problem, rating, now, nextStep.nextReviewDate) : {};
+    if (relearnFields.nextReviewDate) nextStep.nextReviewDate = relearnFields.nextReviewDate;
+
     problems[slug] = {
         ...problem,
+        ...relearnFields,
         interval: nextStep.nextInterval,
         repetition: nextStep.nextRepetition,
         easeFactor: nextStep.nextEaseFactor,

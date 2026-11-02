@@ -52,6 +52,7 @@
                 "src/shared/ui_i18n.js",
                 "src/shared/problem_titles.js",
                 "src/algorithms/fsrs_logic.js",
+                "src/algorithms/relearn.js",
                 "src/content/content_ui.js",
                 "src/shared/storage.js",
                 "src/content/leetcode_api.js",

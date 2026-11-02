@@ -158,8 +158,14 @@
             nextStep = calcFn(currentProblem.interval, currentProblem.repetition, currentProblem.easeFactor);
         }
 
+        // Hard/Again: short-term review after 1, 3, 7 days (see relearn.js).
+        const RL = typeof Relearn !== 'undefined' ? Relearn : (typeof global !== 'undefined' ? global.Relearn : undefined);
+        const relearnFields = rating && RL ? RL.fields(currentProblem, rating, now, nextStep.nextReviewDate) : {};
+        if (relearnFields.nextReviewDate) nextStep.nextReviewDate = relearnFields.nextReviewDate;
+
         problems[problemKey] = {
             ...currentProblem,
+            ...relearnFields,
             difficulty: difficulty,
             lastSolved: nowISO,
             interval: nextStep.nextInterval,

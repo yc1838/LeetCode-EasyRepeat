@@ -128,6 +128,13 @@ For Cloud LLM:
 - FSRS was **supported by science**. You can read [this post](https://www.lesswrong.com/posts/G7fpGCi8r7nCKXsQk/the-history-of-fsrs-for-anki) to learn more about its history.
 
 
+### 🗓️ Daily Review Plan
+
+- **Hard or Again → review after 1, 3 and 7 days.** *Good/Easy* moves the problem a step on; *Hard/Again* during these steps goes back one step. After the 7-day step it returns to the normal FSRS schedule. Cards show the step (e.g. RELEARN 2/3) and these problems come first in the list.
+- **A recommended number of reviews a day.** New problems are not limited. The number starts from your recent pace (average reviews per active day over the last 14, or 5 with little history); each day it goes up 10% if you did ≥95% of what was recommended and due over the last week, down 10% under 70% (range 3–60; leave days are not counted). It can be fixed in Settings. Due problems beyond it stay listed under "Show all due".
+- **Open N due problems at once.** The popup opens the first N of today's reviews in background tabs and resets each code editor when the page loads, so you start from a blank solution.
+- **Leave.** A leave day shifts every scheduled review back one day and keeps the streak. Weekly and monthly quotas (weeks run Sunday–Saturday); missed days can be back-dated within quota; the quota can be set once at any time, then changed only on the 1st of a month.
+
 ### 📝 AI Error Submission Analysis & Contextual Notes
 
 <div align="center">
@@ -701,6 +708,13 @@ npm run build
 - **稳定性与难度建模**: 根据你在每道题上的表现反馈（忘记、困难、良好、简单），动态调整该题目的记忆稳定性和难度。
 - **题目难度检测**: 自动抓取并记录这道题在 LeetCode 上的官方难度阶级 (Easy / Medium / Hard)。
 - 注：FSRS 的高效性是由认知科学数据严格支撑的。你可以通过 [这篇文章](https://www.lesswrong.com/posts/G7fpGCi8r7nCKXsQk/the-history-of-fsrs-for-anki) 了解它背后的研究历史。
+
+### 🗓️ 每日复习计划
+
+- **答差就隔 1、3、7 天各复习一次：** 评「困难」或「重来」后，隔 1 天、3 天、7 天各复习一次；评「正常/简单」进入下一步，中途又评差退回一步；7 天那一步过了回到正常的 FSRS 排期。卡片上显示进度（如「加强 2/3」），这类题排在列表最前面。
+- **每天一个推荐复习量：** 新题不限量。复习量从你最近的节奏起步（最近 14 个复习日的平均，记录少时为 5 道）；最近一周推荐且到期的复习做完 95% 以上就 +10%，不到 70% 就 −10%（范围 3–60，请假的日子不算）。也可以在设置里固定。超出推荐量的到期题点「显示全部到期」可以看到。
+- **一次打开 N 道题：** 弹窗在后台标签页打开今天前 N 道复习题，页面加载后自动重置代码编辑器，从空白开始写。
+- **请假：** 请假当天所有待复习题目整体顺延一天，连续天数不中断。有每周、每月额度（一周按周日到周六）；漏掉的日子在额度内可以补请；额度首次可随时设一次，之后只能在每月 1 号修改。
 
 ### 📝 AI 错题分析 & 悬浮笔记面板 (Contextual Notes)
 

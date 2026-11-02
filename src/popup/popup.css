@@ -1289,3 +1289,8 @@ body.theme-brnd .notes-flashcard::before {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+.stat-tag.relearn-tag {
+    border-color: var(--electric, #ff6b6b);
+    color: var(--electric, #ff6b6b);
+}
