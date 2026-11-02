@@ -85,6 +85,9 @@ export function renderVectors(problemList, containerId, isInteractive, options =
         const RL = typeof window !== 'undefined' ? window.Relearn : null;
         const relearnStep = RL ? RL.currentStep(problem) : null;
         const interval = relearnStep !== null ? RL.STEPS[relearnStep] : problem.interval;
+        const earlyTag = options.earlySlugs && options.earlySlugs.has(problem.slug)
+            ? `<span class="stat-tag relearn-tag">${t('popup_tag_early', {}, language)}</span>`
+            : '';
         const relearnTag = relearnStep !== null
             ? `<span class="stat-tag relearn-tag">${t('popup_tag_relearn', { step: relearnStep + 1 }, language)}</span>`
             : '';
@@ -117,6 +120,7 @@ export function renderVectors(problemList, containerId, isInteractive, options =
             <div class="vector-stats" style="flex-wrap: wrap;">
                 <span class="stat-tag ${diffStyle}">${difficultyText}</span>
                 ${relearnTag}
+                ${earlyTag}
                 <span class="stat-tag">${t('popup_interval_days', { days: interval }, language)}</span>
                 <span class="stat-tag">${t('popup_due_date', { date: nextReview }, language)}</span>
                 <div class="${actionGroupClass}">

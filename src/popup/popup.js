@@ -189,8 +189,9 @@ async function openReviewTabs(problemList) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Today's recommended number of reviews, logged for tomorrow's adjustment,
- * and the due list split into today's share and the rest.
+ * Today's recommended number of reviews (expected reviews over the next 14
+ * days ÷ 14, computed once a day) and today's list: due problems, filled with
+ * the ones due soonest when fewer are due than recommended.
  */
 async function computeDailyPlan(problemMap, dueProblems) {
     const DR = window.DailyReviews;
@@ -198,18 +199,30 @@ async function computeDailyPlan(problemMap, dueProblems) {
     const RL = window.Relearn;
     const now = new Date();
     const stored = await chrome.storage.local.get({ dailyReviews: null, dailyReviewSettings: null });
-    const day = DR.today(problemMap, now, stored.dailyReviews, stored.dailyReviewSettings, currentLeave.leaveDays);
-    const done = DR.reviewsOn(problemMap, DR.toKey(now));
-    let state = day.state;
-    let changed = day.changed;
-    if (!currentLeave.isLeaveToday) {
-        const logged = DR.logDay(state, now, day.recommended, done + dueProblems.length);
-        state = logged.state;
-        changed = changed || logged.changed;
-    }
-    if (changed) await chrome.storage.local.set({ dailyReviews: state });
-    const parts = DR.split(dueProblems, day.recommended - done, RL ? RL.currentStep : undefined);
-    return { recommended: day.recommended, fixed: day.fixed, done, today: parts.today, later: parts.later };
+    const day = DR.today(problemMap, now, stored.dailyReviews, stored.dailyReviewSettings);
+    if (day.changed) await chrome.storage.local.set({ dailyReviews: day.state });
+    const todayKey = DR.toKey(now);
+    const done = DR.reviewsOn(problemMap, todayKey);
+    const endOfToday = getCurrentDate();
+    const dueSlugs = new Set(dueProblems.map(p => p.slug));
+    const upcoming = currentLeave.isLeaveToday ? [] : Object.values(problemMap).filter(p =>
+        p && !dueSlugs.has(p.slug) && new Date(p.nextReviewDate) > endOfToday
+        && new Date(p.nextReviewDate) - endOfToday < DR.HORIZON * 86400000);
+    const parts = DR.split(dueProblems, upcoming, day.recommended - done, {
+        stepOf: RL ? RL.currentStep : undefined,
+        fill: day.fill,
+        todayKey
+    });
+    return {
+        recommended: day.recommended,
+        fixed: day.fixed,
+        need: day.need,
+        pace: day.pace,
+        done,
+        today: parts.today,
+        later: parts.later,
+        early: parts.early
+    };
 }
 
 function setupPlanBar() {
@@ -232,10 +245,15 @@ function renderPlanBar() {
         return;
     }
     bar.style.display = 'flex';
-    const left = Math.max(0, p.recommended - p.done);
+    const left = p.today.length;
     let text = t(p.fixed ? 'popup_plan_line_fixed' : 'popup_plan_line', { rec: p.recommended, done: p.done, left });
+    if (p.early.length) text += ` · ${t('popup_plan_early', { count: p.early.length })}`;
     if (p.later.length) text += ` · ${t('popup_plan_more', { count: p.later.length })}`;
-    status.innerText = text;
+    const lines = [text];
+    if (p.pace && p.need && (p.fixed ? Math.abs(p.need - p.recommended) >= 3 : p.need >= p.pace * 1.2)) {
+        lines.push(t('popup_plan_need', { need: Math.ceil(p.need), pace: Math.round(p.pace) }));
+    }
+    status.innerText = lines.join('\n');
     button.style.display = p.later.length ? '' : 'none';
     button.innerText = showAllDue ? t('popup_plan_show_today') : t('popup_plan_show_all');
 }
@@ -627,7 +645,8 @@ function rerenderCurrentView() {
         titleCache: currentTitleCache,
         problemUrlBase: currentLeetCodeBase,
         // GO from the due queue opens the problem as a review (editor auto-reset)
-        onGo: isDashboard ? (problem) => { void openReviewTabs([problem]); } : undefined
+        onGo: isDashboard ? (problem) => { void openReviewTabs([problem]); } : undefined,
+        earlySlugs: isDashboard && currentPlan ? new Set(currentPlan.early.map(e => e.slug)) : null
     });
     updateQueueTitle();
     renderPlanBar();
