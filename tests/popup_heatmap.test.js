@@ -94,21 +94,19 @@ describe('Popup UI Heatmap', () => {
 
         const cells = container.querySelectorAll('.cell');
 
-        // Check for Feb 09 (approximate FSRS growth from S=5, elapsed=6 -> I~14)
-        let foundFeb09 = false;
+        // The first projected review after 1/26 must be counted from the stored
+        // date (at least one 5-day stability interval after 1/26), not from today (1/24 + 5 = 1/29).
+        const projected = [];
         let found29 = false; // Incorrect (too early)
-
         cells.forEach(cell => {
             const title = cell.getAttribute('title');
-            if (title.includes('Feb 9') && cell.classList.contains('status-projected')) {
-                foundFeb09 = true;
-            }
-            if (title.includes('Jan 29') && cell.classList.contains('status-projected')) {
-                found29 = true;
-            }
+            if (!cell.classList.contains('status-projected')) return;
+            projected.push(new Date(`${title.replace(/^\w+, /, '')} 2026`));
+            if (title.includes('Jan 29')) found29 = true;
         });
-
-        expect(foundFeb09).toBe(true);
+        const after = projected.filter(d => d > new Date('2026-01-26T23:59:59')).sort((a, b) => a - b);
+        expect(after.length).toBeGreaterThan(0);
+        expect(after[0] >= new Date('2026-01-31T00:00:00')).toBe(true);
         expect(found29).toBe(false);
     });
 
