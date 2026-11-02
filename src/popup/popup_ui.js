@@ -82,7 +82,15 @@ export function renderVectors(problemList, containerId, isInteractive, options =
 
     problemList.forEach(problem => {
         const uniqueId = problem.slug;
-        const interval = problem.interval;
+        const RL = typeof window !== 'undefined' ? window.Relearn : null;
+        const relearnStep = RL ? RL.currentStep(problem) : null;
+        const interval = relearnStep !== null ? RL.STEPS[relearnStep] : problem.interval;
+        const earlyTag = options.earlySlugs && options.earlySlugs.has(problem.slug)
+            ? `<span class="stat-tag relearn-tag">${t('popup_tag_early', {}, language)}</span>`
+            : '';
+        const relearnTag = relearnStep !== null
+            ? `<span class="stat-tag relearn-tag">${t('popup_tag_relearn', { step: relearnStep + 1 }, language)}</span>`
+            : '';
         const nextReview = formatDate(problem.nextReviewDate, language);
         const displayTitle = formatCardTitle(problem, language, titleCache);
         const diffStyle = `difficulty-${(problem.difficulty || 'medium').toLowerCase()}`;
@@ -111,6 +119,8 @@ export function renderVectors(problemList, containerId, isInteractive, options =
             ` : ''}
             <div class="vector-stats" style="flex-wrap: wrap;">
                 <span class="stat-tag ${diffStyle}">${difficultyText}</span>
+                ${relearnTag}
+                ${earlyTag}
                 <span class="stat-tag">${t('popup_interval_days', { days: interval }, language)}</span>
                 <span class="stat-tag">${t('popup_due_date', { date: nextReview }, language)}</span>
                 <div class="${actionGroupClass}">
@@ -149,7 +159,9 @@ export function renderVectors(problemList, containerId, isInteractive, options =
         if (goBtn) {
             goBtn.onclick = (e) => {
                 e.stopPropagation();
-                if (typeof chrome !== 'undefined' && chrome.tabs) {
+                if (typeof options.onGo === 'function') {
+                    options.onGo(problem);
+                } else if (typeof chrome !== 'undefined' && chrome.tabs) {
                     chrome.tabs.create({ url: `${problemUrlBaseSafe}/problems/${problem.slug}/` });
                 }
             };

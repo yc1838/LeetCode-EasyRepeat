@@ -22,6 +22,11 @@ let queuedThemeForPersist = null;
 let currentFilters = { difficulty: 'all', topic: 'all', timeRange: 'all' };
 let dataLoaded = false;
 let currentLeetCodeBase = 'https://leetcode.com';
+let currentLeave = { leaveDays: [], settings: null, isLeaveToday: false };
+let currentBatchSize = 3;
+let currentVisibleProblems = [];
+let currentPlan = null;
+let showAllDue = false;
 
 const LEETCODE_HOSTS = new Set(['leetcode.com', 'leetcode.cn']);
 
@@ -82,6 +87,273 @@ function getI18n() {
     return window.EasyRepeatI18n || null;
 }
 
+function getLeaveLogic() {
+    return (typeof window !== 'undefined' && window.LeaveLogic) || null;
+}
+
+function getReviewReset() {
+    return (typeof window !== 'undefined' && window.ReviewReset) || null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Batch open (一次打开 N 题)                                           */
+/* ------------------------------------------------------------------ */
+
+async function setupBatchBar() {
+    const RR = getReviewReset();
+    const input = document.getElementById('batch-count');
+    const button = document.getElementById('btn-open-batch');
+    if (!input || !button) return;
+
+    try {
+        const stored = await chrome.storage.local.get({ [RR ? RR.BATCH_KEY : 'reviewBatchSize']: 3 });
+        currentBatchSize = RR ? RR.clampBatch(stored[RR.BATCH_KEY]) : 3;
+    } catch (e) {
+        currentBatchSize = 3;
+    }
+    input.value = String(currentBatchSize);
+    if (RR) input.max = String(RR.MAX_BATCH);
+
+    input.addEventListener('change', () => {
+        currentBatchSize = RR ? RR.clampBatch(input.value) : Math.max(1, Number(input.value) || 1);
+        input.value = String(currentBatchSize);
+        renderBatchBar();
+        void chrome.storage.local.set({ [RR ? RR.BATCH_KEY : 'reviewBatchSize']: currentBatchSize });
+    });
+
+    button.addEventListener('click', () => {
+        const RRx = getReviewReset();
+        const count = RRx ? RRx.clampBatch(currentBatchSize, currentVisibleProblems.length) : currentBatchSize;
+        if (count <= 0) return;
+        void openReviewTabs(currentVisibleProblems.slice(0, count));
+    });
+}
+
+function renderBatchBar() {
+    const bar = document.getElementById('batch-bar');
+    if (!bar) return;
+    const isDashboard = currentView === 'dashboard';
+    bar.style.display = isDashboard ? 'flex' : 'none';
+    const button = document.getElementById('btn-open-batch');
+    const RR = getReviewReset();
+    const available = currentVisibleProblems.length;
+    const count = RR ? RR.clampBatch(currentBatchSize, available) : Math.min(currentBatchSize, available);
+    if (button) {
+        button.disabled = count <= 0;
+        button.innerText = t('popup_batch_open', { count });
+    }
+    const pre = document.getElementById('batch-label-pre');
+    const post = document.getElementById('batch-label-post');
+    if (pre) pre.innerText = t('popup_batch_label_pre');
+    if (post) post.innerText = t('popup_batch_label_post', { available });
+}
+
+/**
+ * Open problems as review tabs: mark each slug for an editor reset, then open
+ * the tabs in the background (activating the first one last, because focusing a
+ * tab closes the popup and would stop this loop).
+ */
+async function openReviewTabs(problemList) {
+    const RR = getReviewReset();
+    const list = (problemList || []).filter(p => p && p.slug);
+    if (!list.length || !chrome?.tabs?.create) return;
+
+    if (RR) {
+        try {
+            const nowMs = Date.now();
+            const stored = await chrome.storage.local.get({ [RR.STORAGE_KEY]: {} });
+            const markers = RR.mark(stored[RR.STORAGE_KEY], list.map(p => p.slug), nowMs);
+            await chrome.storage.local.set({ [RR.STORAGE_KEY]: markers });
+        } catch (e) {
+            console.warn('[Popup] Could not mark review resets:', e);
+        }
+    }
+
+    const urlFor = (slug) => (RR ? RR.problemUrl(currentLeetCodeBase, slug) : `${currentLeetCodeBase}/problems/${slug}/`);
+    const created = [];
+    for (const problem of list) {
+        try {
+            created.push(await chrome.tabs.create({ url: urlFor(problem.slug), active: false }));
+        } catch (e) {
+            console.warn('[Popup] Could not open tab for', problem.slug, e);
+        }
+    }
+    const first = created.find(tab => tab && tab.id !== undefined);
+    if (first && chrome.tabs.update) {
+        await chrome.tabs.update(first.id, { active: true });
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Daily reviews (每天推荐复习量)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Today's recommended number of reviews (expected reviews over the next 14
+ * days ÷ 14, computed once a day) and today's list: due problems, filled with
+ * the ones due soonest when fewer are due than recommended.
+ */
+async function computeDailyPlan(problemMap, dueProblems) {
+    const DR = window.DailyReviews;
+    if (!DR) return null;
+    const RL = window.Relearn;
+    const now = new Date();
+    const stored = await chrome.storage.local.get({ dailyReviews: null, dailyReviewSettings: null });
+    const day = DR.today(problemMap, now, stored.dailyReviews, stored.dailyReviewSettings);
+    if (day.changed) await chrome.storage.local.set({ dailyReviews: day.state });
+    const todayKey = DR.toKey(now);
+    const done = DR.reviewsOn(problemMap, todayKey);
+    const endOfToday = getCurrentDate();
+    const dueSlugs = new Set(dueProblems.map(p => p.slug));
+    const upcoming = currentLeave.isLeaveToday ? [] : Object.values(problemMap).filter(p =>
+        p && !dueSlugs.has(p.slug) && new Date(p.nextReviewDate) > endOfToday
+        && new Date(p.nextReviewDate) - endOfToday < DR.HORIZON * 86400000);
+    const parts = DR.split(dueProblems, upcoming, day.recommended - done, {
+        stepOf: RL ? RL.currentStep : undefined,
+        fill: day.fill,
+        todayKey
+    });
+    return {
+        recommended: day.recommended,
+        fixed: day.fixed,
+        need: day.need,
+        pace: day.pace,
+        done,
+        today: parts.today,
+        later: parts.later,
+        early: parts.early
+    };
+}
+
+function setupPlanBar() {
+    const button = document.getElementById('btn-plan-toggle');
+    if (!button) return;
+    button.addEventListener('click', () => {
+        showAllDue = !showAllDue;
+        void updateDashboard();
+    });
+}
+
+function renderPlanBar() {
+    const bar = document.getElementById('plan-bar');
+    const status = document.getElementById('plan-status');
+    const button = document.getElementById('btn-plan-toggle');
+    if (!bar || !status || !button) return;
+    const p = currentPlan;
+    if (!p || currentView !== 'dashboard') {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+    const left = p.today.length;
+    let text = t(p.fixed ? 'popup_plan_line_fixed' : 'popup_plan_line', { rec: p.recommended, done: p.done, left });
+    if (p.early.length) text += ` · ${t('popup_plan_early', { count: p.early.length })}`;
+    if (p.later.length) text += ` · ${t('popup_plan_more', { count: p.later.length })}`;
+    const lines = [text];
+    if (p.pace && p.need && (p.fixed ? Math.abs(p.need - p.recommended) >= 3 : p.need >= p.pace * 1.2)) {
+        lines.push(t('popup_plan_need', { need: Math.ceil(p.need), pace: Math.round(p.pace) }));
+    }
+    status.innerText = lines.join('\n');
+    button.style.display = p.later.length ? '' : 'none';
+    button.innerText = showAllDue ? t('popup_plan_show_today') : t('popup_plan_show_all');
+}
+
+/* ------------------------------------------------------------------ */
+/* Leave (请假)                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Apply the one-day schedule shift for leave days that have arrived.
+ * Returns the (possibly updated) problem map.
+ */
+async function applyArrivedLeaveDays(problemMap, now) {
+    const LeaveLogic = getLeaveLogic();
+    const stored = await chrome.storage.local.get({ leaveDays: [], leaveApplied: [], leaveSettings: null });
+    currentLeave = {
+        leaveDays: Array.isArray(stored.leaveDays) ? stored.leaveDays : [],
+        settings: stored.leaveSettings,
+        isLeaveToday: false
+    };
+    if (!LeaveLogic) return problemMap;
+
+    currentLeave.isLeaveToday = currentLeave.leaveDays.includes(LeaveLogic.toKey(now));
+
+    const result = LeaveLogic.applyArrivedLeaves(problemMap, currentLeave.leaveDays, stored.leaveApplied, now);
+    if (!result.changed) return problemMap;
+
+    // Re-read right before writing to keep any concurrent submission save.
+    const fresh = await chrome.storage.local.get({ problems: {}, leaveApplied: [] });
+    const recomputed = LeaveLogic.applyArrivedLeaves(fresh.problems, currentLeave.leaveDays, fresh.leaveApplied, now);
+    if (!recomputed.changed) return fresh.problems;
+    await chrome.storage.local.set({ problems: recomputed.problems, leaveApplied: recomputed.leaveApplied });
+    console.log('[Popup] Applied leave days:', recomputed.appliedNow);
+    return recomputed.problems;
+}
+
+function setupLeaveBar() {
+    const button = document.getElementById('btn-leave-today');
+    if (!button) return;
+    button.addEventListener('click', () => { void requestLeaveToday(); });
+}
+
+function renderLeaveBar() {
+    const bar = document.getElementById('leave-bar');
+    const status = document.getElementById('leave-status');
+    const button = document.getElementById('btn-leave-today');
+    const LeaveLogic = getLeaveLogic();
+    if (!bar || !status || !button || !LeaveLogic) return;
+
+    bar.style.display = currentView === 'dashboard' ? 'flex' : 'none';
+    const today = getCurrentDate();
+    const settings = LeaveLogic.normalizeSettings(currentLeave.settings);
+
+    if (!settings.initialized) {
+        status.innerText = t('popup_leave_not_configured');
+        button.innerText = t('popup_leave_setup');
+        button.disabled = false;
+        button.dataset.mode = 'setup';
+        return;
+    }
+
+    const r = LeaveLogic.remaining(settings, currentLeave.leaveDays, today);
+    status.innerText = t('popup_leave_remaining', {
+        week: r.week.left, weekLimit: r.week.limit,
+        month: r.month.left, monthLimit: r.month.limit
+    });
+    button.dataset.mode = 'request';
+    if (currentLeave.isLeaveToday) {
+        button.innerText = t('popup_leave_taken');
+        button.disabled = true;
+    } else {
+        button.innerText = t('popup_leave_request');
+        button.disabled = r.week.left <= 0 || r.month.left <= 0;
+    }
+}
+
+async function requestLeaveToday() {
+    const LeaveLogic = getLeaveLogic();
+    const button = document.getElementById('btn-leave-today');
+    if (!LeaveLogic) return;
+
+    if (button && button.dataset.mode === 'setup') {
+        if (chrome?.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
+        return;
+    }
+
+    const today = getCurrentDate();
+    const todayKey = LeaveLogic.toKey(today);
+    const stored = await chrome.storage.local.get({ leaveDays: [], leaveSettings: null });
+    const result = LeaveLogic.addLeave(todayKey, { leaveDays: stored.leaveDays, settings: stored.leaveSettings, today });
+    if (!result.ok) {
+        showNotification('error', t('popup_leave_failed'), t(`leave_reason_${result.reason}`), { language: currentLanguage });
+        return;
+    }
+    if (!confirm(t('popup_leave_confirm'))) return;
+
+    await chrome.storage.local.set({ leaveDays: result.leaveDays });
+    await updateDashboard();
+}
+
 function getProblemTitles() {
     return window.EasyRepeatProblemTitles || null;
 }
@@ -138,6 +410,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupSidebar();
         console.log('[Popup][DIAG] Step 5: setupFilters...');
         await setupFilters();
+        await setupBatchBar();
+        setupLeaveBar();
+        setupPlanBar();
         console.log('[Popup][DIAG] Step 6: updateDashboard...');
         await updateDashboard();
         console.log('[Popup][DIAG] Step 7: setupStorageListeners...');
@@ -155,7 +430,7 @@ function setupStorageListeners() {
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace !== 'local') return;
-        if (changes.problems || changes.localizedProblemTitles) {
+        if (changes.problems || changes.localizedProblemTitles || changes.leaveDays || changes.leaveSettings) {
             void updateDashboard();
         }
     });
@@ -288,8 +563,9 @@ function applyTheme(themeName) {
 async function updateDashboard() {
     console.log('[Popup][DIAG] updateDashboard: START');
     const result = await chrome.storage.local.get({ problems: {}, localizedProblemTitles: {} });
-    const problems = Object.values(result.problems);
     const now = getCurrentDate();
+    const problemMap = await applyArrivedLeaveDays(result.problems, now);
+    const problems = Object.values(problemMap);
 
     console.log('[Popup][DIAG] updateDashboard: total problems =', problems.length, ', now =', now.toISOString());
 
@@ -299,7 +575,8 @@ async function updateDashboard() {
 
     console.log('[Popup][DIAG] updateDashboard: due =', dueProblems.length, ', all =', problems.length);
 
-    currentDueProblems = dueProblems;
+    currentPlan = await computeDailyPlan(problemMap, dueProblems);
+    currentDueProblems = currentPlan && !showAllDue ? currentPlan.today : (currentPlan ? [...currentPlan.today, ...currentPlan.later] : dueProblems);
     currentAllProblems = problems;
     currentTitleCache = result.localizedProblemTitles || {};
 
@@ -361,12 +638,20 @@ function rerenderCurrentView() {
         ', after filter=', problems.length,
         ', filters=', JSON.stringify(currentFilters));
 
-    renderVectors(problems, 'vector-list', currentView === 'dashboard', {
+    const isDashboard = currentView === 'dashboard';
+    currentVisibleProblems = problems;
+    renderVectors(problems, 'vector-list', isDashboard, {
         language: currentLanguage,
         titleCache: currentTitleCache,
-        problemUrlBase: currentLeetCodeBase
+        problemUrlBase: currentLeetCodeBase,
+        // GO from the due queue opens the problem as a review (editor auto-reset)
+        onGo: isDashboard ? (problem) => { void openReviewTabs([problem]); } : undefined,
+        earlySlugs: isDashboard && currentPlan ? new Set(currentPlan.early.map(e => e.slug)) : null
     });
     updateQueueTitle();
+    renderPlanBar();
+    renderBatchBar();
+    renderLeaveBar();
     syncSidebarState();
 }
 
@@ -409,9 +694,13 @@ function syncSidebarState() {
 function updateQueueTitle() {
     const title = document.getElementById('queue-title');
     if (!title) return;
-    title.innerText = currentView === 'all'
-        ? t('popup_queue_all_problems')
-        : t('popup_queue_due_today');
+    if (currentView === 'all') {
+        title.innerText = t('popup_queue_all_problems');
+    } else {
+        title.innerText = currentLeave.isLeaveToday
+            ? `${t('popup_queue_due_today')} · ${t('popup_leave_today_tag')}`
+            : t('popup_queue_due_today');
+    }
 }
 
 /**
@@ -596,6 +885,12 @@ async function calculateStreakFn() {
         await chrome.storage.local.set({ activityLog: log });
     }
 
+    const leaveRes = await chrome.storage.local.get({ leaveDays: [] });
+    const LeaveLogic = getLeaveLogic();
+    if (LeaveLogic) {
+        return LeaveLogic.calculateStreak(log, leaveRes.leaveDays, getCurrentDate());
+    }
+
     let streak = 0;
     const checkDate = getCurrentDate();
 
@@ -671,8 +966,13 @@ async function updateProblemSRS(slug, ease) {
         nextStep = calculateNextReview(problem.interval, problem.repetition, ease, now);
     }
 
+    // Hard/Again: short-term review after 1, 3, 7 days (see relearn.js).
+    const relearnFields = window.Relearn ? window.Relearn.fields(problem, rating, now, nextStep.nextReviewDate) : {};
+    if (relearnFields.nextReviewDate) nextStep.nextReviewDate = relearnFields.nextReviewDate;
+
     problems[slug] = {
         ...problem,
+        ...relearnFields,
         interval: nextStep.nextInterval,
         repetition: nextStep.nextRepetition,
         easeFactor: nextStep.nextEaseFactor,

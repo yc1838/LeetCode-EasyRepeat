@@ -1218,3 +1218,79 @@ body.theme-brnd .notes-flashcard::before {
         transform: rotate(360deg);
     }
 }
+
+/* ---------- Leave bar (请假) & batch open (一次打开 N 题) ---------- */
+.leave-bar,
+.batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-family: var(--font-data);
+    font-size: 0.55rem;
+    color: var(--accent);
+    letter-spacing: 0.3px;
+}
+
+.leave-status {
+    flex: 1;
+    min-width: 0;
+    opacity: 0.85;
+}
+
+.batch-bar span {
+    white-space: nowrap;
+}
+
+.batch-count {
+    width: 38px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-dim);
+    color: var(--terminal);
+    font-family: var(--font-data);
+    font-size: 0.6rem;
+    padding: 3px 4px;
+    text-align: center;
+}
+
+.batch-count:focus {
+    outline: none;
+    border-color: var(--terminal);
+}
+
+.leave-btn,
+.batch-btn {
+    background: transparent;
+    border: 1px solid var(--terminal);
+    color: var(--terminal);
+    font-family: var(--font-data);
+    font-size: 0.55rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+}
+
+.batch-btn {
+    margin-left: auto;
+}
+
+.leave-btn:hover:not(:disabled),
+.batch-btn:hover:not(:disabled) {
+    background: var(--hover-bg);
+    box-shadow: 0 0 8px var(--border-glow);
+}
+
+.leave-btn:disabled,
+.batch-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.stat-tag.relearn-tag {
+    border-color: var(--electric, #ff6b6b);
+    color: var(--electric, #ff6b6b);
+}
