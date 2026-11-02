@@ -65,6 +65,20 @@ function formatTagLabel(label, language = 'en') {
  * @param {boolean} isInteractive - True for "Due" list (shows buttons), False for "All"
  * @param {object} options - Rendering options
  */
+/**
+ * Retention = FSRS retrievability: the chance you can still solve it now,
+ * from stability and days since the last review (90% on the due date).
+ * Problems without FSRS data use their interval as the stability.
+ */
+export function formatRetention(problem, now = Date.now()) {
+    const f = typeof fsrs !== 'undefined' ? fsrs : (typeof window !== 'undefined' ? window.fsrs : null);
+    const s = Number(problem && problem.fsrs_stability) > 0 ? Number(problem.fsrs_stability) : Number(problem && problem.interval);
+    const last = new Date((problem && (problem.fsrs_last_review || problem.lastSolved)) || NaN).getTime();
+    if (!f || typeof f.forgettingCurve !== 'function' || !(s > 0) || !Number.isFinite(last)) return '—';
+    const r = f.forgettingCurve(Math.max(0, (now - last) / 86400000), s);
+    return Number.isFinite(r) ? `${Math.round(Math.max(0, Math.min(1, r)) * 100)}%` : '—';
+}
+
 export function renderVectors(problemList, containerId, isInteractive, options = {}) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -97,7 +111,7 @@ export function renderVectors(problemList, containerId, isInteractive, options =
         card.innerHTML = `
             <div class="vector-meta">
                 <span>#${problem.slug}</span>
-                <span>${t('popup_retention', {}, language)}: ${Math.min(100, Math.round(problem.easeFactor * 40))}%</span>
+                <span>${t('popup_retention', {}, language)}: ${formatRetention(problem)}</span>
             </div>
             <div class="vector-title">${displayTitle}</div>
             ${(problem.topics && problem.topics.length > 0) ? `
